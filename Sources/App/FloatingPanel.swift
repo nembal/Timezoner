@@ -65,9 +65,12 @@ class FloatingPanel: NSPanel {
 
     func positionAtMenuBar() {
         guard let screen = NSScreen.main else { return }
-        let screenFrame = screen.visibleFrame
-        let x = screenFrame.midX - frame.width / 2
-        let y = screenFrame.maxY - frame.height
+        // visibleFrame.maxY is the bottom edge of the menu bar
+        // Compensate for the invisible title bar height
+        let titleBarHeight = frame.height - contentRect(forFrameRect: frame).height
+        let visibleTop = screen.visibleFrame.maxY
+        let x = screen.visibleFrame.midX - frame.width / 2
+        let y = visibleTop - frame.height + titleBarHeight
         setFrameOrigin(NSPoint(x: x, y: y))
         isHuggingMenuBar = true
     }
@@ -79,9 +82,10 @@ class FloatingPanel: NSPanel {
 
     private func checkIfHuggingMenuBar() {
         guard let screen = NSScreen.main else { return }
+        let titleBarHeight = frame.height - contentRect(forFrameRect: frame).height
         let screenTop = screen.visibleFrame.maxY
-        let windowTop = frame.maxY
-        let newHugging = abs(windowTop - screenTop) < menuBarThreshold
+        let windowContentTop = frame.maxY - titleBarHeight
+        let newHugging = abs(windowContentTop - screenTop) < menuBarThreshold
         if newHugging != isHuggingMenuBar {
             isHuggingMenuBar = newHugging
         }
