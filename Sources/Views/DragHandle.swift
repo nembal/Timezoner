@@ -2,7 +2,7 @@ import SwiftUI
 import AppKit
 
 /// A thin draggable bar at the top of the window.
-/// Dragging it moves the entire window.
+/// Uses manual mouse tracking to avoid macOS tiling gestures.
 public struct DragHandle: View {
     public var showPill: Bool
 
@@ -17,7 +17,6 @@ public struct DragHandle: View {
     }
 }
 
-// NSView that handles window dragging
 private struct DragHandleRepresentable: NSViewRepresentable {
     var showPill: Bool
 
@@ -35,9 +34,22 @@ private struct DragHandleRepresentable: NSViewRepresentable {
 
 class DragHandleNSView: NSView {
     var showPill: Bool = true
+    private var initialMouseLocation: NSPoint = .zero
+    private var initialWindowOrigin: NSPoint = .zero
 
     override func mouseDown(with event: NSEvent) {
-        window?.performDrag(with: event)
+        // Capture starting positions
+        initialMouseLocation = NSEvent.mouseLocation
+        initialWindowOrigin = window?.frame.origin ?? .zero
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let window = window else { return }
+        let currentMouse = NSEvent.mouseLocation
+        let dx = currentMouse.x - initialMouseLocation.x
+        let dy = currentMouse.y - initialMouseLocation.y
+        let newOrigin = NSPoint(x: initialWindowOrigin.x + dx, y: initialWindowOrigin.y + dy)
+        window.setFrameOrigin(newOrigin)
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -54,5 +66,10 @@ class DragHandleNSView: NSView {
         ctx.setFillColor(NSColor.separatorColor.cgColor)
         ctx.addPath(path)
         ctx.fillPath()
+    }
+
+    // Show open hand cursor
+    override func resetCursorRects() {
+        addCursorRect(bounds, cursor: .openHand)
     }
 }
