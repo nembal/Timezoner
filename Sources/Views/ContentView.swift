@@ -24,8 +24,8 @@ public struct ContentView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Drag handle — always present for dragging, but pill only visible when not hugging
-            DragHandle(showPill: !isHuggingMenuBar)
+            // Drag handle — always visible
+            DragHandle(showPill: true)
 
             VStack(spacing: 14) {
             // Chat field + Now button
@@ -91,18 +91,7 @@ public struct ContentView: View {
             // Clicking background exits edit mode
             editingZoneId = nil
         }
-        .background {
-            Group {
-                if isHuggingMenuBar {
-                    Theme.background
-                } else {
-                    ZStack {
-                        Theme.background.opacity(0.85)
-                        Color.clear.background(.ultraThinMaterial)
-                    }
-                }
-            }
-        }
+        .background(Theme.background)
         .clipShape(UnevenRoundedRectangle(
             topLeadingRadius: isHuggingMenuBar ? 0 : 14,
             bottomLeadingRadius: 14,
