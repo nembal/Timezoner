@@ -26,24 +26,25 @@ public struct ContentView: View {
             HStack(spacing: 8) {
                 ChatField(timeState: timeState, zoneStore: zoneStore, editingZoneId: $editingZoneId)
 
-                if isTimeAdjusted {
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            timeState.referenceDate = Date()
-                        }
-                    }) {
-                        Text("Now")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .foregroundStyle(Theme.accent)
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 7)
-                            .background(Theme.cardBg, in: Capsule())
-                            .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 0.5))
-                            .shadow(color: Theme.shadow, radius: 1, y: 1)
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        timeState.referenceDate = Date()
+                        editingZoneId = nil
                     }
-                    .buttonStyle(.plain)
-                    .transition(.opacity.combined(with: .scale))
+                }) {
+                    Text("Now")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(isTimeAdjusted ? Theme.accent : Theme.textTertiary)
+                        .padding(.horizontal, 14)
+                        .frame(maxHeight: .infinity)
+                        .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(Theme.border, lineWidth: 0.5)
+                        )
+                        .shadow(color: Theme.shadow, radius: 2, y: 1)
                 }
+                .buttonStyle(.plain)
             }
 
             // Zone cards with time difference annotations
