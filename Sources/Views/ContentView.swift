@@ -23,8 +23,6 @@ public struct ContentView: View {
 
     public var body: some View {
         VStack(spacing: 14) {
-            // Default the active zone to first card on launch
-            let _ = ensureDefaultSource()
             // Chat field + Now button
             HStack(spacing: 8) {
                 ChatField(timeState: timeState, zoneStore: zoneStore, editingZoneId: $editingZoneId)
@@ -87,6 +85,9 @@ public struct ContentView: View {
         }
         .background(Theme.background)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .onAppear {
+            ensureDefaultSource()
+        }
         .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)
         .animation(.easeInOut(duration: 0.25), value: isTimeAdjusted)
         .onKeyPress(.escape) {

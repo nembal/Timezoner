@@ -279,6 +279,64 @@ public struct InputParser {
         return hour
     }
 
+    // MARK: - Bare Time Parsing (shared)
+
+    /// Parses a bare time without any zone: "11:30", "3pm", "15", "1430", "3:30pm", etc.
+    /// Used by ChatField (bare input) and ZoneCard (live editing).
+    public static func parseBareTime(_ raw: String) -> (hour: Int, minute: Int)? {
+        let text = raw.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !text.isEmpty else { return nil }
+
+        var stripped = text
+        var isPM = false
+        var isAM = false
+        for suffix in ["p.m.", "pm", "p"] {
+            if stripped.hasSuffix(suffix) {
+                isPM = true
+                stripped = String(stripped.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+                break
+            }
+        }
+        if !isPM {
+            for suffix in ["a.m.", "am", "a"] {
+                if stripped.hasSuffix(suffix) {
+                    isAM = true
+                    stripped = String(stripped.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+                    break
+                }
+            }
+        }
+
+        var hour: Int
+        var minute: Int
+
+        if stripped.contains(":") {
+            let parts = stripped.components(separatedBy: ":")
+            guard let h = Int(parts[0].trimmingCharacters(in: .whitespaces)) else { return nil }
+            hour = h
+            let minStr = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespaces) : ""
+            minute = Int(minStr) ?? 0
+        } else if let num = Int(stripped) {
+            if num >= 0 && num <= 24 {
+                hour = num == 24 ? 0 : num
+                minute = 0
+            } else if num >= 100 && num <= 2359 {
+                hour = num / 100
+                minute = num % 100
+            } else {
+                return nil
+            }
+        } else {
+            return nil
+        }
+
+        if isPM && hour < 12 { hour += 12 }
+        if isAM && hour == 12 { hour = 0 }
+
+        guard hour >= 0, hour <= 23, minute >= 0, minute <= 59 else { return nil }
+        return (hour, minute)
+    }
+
     // MARK: - Regex Helper
 
     /// Returns an array of captured groups (index 0 = full match, 1..N = capture groups).

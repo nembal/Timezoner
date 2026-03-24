@@ -37,15 +37,15 @@ func runTimeFormatterTests() {
     // Bangkok should be 11:30 AM
     expectEqual(
         TimeFormatter.formatTime(fixedDate, in: bangkok),
-        "11:30 AM",
-        "formatTime Bangkok 11:30 AM"
+        "11:30 am",
+        "formatTime Bangkok 11:30 am"
     )
 
     // SF (PDT, UTC-7): UTC 04:30 - 7 = 21:30 previous day = 9:30 PM
     expectEqual(
         TimeFormatter.formatTime(fixedDate, in: sf),
-        "9:30 PM",
-        "formatTime SF 9:30 PM"
+        "9:30 pm",
+        "formatTime SF 9:30 pm"
     )
 
     // -- formatTimeEditable ---------------------------------------------------

@@ -7,11 +7,6 @@ public class TimeState {
 
     public init() {}
 
-    public func time(in zone: TimeZone) -> Date {
-        // referenceDate is already an absolute moment — just format in different zones
-        referenceDate
-    }
-
     public func setTime(hour: Int, minute: Int, in zone: TimeZone) {
         var calendar = Calendar.current
         calendar.timeZone = zone

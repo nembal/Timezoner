@@ -59,17 +59,17 @@ func runTimeStateTests() {
     // Bangkok: 11:30 AM (UTC+7) => UTC 04:30
     // SF (PDT, UTC-7): 04:30 - 7 = 21:30 previous day => but let's compute:
     // UTC 04:30 => SF (UTC-7) = 21:30 (previous day, June 30)
-    let (sfHour1, sfMin1) = hourAndMinute(of: state.time(in: sf), in: sf)
+    let (sfHour1, sfMin1) = hourAndMinute(of: state.referenceDate, in: sf)
     expectEqualInt(sfHour1, 21, "Bangkok 11:30 -> SF hour")
     expectEqualInt(sfMin1, 30, "Bangkok 11:30 -> SF minute")
 
     // NY (EDT, UTC-4): 04:30 - 4 = 00:30 (July 1)
-    let (nyHour1, nyMin1) = hourAndMinute(of: state.time(in: ny), in: ny)
+    let (nyHour1, nyMin1) = hourAndMinute(of: state.referenceDate, in: ny)
     expectEqualInt(nyHour1, 0, "Bangkok 11:30 -> NY hour")
     expectEqualInt(nyMin1, 30, "Bangkok 11:30 -> NY minute")
 
     // CET (CEST, UTC+2): 04:30 + 2 = 06:30 (July 1)
-    let (cetHour1, cetMin1) = hourAndMinute(of: state.time(in: cet), in: cet)
+    let (cetHour1, cetMin1) = hourAndMinute(of: state.referenceDate, in: cet)
     expectEqualInt(cetHour1, 6, "Bangkok 11:30 -> CET hour")
     expectEqualInt(cetMin1, 30, "Bangkok 11:30 -> CET minute")
 
@@ -83,12 +83,12 @@ func runTimeStateTests() {
     // In SF zone, July 1 04:30 UTC = June 30 21:30 PDT. So date components in SF = June 30.
     // setTime(15:00, SF) => June 30 15:00 PDT = June 30 22:00 UTC.
     // Bangkok (UTC+7): June 30 22:00 + 7 = July 1 05:00
-    let (bkkHour2, bkkMin2) = hourAndMinute(of: state.time(in: bangkok), in: bangkok)
+    let (bkkHour2, bkkMin2) = hourAndMinute(of: state.referenceDate, in: bangkok)
     expectEqualInt(bkkHour2, 5, "SF 15:00 -> Bangkok hour")
     expectEqualInt(bkkMin2, 0, "SF 15:00 -> Bangkok minute")
 
     // NY (EDT, UTC-4): June 30 22:00 - 4 = June 30 18:00
-    let (nyHour2, nyMin2) = hourAndMinute(of: state.time(in: ny), in: ny)
+    let (nyHour2, nyMin2) = hourAndMinute(of: state.referenceDate, in: ny)
     expectEqualInt(nyHour2, 18, "SF 15:00 -> NY hour")
     expectEqualInt(nyMin2, 0, "SF 15:00 -> NY minute")
 
