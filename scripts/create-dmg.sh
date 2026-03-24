@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../app"
 
 VERSION="${1:-0.1.0}"
 APP_NAME="TimeZoner"
