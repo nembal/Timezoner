@@ -37,7 +37,6 @@ public struct ChatField: View {
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .strokeBorder(isFocused ? Theme.accent.opacity(0.4) : Theme.border, lineWidth: isFocused ? 1.5 : 0.5)
             )
-            .shadow(color: Theme.shadow, radius: 2, y: 1)
             .focused($isFocused)
             .offset(x: shakeOffset)
             .onAppear {

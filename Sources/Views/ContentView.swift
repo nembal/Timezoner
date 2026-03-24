@@ -47,8 +47,7 @@ public struct ContentView: View {
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                                     .strokeBorder(Theme.border, lineWidth: 0.5)
                             )
-                            .shadow(color: Theme.shadow, radius: 2, y: 1)
-                    }
+                        }
                     .buttonStyle(.plain)
 
                     Button(action: { showingHelp.toggle() }) {
@@ -62,8 +61,7 @@ public struct ContentView: View {
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                                     .strokeBorder(Theme.border, lineWidth: 0.5)
                             )
-                            .shadow(color: Theme.shadow, radius: 2, y: 1)
-                    }
+                        }
                     .buttonStyle(.plain)
                     .popover(isPresented: $showingHelp, arrowEdge: .bottom) {
                         HelpPopover()
