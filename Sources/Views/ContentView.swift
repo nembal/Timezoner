@@ -53,15 +53,8 @@ public struct ContentView: View {
 
                     Button(action: { showingHelp.toggle() }) {
                         Image(systemName: "questionmark.circle")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 15))
                             .foregroundStyle(showingHelp ? Theme.accent : Theme.textTertiary)
-                            .frame(maxHeight: .infinity)
-                            .padding(.horizontal, 6)
-                            .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .strokeBorder(Theme.border, lineWidth: 1)
-                            )
                         }
                     .buttonStyle(.plain)
                     .popover(isPresented: $showingHelp, arrowEdge: .bottom) {
