@@ -4,6 +4,7 @@ public struct ZoneCard: View {
     public let zone: ZoneInfo
     @Bindable public var timeState: TimeState
     public let isSource: Bool
+    public let isHighlighted: Bool
     @Binding public var editingZoneId: UUID?
     public let isDragging: Bool
     public let onRemove: () -> Void
@@ -18,7 +19,12 @@ public struct ZoneCard: View {
         editingZoneId == zone.id
     }
 
-    public init(zone: ZoneInfo, timeState: TimeState, isSource: Bool, editingZoneId: Binding<UUID?>,
+    private var isProminent: Bool {
+        isEditing || isHighlighted
+    }
+
+    public init(zone: ZoneInfo, timeState: TimeState, isSource: Bool, isHighlighted: Bool = false,
+                editingZoneId: Binding<UUID?>,
                 isDragging: Bool = false,
                 onRemove: @escaping () -> Void,
                 onDragChanged: @escaping (CGFloat) -> Void = { _ in },
@@ -26,6 +32,7 @@ public struct ZoneCard: View {
         self.zone = zone
         self.timeState = timeState
         self.isSource = isSource
+        self.isHighlighted = isHighlighted
         self._editingZoneId = editingZoneId
         self.isDragging = isDragging
         self.onRemove = onRemove
@@ -114,12 +121,12 @@ public struct ZoneCard: View {
         .padding(.top, 4)
         .padding(.bottom, 14)
         .frame(minWidth: 130, maxWidth: .infinity)
-        .background(isEditing ? Theme.accent.opacity(0.04) : Theme.cardBg,
+        .background(isProminent ? Theme.accent.opacity(0.06) : Theme.cardBg,
                      in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(isEditing ? Theme.accent.opacity(0.5) : (isSource ? Theme.accent.opacity(0.3) : Theme.border),
-                              lineWidth: isEditing ? 1.5 : 1)
+                .strokeBorder(isProminent ? Theme.accent : (isSource ? Theme.accent.opacity(0.3) : Theme.border),
+                              lineWidth: isProminent ? 2 : 1)
         )
         .shadow(color: Theme.shadow, radius: isDragging ? 8 : 3, y: isDragging ? 4 : 2)
         .scaleEffect(isDragging ? 1.03 : 1.0)

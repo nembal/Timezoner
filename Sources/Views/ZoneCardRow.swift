@@ -4,6 +4,7 @@ public struct ZoneCardRow: View {
     public let zones: [ZoneInfo]
     @Bindable public var timeState: TimeState
     @Binding public var editingZoneId: UUID?
+    public let highlightedZoneIds: Set<UUID>
     public let onRemove: (UUID) -> Void
     public let onMove: (Int, Int) -> Void  // fromIndex, toIndex
 
@@ -12,11 +13,13 @@ public struct ZoneCardRow: View {
     @State private var cardWidth: CGFloat = 150  // measured dynamically
 
     public init(zones: [ZoneInfo], timeState: TimeState, editingZoneId: Binding<UUID?>,
+                highlightedZoneIds: Set<UUID> = [],
                 onRemove: @escaping (UUID) -> Void,
                 onMove: @escaping (IndexSet, Int) -> Void = { _, _ in }) {
         self.zones = zones
         self.timeState = timeState
         self._editingZoneId = editingZoneId
+        self.highlightedZoneIds = highlightedZoneIds
         self.onRemove = onRemove
         // Adapt IndexSet API to simple Int,Int
         self.onMove = { from, to in
@@ -33,6 +36,7 @@ public struct ZoneCardRow: View {
                     zone: zone,
                     timeState: timeState,
                     isSource: timeState.sourceZoneId == zone.timeZoneId,
+                    isHighlighted: highlightedZoneIds.contains(zone.id),
                     editingZoneId: $editingZoneId,
                     isDragging: isDragging,
                     onRemove: {

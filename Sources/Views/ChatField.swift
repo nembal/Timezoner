@@ -4,15 +4,17 @@ public struct ChatField: View {
     public let timeState: TimeState
     public let zoneStore: ZoneStore
     @Binding public var editingZoneId: UUID?
+    @Binding public var highlightedZoneIds: Set<UUID>
 
     @State private var inputText = ""
     @State private var shakeOffset: CGFloat = 0
     @FocusState private var isFocused: Bool
 
-    public init(timeState: TimeState, zoneStore: ZoneStore, editingZoneId: Binding<UUID?>) {
+    public init(timeState: TimeState, zoneStore: ZoneStore, editingZoneId: Binding<UUID?>, highlightedZoneIds: Binding<Set<UUID>>) {
         self.timeState = timeState
         self.zoneStore = zoneStore
         self._editingZoneId = editingZoneId
+        self._highlightedZoneIds = highlightedZoneIds
     }
 
     /// The active zone: whatever was last edited, or the first zone as default
@@ -35,7 +37,7 @@ public struct ChatField: View {
             .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(isFocused ? Theme.accent.opacity(0.4) : Theme.border, lineWidth: isFocused ? 1.5 : 1)
+                    .strokeBorder(isFocused ? Theme.accent : Theme.border, lineWidth: isFocused ? 2 : 1)
             )
             .focused($isFocused)
             .offset(x: shakeOffset)
@@ -76,15 +78,15 @@ public struct ChatField: View {
             case .timeConversion(let hour, let minute, let zone):
                 ensureZoneExists(zone, label: nil)
                 timeState.setTime(hour: hour, minute: minute, in: zone)
+                highlightZones(matching: [zone])
                 inputText = ""
                 return
 
             case .timeInContext(let hour, let minute, let sourceZone, let sourceLabel, let targetZone, let targetLabel):
-                // Auto-add both zones if they don't exist
                 ensureZoneExists(sourceZone, label: sourceLabel)
                 ensureZoneExists(targetZone, label: targetLabel)
-                // Set time in the source zone
                 timeState.setTime(hour: hour, minute: minute, in: sourceZone)
+                highlightZones(matching: [sourceZone, targetZone])
                 inputText = ""
                 return
 
@@ -118,11 +120,28 @@ public struct ChatField: View {
         // If full parser failed, try as bare time → apply to active zone
         if let zone = activeZone, let (hour, minute) = InputParser.parseBareTime(text) {
             timeState.setTime(hour: hour, minute: minute, in: zone.timeZone)
+            highlightZones(matching: [zone.timeZone])
             inputText = ""
             return
         }
 
         triggerShake()
+    }
+
+    /// Highlight cards matching the given timezones, auto-clear after a delay
+    private func highlightZones(matching zones: [TimeZone]) {
+        let ids = Set(zones.compactMap { tz in
+            zoneStore.zones.first(where: { $0.timeZoneId == tz.identifier })?.id
+        })
+        withAnimation(.easeInOut(duration: 0.2)) {
+            highlightedZoneIds = ids
+        }
+        // Clear after 3 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            withAnimation(.easeInOut(duration: 0.5)) {
+                highlightedZoneIds = []
+            }
+        }
     }
 
     /// Adds the zone to the store if it's not already present

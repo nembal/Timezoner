@@ -6,6 +6,7 @@ public struct ContentView: View {
     @State private var editingZoneId: UUID? = nil
     @State private var showingHelp = false
     @State private var isHuggingMenuBar = true
+    @State private var highlightedZoneIds: Set<UUID> = []
 
     public init() {}
 
@@ -30,7 +31,7 @@ public struct ContentView: View {
             VStack(spacing: 14) {
                 // Chat field + Now + Help
                 HStack(spacing: 8) {
-                    ChatField(timeState: timeState, zoneStore: zoneStore, editingZoneId: $editingZoneId)
+                    ChatField(timeState: timeState, zoneStore: zoneStore, editingZoneId: $editingZoneId, highlightedZoneIds: $highlightedZoneIds)
 
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.2)) {
@@ -63,7 +64,7 @@ public struct ContentView: View {
                 }
 
                 // Zone cards with time difference annotations
-                ZoneCardRow(zones: zoneStore.zones, timeState: timeState, editingZoneId: $editingZoneId, onRemove: { id in
+                ZoneCardRow(zones: zoneStore.zones, timeState: timeState, editingZoneId: $editingZoneId, highlightedZoneIds: highlightedZoneIds, onRemove: { id in
                     withAnimation(.easeInOut(duration: 0.3)) {
                         zoneStore.remove(id: id)
                     }
