@@ -37,20 +37,25 @@ public struct ZoneCard: View {
 
     public var body: some View {
         let tz = zone.timeZone
-        let displayTime = TimeFormatter.formatTime(timeState.referenceDate, in: tz)
-        let displayDate = TimeFormatter.formatDate(timeState.referenceDate, in: tz)
+        let date = timeState.referenceDate
 
-        VStack(spacing: 4) {
-            // Zone label
-            Text(zone.label)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(Theme.textSecondary)
-                .lineLimit(1)
+        VStack(spacing: 6) {
+            // City name + GMT offset
+            HStack(spacing: 4) {
+                Text(zone.label)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(Theme.textPrimary)
 
-            // Time display / edit
+                Text(TimeFormatter.gmtOffset(for: tz, at: date))
+                    .font(.system(size: 10, design: .rounded))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            .lineLimit(1)
+
+            // Time: big digits + smaller am/pm
             if isEditing {
                 TextField("time", text: $editText)
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
+                    .font(.system(size: 32, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
                     .textFieldStyle(.plain)
@@ -62,24 +67,30 @@ public struct ZoneCard: View {
                         liveUpdate(newValue)
                     }
             } else {
-                Text(displayTime)
-                    .font(.system(size: 28, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-                    .contentTransition(.numericText())
-                    .onTapGesture {
-                        editText = ""
-                        editingZoneId = zone.id
-                        editFieldFocused = true
-                    }
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(TimeFormatter.formatTimeDigits(date, in: tz))
+                        .font(.system(size: 32, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Theme.textPrimary)
+                        .contentTransition(.numericText())
+
+                    Text(TimeFormatter.formatAmPm(date, in: tz))
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.textTertiary)
+                }
+                .onTapGesture {
+                    editText = ""
+                    editingZoneId = zone.id
+                    editFieldFocused = true
+                }
             }
 
             // Date
-            Text(displayDate)
+            Text(TimeFormatter.formatDate(date, in: tz))
                 .font(.system(size: 11, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
         }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 12)
+        .padding(.vertical, 16)
+        .padding(.horizontal, 14)
         .frame(minWidth: 130, maxWidth: .infinity)
         .background(isEditing ? Theme.accent.opacity(0.04) : Theme.cardBg,
                      in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -89,7 +100,7 @@ public struct ZoneCard: View {
                               lineWidth: isEditing ? 1.5 : 0.5)
         )
         .shadow(color: Theme.shadow, radius: 2, y: 1)
-        // Hover controls: move arrows + remove
+        // Hover controls
         .overlay(alignment: .topTrailing) {
             if isHovering && !isEditing {
                 Button(action: onRemove) {

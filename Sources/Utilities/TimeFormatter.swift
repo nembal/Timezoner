@@ -6,10 +6,44 @@ public struct TimeFormatter {
         let formatter = DateFormatter()
         formatter.timeZone = zone
         formatter.dateFormat = "h:mm a"
-        formatter.amSymbol = "AM"
-        formatter.pmSymbol = "PM"
+        formatter.amSymbol = "am"
+        formatter.pmSymbol = "pm"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter.string(from: date)
+    }
+
+    /// "11:30" -- just the time digits without am/pm
+    public static func formatTimeDigits(_ date: Date, in zone: TimeZone) -> String {
+        let formatter = DateFormatter()
+        formatter.timeZone = zone
+        formatter.dateFormat = "h:mm"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.string(from: date)
+    }
+
+    /// "am" or "pm"
+    public static func formatAmPm(_ date: Date, in zone: TimeZone) -> String {
+        let formatter = DateFormatter()
+        formatter.timeZone = zone
+        formatter.dateFormat = "a"
+        formatter.amSymbol = "am"
+        formatter.pmSymbol = "pm"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        return formatter.string(from: date)
+    }
+
+    /// "GMT+7" or "GMT-8" -- timezone offset label
+    public static func gmtOffset(for zone: TimeZone, at date: Date) -> String {
+        let seconds = zone.secondsFromGMT(for: date)
+        let hours = Double(seconds) / 3600.0
+        if hours == hours.rounded() {
+            let h = Int(hours)
+            return h >= 0 ? "GMT+\(h)" : "GMT\(h)"
+        } else {
+            return hours >= 0
+                ? String(format: "GMT+%.1f", hours)
+                : String(format: "GMT%.1f", hours)
+        }
     }
 
     /// "11:30" -- for editable text field (24h format)
