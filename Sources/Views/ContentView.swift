@@ -51,6 +51,8 @@ public struct ContentView: View {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     zoneStore.remove(id: id)
                 }
+            }, onMove: { source, destination in
+                zoneStore.move(from: source, to: destination)
             })
         }
         .padding(20)

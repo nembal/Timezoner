@@ -5,12 +5,16 @@ public struct ZoneCardRow: View {
     @Bindable public var timeState: TimeState
     @Binding public var editingZoneId: UUID?
     public let onRemove: (UUID) -> Void
+    public let onMove: (IndexSet, Int) -> Void
 
-    public init(zones: [ZoneInfo], timeState: TimeState, editingZoneId: Binding<UUID?>, onRemove: @escaping (UUID) -> Void) {
+    @State private var draggingZone: ZoneInfo?
+
+    public init(zones: [ZoneInfo], timeState: TimeState, editingZoneId: Binding<UUID?>, onRemove: @escaping (UUID) -> Void, onMove: @escaping (IndexSet, Int) -> Void = { _, _ in }) {
         self.zones = zones
         self.timeState = timeState
         self._editingZoneId = editingZoneId
         self.onRemove = onRemove
+        self.onMove = onMove
     }
 
     public var body: some View {
@@ -28,6 +32,34 @@ public struct ZoneCardRow: View {
                     }
                 )
                 .frame(maxWidth: .infinity)
+                .opacity(draggingZone?.id == zone.id ? 0.4 : 1)
+                .draggable(zone.id.uuidString) {
+                    // Drag preview
+                    Text(zone.label)
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Theme.accent.opacity(0.3), lineWidth: 1))
+                        .shadow(color: Theme.shadow, radius: 4, y: 2)
+                        .onAppear { draggingZone = zone }
+                }
+                .dropDestination(for: String.self) { items, _ in
+                    guard let droppedIdStr = items.first,
+                          let droppedId = UUID(uuidString: droppedIdStr),
+                          let fromIndex = zones.firstIndex(where: { $0.id == droppedId }),
+                          let toIndex = zones.firstIndex(where: { $0.id == zone.id }),
+                          fromIndex != toIndex else { return false }
+
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        let dest = toIndex > fromIndex ? toIndex + 1 : toIndex
+                        onMove(IndexSet(integer: fromIndex), dest)
+                    }
+                    draggingZone = nil
+                    return true
+                } isTargeted: { targeted in
+                    // Optional: highlight drop target
+                }
                 .transition(.asymmetric(
                     insertion: .move(edge: .trailing).combined(with: .opacity),
                     removal: .opacity
@@ -36,6 +68,11 @@ public struct ZoneCardRow: View {
                 if index < zones.count - 1 {
                     timeDiffLabel(from: zone, to: zones[index + 1])
                 }
+            }
+        }
+        .onChange(of: draggingZone) { _, newValue in
+            if newValue != nil {
+                editingZoneId = nil // exit edit mode when dragging
             }
         }
     }
