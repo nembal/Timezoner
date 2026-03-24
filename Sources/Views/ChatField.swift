@@ -1,0 +1,84 @@
+import SwiftUI
+
+public struct ChatField: View {
+    public let timeState: TimeState
+    public let zoneStore: ZoneStore
+
+    @State private var inputText = ""
+    @State private var shakeOffset: CGFloat = 0
+    @FocusState private var isFocused: Bool
+
+    public init(timeState: TimeState, zoneStore: ZoneStore) {
+        self.timeState = timeState
+        self.zoneStore = zoneStore
+    }
+
+    public var body: some View {
+        TextField("11:30am SF, +Tokyo, -NYC...", text: $inputText)
+            .font(.system(.body, design: .rounded))
+            .textFieldStyle(.plain)
+            .padding(12)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .focused($isFocused)
+            .offset(x: shakeOffset)
+            .onAppear {
+                isFocused = true
+            }
+            .onSubmit {
+                handleSubmit()
+            }
+    }
+
+    private func handleSubmit() {
+        let text = inputText.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty else { return }
+
+        guard let result = InputParser.parse(text) else {
+            triggerShake()
+            return
+        }
+
+        switch result {
+        case .timeConversion(let hour, let minute, let zone):
+            timeState.setTime(hour: hour, minute: minute, in: zone)
+
+        case .addZone(let label, let zone):
+            withAnimation(.easeInOut(duration: 0.3)) {
+                zoneStore.add(label: label, timezoneId: zone.identifier)
+            }
+
+        case .removeZone(let label):
+            // Find matching zone by label (case-insensitive)
+            if let match = zoneStore.zones.first(where: {
+                $0.label.caseInsensitiveCompare(label) == .orderedSame
+            }) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    zoneStore.remove(id: match.id)
+                }
+            } else {
+                // Try matching by resolving the label to a timezone and comparing identifiers
+                if let targetTZ = resolveTimezone(label),
+                   let match = zoneStore.zones.first(where: { $0.timeZoneId == targetTZ.identifier }) {
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        zoneStore.remove(id: match.id)
+                    }
+                } else {
+                    triggerShake()
+                    return
+                }
+            }
+        }
+
+        inputText = ""
+    }
+
+    private func triggerShake() {
+        withAnimation(.default) { shakeOffset = 10 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            withAnimation(.default) { shakeOffset = -10 }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            withAnimation(.default) { shakeOffset = 0 }
+        }
+    }
+}
