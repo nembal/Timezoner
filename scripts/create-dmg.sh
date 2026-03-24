@@ -8,15 +8,7 @@ DMG_NAME="${APP_NAME}-${VERSION}-arm64"
 
 echo "Building ${APP_NAME} v${VERSION}..."
 
-# Apply SPM fix if needed
-if [ -x ./fix-spm.sh ]; then
-    ./fix-spm.sh > /dev/null 2>&1 || true
-fi
-if [ -x /tmp/spm-fix/swiftc-wrapper.sh ]; then
-    export SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh
-fi
-
-# Build universal release (arm64 only — Apple Silicon)
+# Build release
 swift build -c release --product TimeZoner
 
 # Assemble .app bundle
@@ -32,17 +24,17 @@ cp Info.plist "${APP_NAME}.app/Contents/"
 /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${VERSION}" "${APP_NAME}.app/Contents/Info.plist" 2>/dev/null || \
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${VERSION}" "${APP_NAME}.app/Contents/Info.plist"
 
-echo "Built ${APP_NAME}.app"
+# Ad-hoc code sign
+codesign --force --sign - "${APP_NAME}.app"
+
+echo "Built ${APP_NAME}.app (signed ad-hoc)"
 
 # Create DMG
 rm -f "${DMG_NAME}.dmg"
-
-# Create temporary DMG directory
 DMG_DIR=$(mktemp -d)
 cp -R "${APP_NAME}.app" "${DMG_DIR}/"
 ln -s /Applications "${DMG_DIR}/Applications"
 
-# Create DMG
 hdiutil create -volname "${APP_NAME}" \
     -srcfolder "${DMG_DIR}" \
     -ov -format UDZO \
@@ -54,4 +46,3 @@ echo ""
 echo "Created ${DMG_NAME}.dmg ($(du -h "${DMG_NAME}.dmg" | cut -f1))"
 echo ""
 echo "To install: Open the DMG, drag TimeZoner to Applications."
-echo "First launch: Right-click → Open (unsigned app)."

@@ -2,18 +2,15 @@
 set -e
 cd "$(dirname "$0")"
 
-# Apply SPM fix if needed (works around CLT PackageDescription mismatch)
-if [ -x ./fix-spm.sh ]; then
-    ./fix-spm.sh > /dev/null 2>&1 || true
-fi
-if [ -x /tmp/spm-fix/swiftc-wrapper.sh ]; then
-    export SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh
-fi
-
 swift build -c release --product TimeZoner
+
 rm -rf TimeZoner.app
 mkdir -p TimeZoner.app/Contents/MacOS
 mkdir -p TimeZoner.app/Contents/Resources
 cp .build/release/TimeZoner TimeZoner.app/Contents/MacOS/
 cp Info.plist TimeZoner.app/Contents/
+
+# Ad-hoc code sign
+codesign --force --sign - TimeZoner.app 2>/dev/null || true
+
 echo "Built TimeZoner.app"
