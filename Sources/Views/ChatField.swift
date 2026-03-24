@@ -18,7 +18,11 @@ public struct ChatField: View {
             .font(.system(.body, design: .rounded))
             .textFieldStyle(.plain)
             .padding(12)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Theme.warmBorder, lineWidth: 0.5)
+            )
             .focused($isFocused)
             .offset(x: shakeOffset)
             .onAppear {

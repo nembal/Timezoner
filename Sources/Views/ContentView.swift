@@ -30,9 +30,11 @@ public struct ContentView: View {
                     }) {
                         Text("Now")
                             .font(.system(.caption, design: .rounded).weight(.medium))
+                            .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(.regularMaterial, in: Capsule())
+                            .background(Theme.cardBg, in: Capsule())
+                            .overlay(Capsule().strokeBorder(Theme.warmBorder, lineWidth: 0.5))
                     }
                     .buttonStyle(.plain)
                     .transition(.opacity.combined(with: .scale))

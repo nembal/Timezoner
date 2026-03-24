@@ -3,98 +3,121 @@ import SwiftUI
 public struct TimeScrubber: View {
     public let timeState: TimeState
 
-    // Each 30-min slot is 40px wide; ±12 hours = 48 slots = 49 markers
-    private let slotWidth: CGFloat = 40
-    private let totalSlots = 48 // ±12 hours in 30-min increments
-    private let halfSlots = 24  // 12 hours worth of 30-min slots
+    private let slotWidth: CGFloat = 48
+    private let halfSlots = 24  // ±12 hours in 30-min increments
+    private let height: CGFloat = 48
 
+    @State private var accumulatedOffset: CGFloat = 0
     @State private var dragOffset: CGFloat = 0
-    @State private var isDragging = false
 
     public init(timeState: TimeState) {
         self.timeState = timeState
     }
 
+    private var effectiveOffset: CGFloat {
+        accumulatedOffset + dragOffset
+    }
+
     public var body: some View {
         GeometryReader { geo in
             let viewWidth = geo.size.width
-            let contentWidth = CGFloat(totalSlots) * slotWidth
             let centerX = viewWidth / 2
 
             ZStack {
                 // Track background
-                Capsule()
-                    .fill(.regularMaterial)
-                    .frame(height: 44)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Theme.scrubberBg)
+                    .frame(height: height)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .strokeBorder(Theme.warmBorder, lineWidth: 0.5)
+                    )
 
-                // Time markers
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 0) {
-                        ForEach(-halfSlots...halfSlots, id: \.self) { slotOffset in
-                            let date = dateForSlotOffset(slotOffset)
-                            let isCenter = slotOffset == currentSnappedSlot
+                // Time markers — drawn relative to center + offset
+                Canvas { context, size in
+                    let midX = size.width / 2
 
-                            VStack(spacing: 2) {
-                                // Tick mark
-                                RoundedRectangle(cornerRadius: 1)
-                                    .fill(isCenter ? Color.accentColor : Color.secondary.opacity(0.3))
-                                    .frame(width: isCenter ? 3 : 1, height: isCenter ? 16 : 10)
+                    for i in -halfSlots...halfSlots {
+                        let x = midX + CGFloat(i) * slotWidth + effectiveOffset
 
-                                // Label (show every hour, i.e., every 2 slots)
-                                if slotOffset % 2 == 0 {
-                                    Text(shortTimeLabel(for: date))
-                                        .font(.system(size: 9, weight: isCenter ? .semibold : .regular, design: .rounded))
-                                        .foregroundStyle(isCenter ? Color.accentColor : .secondary)
-                                        .lineLimit(1)
-                                        .fixedSize()
-                                }
-                            }
-                            .frame(width: slotWidth)
+                        // Skip if off screen
+                        guard x > -slotWidth && x < size.width + slotWidth else { continue }
+
+                        let date = dateForSlotOffset(i)
+                        let isHour = i % 2 == 0
+
+                        // Tick mark
+                        let tickHeight: CGFloat = isHour ? 14 : 8
+                        let tickWidth: CGFloat = isHour ? 1.5 : 1
+                        let tickY = (size.height - tickHeight) / 2 - 4
+                        let tickRect = CGRect(x: x - tickWidth / 2, y: tickY, width: tickWidth, height: tickHeight)
+
+                        // Fade based on distance from center
+                        let distFromCenter = abs(x - midX)
+                        let maxDist = size.width / 2
+                        let opacity = max(0, 1 - (distFromCenter / maxDist) * 0.7)
+
+                        context.fill(
+                            Path(roundedRect: tickRect, cornerRadius: 0.5),
+                            with: .color(Theme.warmGray.opacity(opacity * (isHour ? 0.5 : 0.25)))
+                        )
+
+                        // Time label (every hour)
+                        if isHour {
+                            let label = shortTimeLabel(for: date)
+                            let text = Text(label)
+                                .font(.system(size: 10, weight: .regular, design: .rounded))
+                                .foregroundStyle(Theme.warmGray.opacity(opacity))
+                            let resolved = context.resolve(text)
+                            let textSize = resolved.measure(in: CGSize(width: 60, height: 20))
+                            context.draw(resolved, at: CGPoint(x: x, y: size.height / 2 + 12), anchor: .center)
+                            _ = textSize // silence warning
                         }
                     }
-                    .padding(.horizontal, max(0, (viewWidth - contentWidth) / 2))
                 }
-                .frame(height: 44)
-                .clipShape(Capsule())
+                .frame(height: height)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
-                // Center indicator line
-                Rectangle()
-                    .fill(Color.accentColor)
-                    .frame(width: 2, height: 44)
-                    .position(x: centerX, y: 22)
-                    .allowsHitTesting(false)
+                // Center indicator
+                VStack(spacing: 0) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Theme.accent)
+                        .frame(width: 3, height: 20)
+                    Circle()
+                        .fill(Theme.accent)
+                        .frame(width: 7, height: 7)
+                }
+                .position(x: centerX, y: height / 2 - 2)
+                .allowsHitTesting(false)
             }
-            .frame(height: 44)
+            .frame(height: height)
+            .contentShape(Rectangle())
             .gesture(
-                DragGesture()
+                DragGesture(minimumDistance: 1)
                     .onChanged { value in
-                        isDragging = true
                         dragOffset = value.translation.width
                     }
                     .onEnded { value in
-                        isDragging = false
-                        let slotsMoved = -value.translation.width / slotWidth
+                        let totalOffset = accumulatedOffset + value.translation.width
+                        let slotsMoved = -totalOffset / slotWidth
                         let roundedSlots = Int(slotsMoved.rounded())
                         let minuteOffset = roundedSlots * 30
 
                         if minuteOffset != 0 {
-                            var calendar = Calendar.current
-                            calendar.timeZone = TimeZone(identifier: timeState.sourceZoneId) ?? .current
+                            let calendar = Calendar.current
                             if let newDate = calendar.date(byAdding: .minute, value: minuteOffset, to: timeState.referenceDate) {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    timeState.referenceDate = newDate
-                                }
+                                timeState.referenceDate = newDate
                             }
                         }
-                        dragOffset = 0
+
+                        withAnimation(.easeOut(duration: 0.15)) {
+                            accumulatedOffset = 0
+                            dragOffset = 0
+                        }
                     }
             )
         }
-        .frame(height: 44)
-    }
-
-    private var currentSnappedSlot: Int {
-        0 // Center is always the current reference time
+        .frame(height: height)
     }
 
     private func dateForSlotOffset(_ offset: Int) -> Date {
@@ -105,9 +128,9 @@ public struct TimeScrubber: View {
     private func shortTimeLabel(for date: Date) -> String {
         let formatter = DateFormatter()
         formatter.timeZone = TimeZone(identifier: timeState.sourceZoneId) ?? .current
-        formatter.dateFormat = "ha"
-        formatter.amSymbol = "a"
-        formatter.pmSymbol = "p"
+        formatter.dateFormat = "h:mm a"
+        formatter.amSymbol = "am"
+        formatter.pmSymbol = "pm"
         formatter.locale = Locale(identifier: "en_US_POSIX")
         return formatter.string(from: date).lowercased()
     }

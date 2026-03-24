@@ -5,6 +5,9 @@ struct TestRunner {
     static func main() {
         runTimezoneAliasTests()
         runTimeStateTests()
+        runZoneStoreTests()
+        runInputParserTests()
+        runTimeFormatterTests()
 
         print("\nResults: \(testsPassed) passed, \(testsFailed) failed out of \(testsPassed + testsFailed) tests")
         if testsFailed > 0 {

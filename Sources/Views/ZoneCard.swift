@@ -72,10 +72,10 @@ public struct ZoneCard: View {
         .padding(.vertical, 12)
         .padding(.horizontal, 16)
         .frame(minWidth: 150)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .strokeBorder(isSource ? Color.accentColor : Color.clear, lineWidth: 2)
+                .strokeBorder(isSource ? Theme.accent : Theme.warmBorder.opacity(0.6), lineWidth: isSource ? 2 : 0.5)
         )
         .overlay(alignment: .topTrailing) {
             if isHovering {
