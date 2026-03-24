@@ -51,15 +51,6 @@ public struct ContentView: View {
                     zoneStore.remove(id: id)
                 }
             })
-
-            // Subtle divider
-            Rectangle()
-                .fill(Theme.border)
-                .frame(height: 0.5)
-                .padding(.horizontal, 4)
-
-            // Time stepper
-            TimeStepper(timeState: timeState)
         }
         .padding(20)
         .frame(width: idealWidth)

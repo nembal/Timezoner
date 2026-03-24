@@ -2,7 +2,7 @@ import SwiftUI
 
 public struct ZoneCardRow: View {
     public let zones: [ZoneInfo]
-    public let timeState: TimeState
+    @Bindable public var timeState: TimeState
     public let onRemove: (UUID) -> Void
 
     public init(zones: [ZoneInfo], timeState: TimeState, onRemove: @escaping (UUID) -> Void) {
@@ -14,7 +14,6 @@ public struct ZoneCardRow: View {
     public var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(zones.enumerated()), id: \.element.id) { index, zone in
-                // Zone card
                 ZoneCard(
                     zone: zone,
                     timeState: timeState,

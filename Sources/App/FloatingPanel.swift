@@ -4,7 +4,7 @@ import SwiftUI
 class FloatingPanel: NSPanel {
     init(contentView: NSView) {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 750, height: 260),
+            contentRect: NSRect(x: 0, y: 0, width: 750, height: 200),
             styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false

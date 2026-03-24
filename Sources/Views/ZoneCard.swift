@@ -2,7 +2,7 @@ import SwiftUI
 
 public struct ZoneCard: View {
     public let zone: ZoneInfo
-    public let timeState: TimeState
+    @Bindable public var timeState: TimeState
     public let isSource: Bool
     public let onRemove: () -> Void
 
@@ -19,8 +19,9 @@ public struct ZoneCard: View {
     }
 
     public var body: some View {
-        let currentDate = timeState.referenceDate
         let tz = zone.timeZone
+        let displayTime = TimeFormatter.formatTime(timeState.referenceDate, in: tz)
+        let displayDate = TimeFormatter.formatDate(timeState.referenceDate, in: tz)
 
         VStack(spacing: 4) {
             // Zone label
@@ -41,20 +42,19 @@ public struct ZoneCard: View {
                     .onSubmit { commitEdit() }
                     .onExitCommand { isEditing = false }
             } else {
-                Text(TimeFormatter.formatTime(currentDate, in: tz))
+                Text(displayTime)
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.textPrimary)
                     .contentTransition(.numericText())
-                    .animation(.easeInOut(duration: 0.2), value: currentDate)
                     .onTapGesture {
-                        editText = TimeFormatter.formatTimeEditable(currentDate, in: tz)
+                        editText = TimeFormatter.formatTimeEditable(timeState.referenceDate, in: tz)
                         isEditing = true
                         editFieldFocused = true
                     }
             }
 
             // Date
-            Text(TimeFormatter.formatDate(currentDate, in: tz))
+            Text(displayDate)
                 .font(.system(size: 11, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
         }
@@ -86,16 +86,6 @@ public struct ZoneCard: View {
                 isHovering = hovering
             }
         }
-        // Scroll wheel to shift time in 30-min increments
-        .onScrollGesture { delta in
-            let increment = delta > 0 ? 30 : -30
-            let calendar = Calendar.current
-            if let newDate = calendar.date(byAdding: .minute, value: increment, to: timeState.referenceDate) {
-                withAnimation(.easeInOut(duration: 0.15)) {
-                    timeState.referenceDate = newDate
-                }
-            }
-        }
     }
 
     private func commitEdit() {
@@ -104,13 +94,18 @@ public struct ZoneCard: View {
         let text = editText.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return }
 
-        let parts: [String]
-        if text.contains(":") {
-            parts = text.components(separatedBy: ":")
-        } else {
+        // Try parsing via the full InputParser first (handles "10pm", "3:30 pm", etc.)
+        // Prepend the zone label so InputParser can resolve it
+        let withZone = text + " " + zone.label
+        if let result = InputParser.parse(withZone),
+           case .timeConversion(let hour, let minute, _) = result {
+            timeState.setTime(hour: hour, minute: minute, in: zone.timeZone)
             return
         }
 
+        // Fallback: simple HH:mm or H:mm parsing
+        guard text.contains(":") else { return }
+        let parts = text.components(separatedBy: ":")
         guard parts.count == 2 else { return }
 
         let hourStr = parts[0].trimmingCharacters(in: .whitespaces)
@@ -118,18 +113,21 @@ public struct ZoneCard: View {
 
         var isPM = false
         var isAM = false
-        if minutePart.hasSuffix("pm") {
-            isPM = true
-            minutePart = String(minutePart.dropLast(2)).trimmingCharacters(in: .whitespaces)
-        } else if minutePart.hasSuffix("am") {
-            isAM = true
-            minutePart = String(minutePart.dropLast(2)).trimmingCharacters(in: .whitespaces)
-        } else if minutePart.hasSuffix("p") {
-            isPM = true
-            minutePart = String(minutePart.dropLast(1)).trimmingCharacters(in: .whitespaces)
-        } else if minutePart.hasSuffix("a") {
-            isAM = true
-            minutePart = String(minutePart.dropLast(1)).trimmingCharacters(in: .whitespaces)
+        for suffix in ["p.m.", "pm", "p"] {
+            if minutePart.hasSuffix(suffix) {
+                isPM = true
+                minutePart = String(minutePart.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+                break
+            }
+        }
+        if !isPM {
+            for suffix in ["a.m.", "am", "a"] {
+                if minutePart.hasSuffix(suffix) {
+                    isAM = true
+                    minutePart = String(minutePart.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+                    break
+                }
+            }
         }
 
         guard var hour = Int(hourStr), let minute = Int(minutePart) else { return }
@@ -140,37 +138,5 @@ public struct ZoneCard: View {
         guard hour >= 0, hour <= 23 else { return }
 
         timeState.setTime(hour: hour, minute: minute, in: zone.timeZone)
-    }
-}
-
-// MARK: - Scroll gesture helper
-
-extension View {
-    func onScrollGesture(action: @escaping (CGFloat) -> Void) -> some View {
-        self.background(ScrollGestureView(action: action))
-    }
-}
-
-private struct ScrollGestureView: NSViewRepresentable {
-    let action: (CGFloat) -> Void
-
-    func makeNSView(context: Context) -> ScrollCaptureView {
-        let view = ScrollCaptureView()
-        view.action = action
-        return view
-    }
-
-    func updateNSView(_ nsView: ScrollCaptureView, context: Context) {
-        nsView.action = action
-    }
-}
-
-class ScrollCaptureView: NSView {
-    var action: ((CGFloat) -> Void)?
-
-    override func scrollWheel(with event: NSEvent) {
-        if abs(event.deltaY) > 0.5 {
-            action?(event.deltaY)
-        }
     }
 }

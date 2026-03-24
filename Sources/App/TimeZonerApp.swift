@@ -19,7 +19,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let contentView = NSHostingView(rootView: ContentView())
-        contentView.setFrameSize(NSSize(width: 750, height: 260))
+        contentView.setFrameSize(NSSize(width: 750, height: 200))
         panel = FloatingPanel(contentView: contentView)
         panel.center()
         panel.orderFront(nil)
