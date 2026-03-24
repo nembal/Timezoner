@@ -24,7 +24,7 @@ public struct ContentView: View {
         VStack(spacing: 14) {
             // Chat field + Now button
             HStack(spacing: 8) {
-                ChatField(timeState: timeState, zoneStore: zoneStore)
+                ChatField(timeState: timeState, zoneStore: zoneStore, editingZoneId: $editingZoneId)
 
                 if isTimeAdjusted {
                     Button(action: {
@@ -58,6 +58,11 @@ public struct ContentView: View {
         .padding(20)
         .frame(width: idealWidth)
         .fixedSize(horizontal: true, vertical: true)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            // Clicking background exits edit mode
+            editingZoneId = nil
+        }
         .background(Theme.background)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)

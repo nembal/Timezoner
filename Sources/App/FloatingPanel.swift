@@ -23,4 +23,10 @@ class FloatingPanel: NSPanel {
     }
 
     override var canBecomeKey: Bool { true }
+
+    // Hide panel when clicking outside (losing focus)
+    override func resignKey() {
+        super.resignKey()
+        orderOut(nil)
+    }
 }

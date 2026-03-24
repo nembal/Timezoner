@@ -3,14 +3,16 @@ import SwiftUI
 public struct ChatField: View {
     public let timeState: TimeState
     public let zoneStore: ZoneStore
+    @Binding public var editingZoneId: UUID?
 
     @State private var inputText = ""
     @State private var shakeOffset: CGFloat = 0
     @FocusState private var isFocused: Bool
 
-    public init(timeState: TimeState, zoneStore: ZoneStore) {
+    public init(timeState: TimeState, zoneStore: ZoneStore, editingZoneId: Binding<UUID?>) {
         self.timeState = timeState
         self.zoneStore = zoneStore
+        self._editingZoneId = editingZoneId
     }
 
     public var body: some View {
@@ -36,6 +38,11 @@ public struct ChatField: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .focusChatField)) { _ in
                 isFocused = true
+            }
+            .onChange(of: isFocused) { _, focused in
+                if focused {
+                    editingZoneId = nil
+                }
             }
     }
 
