@@ -35,12 +35,16 @@ public struct ChatField: View {
             .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .strokeBorder(isFocused ? Theme.accent.opacity(0.4) : Theme.border, lineWidth: isFocused ? 1.5 : 0.5)
+                    .strokeBorder(isFocused ? Theme.accent.opacity(0.4) : Theme.border, lineWidth: isFocused ? 1.5 : 1)
             )
             .focused($isFocused)
             .offset(x: shakeOffset)
             .onAppear {
-                isFocused = true
+                // Delay focus to ensure window is ready
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    NSApp.activate(ignoringOtherApps: true)
+                    isFocused = true
+                }
             }
             .onSubmit {
                 handleSubmit()

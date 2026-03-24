@@ -45,7 +45,7 @@ public struct ContentView: View {
                             .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .strokeBorder(Theme.border, lineWidth: 0.5)
+                                    .strokeBorder(Theme.border, lineWidth: 1)
                             )
                         }
                     .buttonStyle(.plain)
@@ -59,7 +59,7 @@ public struct ContentView: View {
                             .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                             .overlay(
                                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .strokeBorder(Theme.border, lineWidth: 0.5)
+                                    .strokeBorder(Theme.border, lineWidth: 1)
                             )
                         }
                     .buttonStyle(.plain)

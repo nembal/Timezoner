@@ -119,7 +119,7 @@ public struct ZoneCard: View {
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .strokeBorder(isEditing ? Theme.accent.opacity(0.5) : (isSource ? Theme.accent.opacity(0.3) : Theme.border),
-                              lineWidth: isEditing ? 1.5 : 0.5)
+                              lineWidth: isEditing ? 1.5 : 1)
         )
         .shadow(color: isDragging ? Theme.shadow : .clear, radius: isDragging ? 8 : 0, y: isDragging ? 4 : 0)
         .scaleEffect(isDragging ? 1.03 : 1.0)
