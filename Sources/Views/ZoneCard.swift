@@ -5,11 +5,10 @@ public struct ZoneCard: View {
     @Bindable public var timeState: TimeState
     public let isSource: Bool
     @Binding public var editingZoneId: UUID?
-    public let canMoveLeft: Bool
-    public let canMoveRight: Bool
+    public let isDragging: Bool
     public let onRemove: () -> Void
-    public let onMoveLeft: () -> Void
-    public let onMoveRight: () -> Void
+    public let onDragChanged: (CGFloat) -> Void
+    public let onDragEnded: () -> Void
 
     @State private var editText = ""
     @State private var isHovering = false
@@ -20,77 +19,102 @@ public struct ZoneCard: View {
     }
 
     public init(zone: ZoneInfo, timeState: TimeState, isSource: Bool, editingZoneId: Binding<UUID?>,
-                canMoveLeft: Bool = false, canMoveRight: Bool = false,
+                isDragging: Bool = false,
                 onRemove: @escaping () -> Void,
-                onMoveLeft: @escaping () -> Void = {},
-                onMoveRight: @escaping () -> Void = {}) {
+                onDragChanged: @escaping (CGFloat) -> Void = { _ in },
+                onDragEnded: @escaping () -> Void = {}) {
         self.zone = zone
         self.timeState = timeState
         self.isSource = isSource
         self._editingZoneId = editingZoneId
-        self.canMoveLeft = canMoveLeft
-        self.canMoveRight = canMoveRight
+        self.isDragging = isDragging
         self.onRemove = onRemove
-        self.onMoveLeft = onMoveLeft
-        self.onMoveRight = onMoveRight
+        self.onDragChanged = onDragChanged
+        self.onDragEnded = onDragEnded
     }
 
     public var body: some View {
         let tz = zone.timeZone
         let date = timeState.referenceDate
 
-        VStack(spacing: 6) {
-            // City name + GMT offset
-            HStack(spacing: 5) {
-                Text(zone.label)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-
-                Text(TimeFormatter.gmtOffset(for: tz, at: date))
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundStyle(Theme.textTertiary)
+        VStack(spacing: 0) {
+            // Drag pill — visible on hover
+            ZStack {
+                if isHovering && !isEditing {
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(Theme.border)
+                        .frame(width: 28, height: 4)
+                        .transition(.opacity)
+                }
             }
-            .lineLimit(1)
-
-            // Time: big digits + smaller am/pm
-            if isEditing {
-                TextField("time", text: $editText)
-                    .font(.system(size: 32, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-                    .multilineTextAlignment(.center)
-                    .textFieldStyle(.plain)
-                    .frame(width: 120)
-                    .focused($editFieldFocused)
-                    .onSubmit { editingZoneId = nil }
-                    .onExitCommand { editingZoneId = nil }
-                    .onChange(of: editText) { _, newValue in
-                        liveUpdate(newValue)
+            .frame(height: 12)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+            .gesture(
+                DragGesture(minimumDistance: 3)
+                    .onChanged { value in
+                        onDragChanged(value.translation.width)
                     }
-            } else {
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text(TimeFormatter.formatTimeDigits(date, in: tz))
-                        .font(.system(size: 32, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Theme.textPrimary)
-                        .contentTransition(.numericText())
+                    .onEnded { _ in
+                        onDragEnded()
+                    }
+            )
+            .cursor(isHovering && !isEditing ? .openHand : .arrow)
 
-                    Text(TimeFormatter.formatAmPm(date, in: tz))
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
+            // Card content
+            VStack(spacing: 6) {
+                // City name + GMT offset
+                HStack(spacing: 5) {
+                    Text(zone.label)
+                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.textPrimary)
+
+                    Text(TimeFormatter.gmtOffset(for: tz, at: date))
+                        .font(.system(size: 12, design: .rounded))
                         .foregroundStyle(Theme.textTertiary)
                 }
-                .onTapGesture {
-                    editText = ""
-                    editingZoneId = zone.id
-                    editFieldFocused = true
-                }
-            }
+                .lineLimit(1)
 
-            // Date
-            Text(TimeFormatter.formatDate(date, in: tz))
-                .font(.system(size: 13, design: .rounded))
-                .foregroundStyle(Theme.textTertiary)
+                // Time: big digits + smaller am/pm
+                if isEditing {
+                    TextField("time", text: $editText)
+                        .font(.system(size: 32, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Theme.textPrimary)
+                        .multilineTextAlignment(.center)
+                        .textFieldStyle(.plain)
+                        .frame(width: 120)
+                        .focused($editFieldFocused)
+                        .onSubmit { editingZoneId = nil }
+                        .onExitCommand { editingZoneId = nil }
+                        .onChange(of: editText) { _, newValue in
+                            liveUpdate(newValue)
+                        }
+                } else {
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text(TimeFormatter.formatTimeDigits(date, in: tz))
+                            .font(.system(size: 32, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Theme.textPrimary)
+                            .contentTransition(.numericText())
+
+                        Text(TimeFormatter.formatAmPm(date, in: tz))
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
+                    .onTapGesture {
+                        editText = ""
+                        editingZoneId = zone.id
+                        editFieldFocused = true
+                    }
+                }
+
+                // Date
+                Text(TimeFormatter.formatDate(date, in: tz))
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+            .padding(.bottom, 14)
+            .padding(.horizontal, 14)
         }
-        .padding(.vertical, 16)
-        .padding(.horizontal, 14)
         .frame(minWidth: 130, maxWidth: .infinity)
         .background(isEditing ? Theme.accent.opacity(0.04) : Theme.cardBg,
                      in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -99,10 +123,10 @@ public struct ZoneCard: View {
                 .strokeBorder(isEditing ? Theme.accent.opacity(0.5) : (isSource ? Theme.accent.opacity(0.3) : Theme.border),
                               lineWidth: isEditing ? 1.5 : 0.5)
         )
-        .shadow(color: Theme.shadow, radius: 2, y: 1)
-        // Hover controls
+        .shadow(color: isDragging ? Theme.shadow.opacity(2) : Theme.shadow, radius: isDragging ? 8 : 2, y: isDragging ? 4 : 1)
+        .scaleEffect(isDragging ? 1.03 : 1.0)
         .overlay(alignment: .topTrailing) {
-            if isHovering && !isEditing {
+            if isHovering && !isEditing && !isDragging {
                 Button(action: onRemove) {
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .semibold))
@@ -112,36 +136,6 @@ public struct ZoneCard: View {
                 }
                 .buttonStyle(.plain)
                 .padding(6)
-                .transition(.opacity)
-            }
-        }
-        .overlay(alignment: .leading) {
-            if isHovering && !isEditing && canMoveLeft {
-                Button(action: onMoveLeft) {
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(Theme.textTertiary)
-                        .padding(4)
-                        .background(Theme.background, in: Circle())
-                        .overlay(Circle().strokeBorder(Theme.border, lineWidth: 0.5))
-                }
-                .buttonStyle(.plain)
-                .offset(x: -6)
-                .transition(.opacity)
-            }
-        }
-        .overlay(alignment: .trailing) {
-            if isHovering && !isEditing && canMoveRight {
-                Button(action: onMoveRight) {
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(Theme.textTertiary)
-                        .padding(4)
-                        .background(Theme.background, in: Circle())
-                        .overlay(Circle().strokeBorder(Theme.border, lineWidth: 0.5))
-                }
-                .buttonStyle(.plain)
-                .offset(x: 6)
                 .transition(.opacity)
             }
         }
@@ -155,5 +149,13 @@ public struct ZoneCard: View {
     private func liveUpdate(_ text: String) {
         guard let (hour, minute) = InputParser.parseBareTime(text) else { return }
         timeState.setTime(hour: hour, minute: minute, in: zone.timeZone)
+    }
+}
+
+extension View {
+    func cursor(_ cursor: NSCursor) -> some View {
+        onHover { inside in
+            if inside { cursor.push() } else { NSCursor.pop() }
+        }
     }
 }

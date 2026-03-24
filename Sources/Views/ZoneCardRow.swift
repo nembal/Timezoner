@@ -5,43 +5,78 @@ public struct ZoneCardRow: View {
     @Bindable public var timeState: TimeState
     @Binding public var editingZoneId: UUID?
     public let onRemove: (UUID) -> Void
-    public let onMove: (IndexSet, Int) -> Void
+    public let onMove: (Int, Int) -> Void  // fromIndex, toIndex
 
-    public init(zones: [ZoneInfo], timeState: TimeState, editingZoneId: Binding<UUID?>, onRemove: @escaping (UUID) -> Void, onMove: @escaping (IndexSet, Int) -> Void = { _, _ in }) {
+    @State private var draggingZoneId: UUID? = nil
+    @State private var dragOffset: CGFloat = 0
+    @State private var cardWidth: CGFloat = 150  // measured dynamically
+
+    public init(zones: [ZoneInfo], timeState: TimeState, editingZoneId: Binding<UUID?>,
+                onRemove: @escaping (UUID) -> Void,
+                onMove: @escaping (IndexSet, Int) -> Void = { _, _ in }) {
         self.zones = zones
         self.timeState = timeState
         self._editingZoneId = editingZoneId
         self.onRemove = onRemove
-        self.onMove = onMove
+        // Adapt IndexSet API to simple Int,Int
+        self.onMove = { from, to in
+            onMove(IndexSet(integer: from), to)
+        }
     }
 
     public var body: some View {
         HStack(spacing: 0) {
             ForEach(Array(zones.enumerated()), id: \.element.id) { index, zone in
+                let isDragging = draggingZoneId == zone.id
+
                 ZoneCard(
                     zone: zone,
                     timeState: timeState,
                     isSource: timeState.sourceZoneId == zone.timeZoneId,
                     editingZoneId: $editingZoneId,
-                    canMoveLeft: index > 0,
-                    canMoveRight: index < zones.count - 1,
+                    isDragging: isDragging,
                     onRemove: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             onRemove(zone.id)
                         }
                     },
-                    onMoveLeft: {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            onMove(IndexSet(integer: index), index - 1)
+                    onDragChanged: { offset in
+                        draggingZoneId = zone.id
+                        dragOffset = offset
+                        editingZoneId = nil
+
+                        // Check if we should swap
+                        let slotWidth = cardWidth + 36 // card + diff label
+                        let slotsToMove = Int((offset / slotWidth).rounded())
+                        if slotsToMove != 0 {
+                            let targetIndex = min(max(index + slotsToMove, 0), zones.count - 1)
+                            if targetIndex != index {
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    let dest = targetIndex > index ? targetIndex + 1 : targetIndex
+                                    onMove(index, dest)
+                                }
+                                // Reset offset after swap so it feels natural
+                                dragOffset = 0
+                            }
                         }
                     },
-                    onMoveRight: {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            onMove(IndexSet(integer: index), index + 2)
+                    onDragEnded: {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            draggingZoneId = nil
+                            dragOffset = 0
                         }
                     }
                 )
                 .frame(maxWidth: .infinity)
+                .offset(x: isDragging ? dragOffset : 0)
+                .zIndex(isDragging ? 10 : 0)
+                .background(
+                    GeometryReader { geo in
+                        Color.clear.onAppear {
+                            cardWidth = geo.size.width
+                        }
+                    }
+                )
                 .transition(.asymmetric(
                     insertion: .move(edge: .trailing).combined(with: .opacity),
                     removal: .opacity

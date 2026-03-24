@@ -10,7 +10,6 @@ public struct DragHandle: View {
         DragHandleRepresentable()
             .frame(height: 20)
             .frame(maxWidth: .infinity)
-            .cursor(.openHand)
     }
 }
 
@@ -51,13 +50,5 @@ private class DragHandleNSView: NSView {
         ctx.setFillColor(NSColor.separatorColor.cgColor)
         ctx.addPath(path)
         ctx.fillPath()
-    }
-}
-
-extension View {
-    func cursor(_ cursor: NSCursor) -> some View {
-        onHover { inside in
-            if inside { cursor.push() } else { NSCursor.pop() }
-        }
     }
 }
