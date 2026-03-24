@@ -22,7 +22,11 @@ public struct ContentView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 0) {
+            // Drag handle
+            DragHandle()
+
+            VStack(spacing: 14) {
             // Chat field + Now button
             HStack(spacing: 8) {
                 ChatField(timeState: timeState, zoneStore: zoneStore, editingZoneId: $editingZoneId)
@@ -74,8 +78,11 @@ public struct ContentView: View {
             }, onMove: { source, destination in
                 zoneStore.move(from: source, to: destination)
             })
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
+            .padding(.top, 6)
         }
-        .padding(20)
         .frame(width: idealWidth)
         .fixedSize(horizontal: true, vertical: true)
         .contentShape(Rectangle())
