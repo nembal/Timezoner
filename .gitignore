@@ -3,3 +3,5 @@ TimeZoner.app/
 .swiftpm/
 *.xcodeproj/
 DerivedData/
+.DS_Store
+/tmp/spm-fix/

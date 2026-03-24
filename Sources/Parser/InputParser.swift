@@ -204,22 +204,14 @@ public struct InputParser {
         // Group 3: optional am/pm indicator
         // Group 4: zone string (rest)
 
-        // We'll try several patterns in order.
+        // We'll try several cached patterns in order.
 
-        // Pattern A: HH:MM with optional am/pm
-        // (\d{1,2}):(\d{2})\s*(am|a\.m\.|a|pm|p\.m\.|p)?\s+(.+)
-        let patternA = #"^(\d{1,2}):(\d{2})\s*(a\.m\.|p\.m\.|am|pm|a|p)?\s+(.+)$"#
-
-        // Pattern B: HHMM (4 digits) with optional am/pm
-        // (\d{2})(\d{2})\s*(am|a\.m\.|a|pm|p\.m\.|p)?\s+(.+)
-        let patternB = #"^(\d{2})(\d{2})\s*(a\.m\.|p\.m\.|am|pm|a|p)?\s+(.+)$"#
-
-        // Pattern C: H or HH with am/pm (no minutes) — "3pm bangkok", "3 p sf"
-        // (\d{1,2})\s*(am|a\.m\.|a|pm|p\.m\.|p)\s+(.+)
-        let patternC = #"^(\d{1,2})\s*(a\.m\.|p\.m\.|am|pm|a|p)\s+(.+)$"#
+        let patternA = Self.regexA
+        let patternB = Self.regexB
+        let patternC = Self.regexC
 
         // Try Pattern A first
-        if let match = try? regexMatch(normalized, pattern: patternA) {
+        if let match = regexMatch(normalized, regex: patternA) {
             let hourStr = match[1]
             let minStr = match[2]
             let ampmStr = match[3]
@@ -233,7 +225,7 @@ public struct InputParser {
         }
 
         // Try Pattern B (4-digit HHMM)
-        if let match = try? regexMatch(normalized, pattern: patternB) {
+        if let match = regexMatch(normalized, regex: patternB) {
             let hourStr = match[1]
             let minStr = match[2]
             let ampmStr = match[3]
@@ -247,7 +239,7 @@ public struct InputParser {
         }
 
         // Try Pattern C (hour + am/pm, no minutes)
-        if let match = try? regexMatch(normalized, pattern: patternC) {
+        if let match = regexMatch(normalized, regex: patternC) {
             let hourStr = match[1]
             let ampmStr = match[2]
             let zoneStr = match[3]
@@ -337,15 +329,21 @@ public struct InputParser {
         return (hour, minute)
     }
 
+    // MARK: - Cached Regex Patterns
+
+    private static let regexA = try! NSRegularExpression(
+        pattern: #"^(\d{1,2}):(\d{2})\s*(a\.m\.|p\.m\.|am|pm|a|p)?\s+(.+)$"#, options: [.caseInsensitive])
+    private static let regexB = try! NSRegularExpression(
+        pattern: #"^(\d{2})(\d{2})\s*(a\.m\.|p\.m\.|am|pm|a|p)?\s+(.+)$"#, options: [.caseInsensitive])
+    private static let regexC = try! NSRegularExpression(
+        pattern: #"^(\d{1,2})\s*(a\.m\.|p\.m\.|am|pm|a|p)\s+(.+)$"#, options: [.caseInsensitive])
+
     // MARK: - Regex Helper
 
-    /// Returns an array of captured groups (index 0 = full match, 1..N = capture groups).
-    /// Empty string for groups that didn't participate.
-    private static func regexMatch(_ input: String, pattern: String) throws -> [String] {
-        let regex = try NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+    private static func regexMatch(_ input: String, regex: NSRegularExpression) -> [String]? {
         let range = NSRange(input.startIndex..., in: input)
         guard let match = regex.firstMatch(in: input, options: [], range: range) else {
-            throw NSError(domain: "InputParser", code: 0, userInfo: nil)
+            return nil
         }
 
         var groups: [String] = []
@@ -360,5 +358,14 @@ public struct InputParser {
             }
         }
         return groups
+    }
+
+    /// Legacy overload for string patterns (used by extractZoneLabel)
+    private static func regexMatch(_ input: String, pattern: String) throws -> [String] {
+        let regex = try NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
+        guard let result = regexMatch(input, regex: regex) else {
+            throw NSError(domain: "InputParser", code: 0, userInfo: nil)
+        }
+        return result
     }
 }
