@@ -32,22 +32,25 @@ public struct ZoneCard: View {
 
             // Time display / edit
             if isEditing {
-                TextField("HH:mm", text: $editText)
+                TextField("time", text: $editText)
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.textPrimary)
                     .multilineTextAlignment(.center)
                     .textFieldStyle(.plain)
-                    .frame(width: 110)
+                    .frame(width: 120)
                     .focused($editFieldFocused)
-                    .onSubmit { commitEdit() }
+                    .onSubmit { isEditing = false }
                     .onExitCommand { isEditing = false }
+                    .onChange(of: editText) { _, newValue in
+                        liveUpdate(newValue)
+                    }
             } else {
                 Text(displayTime)
                     .font(.system(size: 28, weight: .semibold, design: .rounded))
                     .foregroundStyle(Theme.textPrimary)
                     .contentTransition(.numericText())
                     .onTapGesture {
-                        editText = TimeFormatter.formatTimeEditable(timeState.referenceDate, in: tz)
+                        editText = ""
                         isEditing = true
                         editFieldFocused = true
                     }
@@ -61,14 +64,16 @@ public struct ZoneCard: View {
         .padding(.vertical, 14)
         .padding(.horizontal, 12)
         .frame(minWidth: 130, maxWidth: .infinity)
-        .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(isEditing ? Theme.accent.opacity(0.04) : Theme.cardBg,
+                     in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .strokeBorder(isSource ? Theme.accent.opacity(0.5) : Theme.border, lineWidth: isSource ? 1.5 : 0.5)
+                .strokeBorder(isEditing ? Theme.accent.opacity(0.5) : (isSource ? Theme.accent.opacity(0.3) : Theme.border),
+                              lineWidth: isEditing ? 1.5 : 0.5)
         )
         .shadow(color: Theme.shadow, radius: 2, y: 1)
         .overlay(alignment: .topTrailing) {
-            if isHovering {
+            if isHovering && !isEditing {
                 Button(action: onRemove) {
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .semibold))
@@ -88,55 +93,72 @@ public struct ZoneCard: View {
         }
     }
 
-    private func commitEdit() {
-        defer { isEditing = false }
+    /// Live-parse the edit text and update all cards as the user types
+    private func liveUpdate(_ text: String) {
+        guard let (hour, minute) = parseFlexibleTime(text) else { return }
+        timeState.setTime(hour: hour, minute: minute, in: zone.timeZone)
+    }
 
-        let text = editText.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty else { return }
+    /// Very forgiving time parser for live editing
+    /// Accepts: "12", "3", "14", "1430", "14:30", "3pm", "3:30pm", "3 pm", "15:00", etc.
+    private func parseFlexibleTime(_ raw: String) -> (hour: Int, minute: Int)? {
+        let text = raw.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !text.isEmpty else { return nil }
 
-        // Try parsing via the full InputParser first (handles "10pm", "3:30 pm", etc.)
-        // Prepend the zone label so InputParser can resolve it
-        let withZone = text + " " + zone.label
-        if let result = InputParser.parse(withZone),
-           case .timeConversion(let hour, let minute, _) = result {
-            timeState.setTime(hour: hour, minute: minute, in: zone.timeZone)
-            return
-        }
-
-        // Fallback: simple HH:mm or H:mm parsing
-        guard text.contains(":") else { return }
-        let parts = text.components(separatedBy: ":")
-        guard parts.count == 2 else { return }
-
-        let hourStr = parts[0].trimmingCharacters(in: .whitespaces)
-        var minutePart = parts[1].trimmingCharacters(in: .whitespaces).lowercased()
-
+        // Detect am/pm suffix
+        var stripped = text
         var isPM = false
         var isAM = false
         for suffix in ["p.m.", "pm", "p"] {
-            if minutePart.hasSuffix(suffix) {
+            if stripped.hasSuffix(suffix) {
                 isPM = true
-                minutePart = String(minutePart.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+                stripped = String(stripped.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
                 break
             }
         }
         if !isPM {
             for suffix in ["a.m.", "am", "a"] {
-                if minutePart.hasSuffix(suffix) {
+                if stripped.hasSuffix(suffix) {
                     isAM = true
-                    minutePart = String(minutePart.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
+                    stripped = String(stripped.dropLast(suffix.count)).trimmingCharacters(in: .whitespaces)
                     break
                 }
             }
         }
 
-        guard var hour = Int(hourStr), let minute = Int(minutePart) else { return }
-        guard minute >= 0, minute <= 59 else { return }
+        var hour: Int
+        var minute: Int
 
+        if stripped.contains(":") {
+            // "14:30", "3:30", "3:"
+            let parts = stripped.components(separatedBy: ":")
+            guard let h = Int(parts[0].trimmingCharacters(in: .whitespaces)) else { return nil }
+            hour = h
+            let minStr = parts.count > 1 ? parts[1].trimmingCharacters(in: .whitespaces) : ""
+            minute = Int(minStr) ?? 0
+        } else if let num = Int(stripped) {
+            if num >= 0 && num <= 24 {
+                // "12" → 12:00, "3" → 3:00, "0" → 0:00
+                hour = num == 24 ? 0 : num
+                minute = 0
+            } else if num >= 100 && num <= 2359 {
+                // "1430" → 14:30, "930" → 9:30
+                hour = num / 100
+                minute = num % 100
+            } else {
+                return nil
+            }
+        } else {
+            return nil
+        }
+
+        // AM/PM conversion
         if isPM && hour < 12 { hour += 12 }
         if isAM && hour == 12 { hour = 0 }
-        guard hour >= 0, hour <= 23 else { return }
 
-        timeState.setTime(hour: hour, minute: minute, in: zone.timeZone)
+        // Validate
+        guard hour >= 0, hour <= 23, minute >= 0, minute <= 59 else { return nil }
+
+        return (hour, minute)
     }
 }
