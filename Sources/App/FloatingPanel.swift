@@ -4,19 +4,20 @@ import TimeZonerLib
 
 class FloatingPanel: NSPanel {
     private let positionKey = "panelPosition"
-    private let menuBarThreshold: CGFloat = 30 // pixels from top to count as "hugging"
+    private let menuBarThreshold: CGFloat = 30
 
     var isHuggingMenuBar: Bool = true {
         didSet {
+            guard oldValue != isHuggingMenuBar else { return }
             updateTrafficLights()
-            updateCornerRadius()
+            NotificationCenter.default.post(name: .panelHuggingChanged, object: isHuggingMenuBar)
         }
     }
 
     init(contentView: NSView) {
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 750, height: 200),
-            styleMask: [.titled, .closable, .miniaturizable, .fullSizeContentView, .nonactivatingPanel],
+            styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
@@ -31,7 +32,7 @@ class FloatingPanel: NSPanel {
         self.contentView = contentView
         becomesKeyOnlyIfNeeded = false
 
-        // Start hugging menu bar or restore saved position
+        // Restore saved position or dock to menu bar
         if let savedPosition = restorePosition() {
             setFrameOrigin(savedPosition)
             checkIfHuggingMenuBar()
@@ -39,14 +40,20 @@ class FloatingPanel: NSPanel {
             positionAtMenuBar()
         }
 
-        updateTrafficLights()
-        updateCornerRadius()
-
-        // Observe window moves to detect hugging state
+        // Observe window moves
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowDidMove),
             name: NSWindow.didMoveNotification, object: self
         )
+    }
+
+    // Called after orderFront — buttons exist now
+    override func orderFront(_ sender: Any?) {
+        super.orderFront(sender)
+        // Delay to ensure window buttons are created
+        DispatchQueue.main.async { [weak self] in
+            self?.updateTrafficLights()
+        }
     }
 
     override var canBecomeKey: Bool { true }
@@ -65,8 +72,6 @@ class FloatingPanel: NSPanel {
 
     func positionAtMenuBar() {
         guard let screen = NSScreen.main else { return }
-        // visibleFrame.maxY is the bottom edge of the menu bar
-        // Compensate for the invisible title bar height
         let titleBarHeight = frame.height - contentRect(forFrameRect: frame).height
         let visibleTop = screen.visibleFrame.maxY
         let x = screen.visibleFrame.midX - frame.width / 2
@@ -82,13 +87,11 @@ class FloatingPanel: NSPanel {
 
     private func checkIfHuggingMenuBar() {
         guard let screen = NSScreen.main else { return }
+        let titleBarHeight = frame.height - contentRect(forFrameRect: frame).height
         let screenTop = screen.visibleFrame.maxY
-        // Check if the window's top is near the visible screen top
-        let gap = screenTop - frame.origin.y - frame.height
-        let newHugging = abs(gap) < menuBarThreshold
-        if newHugging != isHuggingMenuBar {
-            isHuggingMenuBar = newHugging
-        }
+        let windowContentTop = frame.origin.y + frame.height - titleBarHeight
+        let gap = screenTop - windowContentTop
+        isHuggingMenuBar = abs(gap) < menuBarThreshold
     }
 
     // MARK: - Traffic lights
@@ -100,22 +103,11 @@ class FloatingPanel: NSPanel {
         standardWindowButton(.zoomButton)?.isHidden = hidden
     }
 
-    // MARK: - Corner radius
-
-    private func updateCornerRadius() {
-        // When hugging, square off the top corners
-        // This is handled via SwiftUI clip shape, so we post a notification
-        NotificationCenter.default.post(name: .panelHuggingChanged, object: isHuggingMenuBar)
-    }
-
     // MARK: - Position persistence
 
     private func savePosition() {
         let origin = frame.origin
-        UserDefaults.standard.set(
-            ["x": origin.x, "y": origin.y],
-            forKey: positionKey
-        )
+        UserDefaults.standard.set(["x": origin.x, "y": origin.y], forKey: positionKey)
     }
 
     private func restorePosition() -> NSPoint? {
@@ -125,5 +117,3 @@ class FloatingPanel: NSPanel {
         return NSPoint(x: x, y: y)
     }
 }
-
-// panelHuggingChanged notification defined in TimeZonerLib/ContentView.swift
