@@ -4,6 +4,8 @@ import TimeZonerLib
 
 class FloatingPanel: NSPanel {
     private let positionKey = "panelPosition"
+    private let menuBarThreshold: CGFloat = 30
+    private var lastHugging: Bool = true
 
     init(contentView: NSView) {
         super.init(
@@ -21,14 +23,16 @@ class FloatingPanel: NSPanel {
         self.contentView = contentView
         becomesKeyOnlyIfNeeded = false
 
-        // Restore saved position
+        // Restore saved position or dock to menu bar
         if let savedPosition = restorePosition() {
             setFrameOrigin(savedPosition)
         } else {
             positionAtMenuBar()
         }
 
-        // Save position when moved
+        // Check initial hugging state
+        checkIfHuggingMenuBar()
+
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowDidMove),
             name: NSWindow.didMoveNotification, object: self
@@ -56,10 +60,26 @@ class FloatingPanel: NSPanel {
         let x = screen.visibleFrame.midX - frame.width / 2
         let y = visibleTop - frame.height
         setFrameOrigin(NSPoint(x: x, y: y))
+        notifyHugging(true)
     }
 
     @objc private func windowDidMove(_ notification: Notification) {
+        checkIfHuggingMenuBar()
         savePosition()
+    }
+
+    private func checkIfHuggingMenuBar() {
+        guard let screen = NSScreen.main else { return }
+        let screenTop = screen.visibleFrame.maxY
+        let windowTop = frame.origin.y + frame.height
+        let hugging = abs(screenTop - windowTop) < menuBarThreshold
+        notifyHugging(hugging)
+    }
+
+    private func notifyHugging(_ hugging: Bool) {
+        guard hugging != lastHugging else { return }
+        lastHugging = hugging
+        NotificationCenter.default.post(name: .panelHuggingChanged, object: hugging)
     }
 
     // MARK: - Position persistence

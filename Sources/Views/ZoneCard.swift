@@ -121,7 +121,7 @@ public struct ZoneCard: View {
                 .strokeBorder(isEditing ? Theme.accent.opacity(0.5) : (isSource ? Theme.accent.opacity(0.3) : Theme.border),
                               lineWidth: isEditing ? 1.5 : 1)
         )
-        .shadow(color: isDragging ? Theme.shadow : .clear, radius: isDragging ? 8 : 0, y: isDragging ? 4 : 0)
+        .shadow(color: Theme.shadow, radius: isDragging ? 8 : 3, y: isDragging ? 4 : 2)
         .scaleEffect(isDragging ? 1.03 : 1.0)
         .overlay(alignment: .topTrailing) {
             if isHovering && !isEditing && !isDragging {

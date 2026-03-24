@@ -5,6 +5,7 @@ public struct ContentView: View {
     @State private var zoneStore = ZoneStore()
     @State private var editingZoneId: UUID? = nil
     @State private var showingHelp = false
+    @State private var isHuggingMenuBar = true
 
     public init() {}
 
@@ -88,9 +89,22 @@ public struct ContentView: View {
             editingZoneId = nil
         }
         .background(Theme.background)
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(UnevenRoundedRectangle(
+            topLeadingRadius: isHuggingMenuBar ? 0 : 12,
+            bottomLeadingRadius: 12,
+            bottomTrailingRadius: 12,
+            topTrailingRadius: isHuggingMenuBar ? 0 : 12,
+            style: .continuous
+        ))
         .onAppear {
             ensureDefaultSource()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .panelHuggingChanged)) { notification in
+            if let hugging = notification.object as? Bool {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isHuggingMenuBar = hugging
+                }
+            }
         }
         .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)
         .animation(.easeInOut(duration: 0.25), value: isTimeAdjusted)
@@ -132,4 +146,5 @@ public struct ContentView: View {
 
 extension Notification.Name {
     public static let focusChatField = Notification.Name("focusChatField")
+    public static let panelHuggingChanged = Notification.Name("panelHuggingChanged")
 }
