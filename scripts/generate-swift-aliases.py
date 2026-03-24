@@ -8,7 +8,6 @@ import json
 import sys
 import argparse
 from pathlib import Path
-from collections import OrderedDict
 
 REPO_ROOT = Path(__file__).parent.parent
 
@@ -79,17 +78,20 @@ public func resolveTimezone(_ input: String) -> TimeZone? {
 
 def load_aliases(json_path: Path) -> dict:
     """Load aliases from JSON, grouped by category, preserving order."""
+    if not json_path.exists():
+        print(f"Error: {json_path} not found. Run from repo root.", file=sys.stderr)
+        sys.exit(1)
+
     with open(json_path, encoding="utf-8") as f:
         entries = json.load(f)
 
-    grouped = OrderedDict((cat, []) for cat in CATEGORY_ORDER)
+    grouped = dict((cat, []) for cat in CATEGORY_ORDER)
     for entry in entries:
         cat = entry["category"]
         if cat in grouped:
             grouped[cat].append((entry["alias"], entry["iana_id"]))
         else:
-            # Unknown category — add to end just in case
-            grouped.setdefault(cat, []).append((entry["alias"], entry["iana_id"]))
+            raise ValueError(f"Unknown category '{cat}' for alias '{entry['alias']}'")
 
     return grouped
 
