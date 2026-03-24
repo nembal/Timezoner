@@ -6,6 +6,8 @@ public enum ParseResult {
     case timeConversion(hour: Int, minute: Int, zone: TimeZone)
     case addZone(label: String, zone: TimeZone)
     case removeZone(label: String)
+    /// "1130am BKK in SF" — set time in source zone, show it in target zone
+    case timeInContext(hour: Int, minute: Int, sourceZone: TimeZone, sourceLabel: String, targetZone: TimeZone, targetLabel: String)
 }
 
 // MARK: - Input Parser
@@ -31,12 +33,17 @@ public struct InputParser {
         // 2. Normalize for time parsing
         let normalized = trimmed.lowercased().trimmingCharacters(in: .whitespaces)
 
-        // 3. Handle special words
+        // 3. Check for "... in ..." syntax (e.g., "1130am bkk in sf")
+        if let result = parseTimeInContext(normalized) {
+            return result
+        }
+
+        // 4. Handle special words
         if let result = parseSpecialWord(normalized) {
             return result
         }
 
-        // 4. Parse time expression
+        // 5. Parse time expression
         if let result = parseTime(normalized) {
             return result
         }
@@ -85,6 +92,72 @@ public struct InputParser {
         }
 
         return nil
+    }
+
+    // MARK: - "Time in Zone" Parsing
+
+    /// Parses "1130am bkk in sf", "3pm bangkok in new york", "noon london in tokyo"
+    private static func parseTimeInContext(_ normalized: String) -> ParseResult? {
+        // Split on " in " — must have exactly two parts
+        let parts = normalized.components(separatedBy: " in ")
+        guard parts.count == 2 else { return nil }
+
+        let timePart = parts[0].trimmingCharacters(in: .whitespaces)
+        let targetStr = parts[1].trimmingCharacters(in: .whitespaces)
+
+        guard !timePart.isEmpty, !targetStr.isEmpty else { return nil }
+
+        // Resolve the target zone
+        guard let targetZone = resolveTimezone(targetStr) else { return nil }
+
+        // Parse the time part as a normal time expression (e.g., "1130am bkk")
+        if let result = parseTime(timePart) {
+            if case .timeConversion(let hour, let minute, let sourceZone) = result {
+                // Find the label that was used for the source zone
+                let sourceLabel = extractZoneLabel(from: timePart)
+                return .timeInContext(
+                    hour: hour, minute: minute,
+                    sourceZone: sourceZone, sourceLabel: sourceLabel,
+                    targetZone: targetZone, targetLabel: targetStr
+                )
+            }
+        }
+
+        // Also try special words: "noon london in tokyo"
+        if let result = parseSpecialWord(timePart) {
+            if case .timeConversion(let hour, let minute, let sourceZone) = result {
+                let sourceLabel = extractZoneLabel(from: timePart)
+                return .timeInContext(
+                    hour: hour, minute: minute,
+                    sourceZone: sourceZone, sourceLabel: sourceLabel,
+                    targetZone: targetZone, targetLabel: targetStr
+                )
+            }
+        }
+
+        return nil
+    }
+
+    /// Extracts the zone label string from a time expression (the non-time part)
+    private static func extractZoneLabel(from timePart: String) -> String {
+        // Remove time-like patterns to get just the zone label
+        var s = timePart.lowercased()
+        // Strip leading time patterns
+        let timePatterns = [
+            #"^\d{1,2}:\d{2}\s*(a\.m\.|p\.m\.|am|pm|a|p)?\s*"#,
+            #"^\d{3,4}\s*(a\.m\.|p\.m\.|am|pm|a|p)?\s*"#,
+            #"^\d{1,2}\s*(a\.m\.|p\.m\.|am|pm|a|p)\s*"#,
+            #"^(noon|midnight)\s*"#,
+        ]
+        for pattern in timePatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: []),
+               let match = regex.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)),
+               let range = Range(match.range, in: s) {
+                s = String(s[range.upperBound...]).trimmingCharacters(in: .whitespaces)
+                break
+            }
+        }
+        return s.isEmpty ? timePart : s
     }
 
     // MARK: - Special Word Parsing

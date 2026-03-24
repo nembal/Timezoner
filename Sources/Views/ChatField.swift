@@ -71,7 +71,17 @@ public struct ChatField: View {
         if let result = InputParser.parse(text) {
             switch result {
             case .timeConversion(let hour, let minute, let zone):
+                ensureZoneExists(zone, label: nil)
                 timeState.setTime(hour: hour, minute: minute, in: zone)
+                inputText = ""
+                return
+
+            case .timeInContext(let hour, let minute, let sourceZone, let sourceLabel, let targetZone, let targetLabel):
+                // Auto-add both zones if they don't exist
+                ensureZoneExists(sourceZone, label: sourceLabel)
+                ensureZoneExists(targetZone, label: targetLabel)
+                // Set time in the source zone
+                timeState.setTime(hour: hour, minute: minute, in: sourceZone)
                 inputText = ""
                 return
 
@@ -165,6 +175,17 @@ public struct ChatField: View {
 
         guard hour >= 0, hour <= 23, minute >= 0, minute <= 59 else { return nil }
         return (hour, minute)
+    }
+
+    /// Adds the zone to the store if it's not already present
+    private func ensureZoneExists(_ zone: TimeZone, label: String?) {
+        let alreadyExists = zoneStore.zones.contains(where: { $0.timeZoneId == zone.identifier })
+        if !alreadyExists {
+            let displayLabel = label ?? zone.identifier.components(separatedBy: "/").last ?? zone.identifier
+            withAnimation(.easeInOut(duration: 0.3)) {
+                zoneStore.add(label: displayLabel.capitalized, timezoneId: zone.identifier)
+            }
+        }
     }
 
     private func triggerShake() {
