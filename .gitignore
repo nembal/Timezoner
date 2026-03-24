@@ -1,8 +1,18 @@
+# Swift build artifacts (monorepo)
+app/.build/
+app/.swiftpm/
+app/TimeZoner.app/
+app/*.dmg
+app/DerivedData/
+
+# Legacy root-level
 .build/
+.swiftpm/
 TimeZoner.app/
 *.dmg
-.swiftpm/
-*.xcodeproj/
 DerivedData/
+
+# General
 .DS_Store
 /tmp/spm-fix/
+*.xcodeproj/
