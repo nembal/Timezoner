@@ -92,12 +92,12 @@ The parser handles messy typing. All of these work:
 git clone https://github.com/nembal/Timezoner.git
 cd Timezoner
 ./build.sh
-open TimeZoner.app
+open app/TimeZoner.app
 ```
 
 Create a DMG: `./scripts/create-dmg.sh 0.1.0`
 
-Run tests: `swift run TimeZonerTests`
+Run tests: `cd app && swift run TimeZonerTests`
 
 ## Tech stack
 

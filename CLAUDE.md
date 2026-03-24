@@ -7,14 +7,14 @@ A lightweight macOS floating-panel app for instant timezone conversion. Built fo
 ## Quick Start
 
 ```bash
-./build.sh          # builds TimeZoner.app
-open TimeZoner.app  # launches the app
+./build.sh          # builds TimeZoner.app (in app/)
+open app/TimeZoner.app  # launches the app
 ```
 
-Build requires the SPM fix wrapper (auto-applied by `build.sh`) due to a CLT toolchain mismatch. If you have Xcode installed, plain `swift build` works. Tests:
+Build requires the SPM fix wrapper (auto-applied by build script) due to a CLT toolchain mismatch. If you have Xcode installed, `cd app && swift build` works. Tests:
 
-```bash
-SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests
+```
+cd app && swift run TimeZonerTests
 ```
 
 ## Vision
@@ -46,39 +46,53 @@ TimeFormatter            ← cached DateFormatter instances
 ## Project Structure
 
 ```
-Sources/
-  App/
-    TimeZonerApp.swift      # @main, AppDelegate, NSStatusItem
-    FloatingPanel.swift     # Borderless NSPanel (floating, position memory)
-  Models/
-    TimeState.swift         # @Observable — the reference moment
-    ZoneInfo.swift          # Single zone (id, label, IANA timezone id)
-  Stores/
-    ZoneStore.swift         # @Observable — zone list, UserDefaults persistence
-  Data/
-    TimezoneAliases.swift   # 376 entries: cities, abbreviations, airports → IANA
-  Parser/
-    InputParser.swift       # Forgiving time + zone parser, cached regex
-  Views/
-    ContentView.swift       # Main layout: chat + cards + highlights
-    ChatField.swift         # NL input with auto-focus, shake-on-error
-    ZoneCard.swift          # Editable time card, drag pill, hover controls
-    ZoneCardRow.swift       # Horizontal card row with time diffs + drag reorder
-    DragHandle.swift        # Window drag via manual mouse tracking
-    HelpPopover.swift       # Input format examples
-    Theme.swift             # Adaptive light/dark color palette
-  Utilities/
-    TimeFormatter.swift     # Cached formatters, thread-safe
-Tests/
-    TimeZonerTests.swift    # Test runner (@main)
+app/                              # macOS SwiftUI app
+  Sources/
+    App/
+      TimeZonerApp.swift          # @main, AppDelegate, NSStatusItem
+      FloatingPanel.swift         # Borderless NSPanel
+    Models/
+      TimeState.swift             # @Observable — the reference moment
+      ZoneInfo.swift              # Single zone (id, label, IANA timezone id)
+    Stores/
+      ZoneStore.swift             # @Observable — zone list, UserDefaults
+    Data/
+      TimezoneAliases.swift       # Auto-generated from shared JSON
+    Parser/
+      InputParser.swift           # Forgiving time + zone parser
+    Views/
+      ContentView.swift           # Main layout
+      ChatField.swift             # NL input
+      ZoneCard.swift              # Editable time card
+      ZoneCardRow.swift           # Horizontal card row
+      DragHandle.swift            # Window drag
+      HelpPopover.swift           # Input format examples
+      Theme.swift                 # Adaptive light/dark palette
+    Utilities/
+      TimeFormatter.swift         # Cached formatters, thread-safe
+  Tests/
+    TimeZonerTests.swift          # Test runner (@main)
     TimezoneAliasTests.swift
     TimeStateTests.swift
     ZoneStoreTests.swift
     InputParserTests.swift
     TimeFormatterTests.swift
+  Package.swift
+  Info.plist
+  fix-spm.sh
+shared/
+  timezone-aliases.json           # 376 aliases — single source of truth
+raycast/                          # Raycast extension (planned)
+scripts/
+  build.sh                        # App build
+  create-dmg.sh                   # DMG packaging
+  sync-aliases.sh                 # Generate Swift from shared JSON
+  generate-swift-aliases.py       # Python codegen
+docs/
+  prd/                            # Product requirements
 ```
 
-**Three SPM targets:**
+**Three SPM targets** (defined in `app/Package.swift`):
 - `TimeZonerLib` (library) — all code except App/
 - `TimeZoner` (executable) — App/ files, depends on TimeZonerLib
 - `TimeZonerTests` (executable) — custom test runner (no XCTest required)
@@ -100,6 +114,14 @@ Tests/
 - **Single source of truth** — `TimeState.referenceDate` is one absolute `Date`.
 - **Cached DateFormatters** — thread-safe FormatterCache with NSLock.
 - **Adaptive dark mode** — `NSColor(dynamicProvider:)` for all theme colors.
+
+## Shared Data
+
+The 376-timezone alias table is shared between the macOS app and the Raycast extension:
+
+- **Source of truth:** `shared/timezone-aliases.json` — JSON array of `{ alias, iana_id, category }` objects
+- **Swift generation:** `scripts/sync-aliases.sh` regenerates `app/Sources/Data/TimezoneAliases.swift` from the JSON
+- **Adding an alias:** Edit `shared/timezone-aliases.json`, then run `bash scripts/sync-aliases.sh`
 
 ## Chat Parser Input Formats
 
