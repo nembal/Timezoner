@@ -1,137 +1,151 @@
 import SwiftUI
 
 public struct TimeScrubber: View {
+    public let zones: [ZoneInfo]
     public let timeState: TimeState
 
-    private let slotWidth: CGFloat = 48
-    private let halfSlots = 24  // ±12 hours in 30-min increments
-    private let height: CGFloat = 48
+    private let rowHeight: CGFloat = 28
+    private let hourWidth: CGFloat = 28     // width per hour — 24h * 28 = 672px total
+    private let totalHours = 24
 
-    @State private var accumulatedOffset: CGFloat = 0
     @State private var dragOffset: CGFloat = 0
 
-    public init(timeState: TimeState) {
+    public init(zones: [ZoneInfo], timeState: TimeState) {
+        self.zones = zones
         self.timeState = timeState
     }
 
-    private var effectiveOffset: CGFloat {
-        accumulatedOffset + dragOffset
-    }
-
     public var body: some View {
-        GeometryReader { geo in
-            let viewWidth = geo.size.width
-            let centerX = viewWidth / 2
+        VStack(spacing: 0) {
+            // Hour labels row
+            hourLabelsRow
+                .padding(.leading, labelWidth)
 
-            ZStack {
-                // Track background
-                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(Theme.scrubberBg)
-                    .frame(height: height)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous)
-                            .strokeBorder(Theme.warmBorder, lineWidth: 0.5)
-                    )
+            // One bar per timezone
+            ForEach(zones) { zone in
+                HStack(spacing: 0) {
+                    // Zone abbreviation label
+                    Text(zone.label)
+                        .font(.system(size: 10, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.warmGray)
+                        .frame(width: labelWidth, alignment: .trailing)
+                        .padding(.trailing, 6)
+                        .lineLimit(1)
 
-                // Time markers — drawn relative to center + offset
-                Canvas { context, size in
-                    let midX = size.width / 2
-
-                    for i in -halfSlots...halfSlots {
-                        let x = midX + CGFloat(i) * slotWidth + effectiveOffset
-
-                        // Skip if off screen
-                        guard x > -slotWidth && x < size.width + slotWidth else { continue }
-
-                        let date = dateForSlotOffset(i)
-                        let isHour = i % 2 == 0
-
-                        // Tick mark
-                        let tickHeight: CGFloat = isHour ? 14 : 8
-                        let tickWidth: CGFloat = isHour ? 1.5 : 1
-                        let tickY = (size.height - tickHeight) / 2 - 4
-                        let tickRect = CGRect(x: x - tickWidth / 2, y: tickY, width: tickWidth, height: tickHeight)
-
-                        // Fade based on distance from center
-                        let distFromCenter = abs(x - midX)
-                        let maxDist = size.width / 2
-                        let opacity = max(0, 1 - (distFromCenter / maxDist) * 0.7)
-
-                        context.fill(
-                            Path(roundedRect: tickRect, cornerRadius: 0.5),
-                            with: .color(Theme.warmGray.opacity(opacity * (isHour ? 0.5 : 0.25)))
-                        )
-
-                        // Time label (every hour)
-                        if isHour {
-                            let label = shortTimeLabel(for: date)
-                            let text = Text(label)
-                                .font(.system(size: 10, weight: .regular, design: .rounded))
-                                .foregroundStyle(Theme.warmGray.opacity(opacity))
-                            let resolved = context.resolve(text)
-                            let textSize = resolved.measure(in: CGSize(width: 60, height: 20))
-                            context.draw(resolved, at: CGPoint(x: x, y: size.height / 2 + 12), anchor: .center)
-                            _ = textSize // silence warning
-                        }
-                    }
+                    // 24h color bar with current time indicator
+                    timelineBar(for: zone)
                 }
-                .frame(height: height)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-
-                // Center indicator
-                VStack(spacing: 0) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Theme.accent)
-                        .frame(width: 3, height: 20)
-                    Circle()
-                        .fill(Theme.accent)
-                        .frame(width: 7, height: 7)
-                }
-                .position(x: centerX, y: height / 2 - 2)
-                .allowsHitTesting(false)
+                .frame(height: rowHeight)
             }
-            .frame(height: height)
-            .contentShape(Rectangle())
-            .gesture(
-                DragGesture(minimumDistance: 1)
-                    .onChanged { value in
-                        dragOffset = value.translation.width
-                    }
-                    .onEnded { value in
-                        let totalOffset = accumulatedOffset + value.translation.width
-                        let slotsMoved = -totalOffset / slotWidth
-                        let roundedSlots = Int(slotsMoved.rounded())
-                        let minuteOffset = roundedSlots * 30
-
-                        if minuteOffset != 0 {
-                            let calendar = Calendar.current
-                            if let newDate = calendar.date(byAdding: .minute, value: minuteOffset, to: timeState.referenceDate) {
-                                timeState.referenceDate = newDate
-                            }
-                        }
-
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            accumulatedOffset = 0
-                            dragOffset = 0
-                        }
-                    }
-            )
         }
-        .frame(height: height)
+        .contentShape(Rectangle())
+        .gesture(
+            DragGesture(minimumDistance: 2)
+                .onChanged { value in
+                    dragOffset = value.translation.width
+                }
+                .onEnded { value in
+                    // Convert drag distance to minutes (15-min increments)
+                    let minutesPerPixel = (24.0 * 60.0) / (CGFloat(totalHours) * hourWidth)
+                    let rawMinutes = -Double(dragOffset) * Double(minutesPerPixel)
+                    let snappedMinutes = (rawMinutes / 15.0).rounded() * 15.0
+
+                    if abs(snappedMinutes) >= 15 {
+                        let calendar = Calendar.current
+                        if let newDate = calendar.date(byAdding: .minute, value: Int(snappedMinutes), to: timeState.referenceDate) {
+                            timeState.referenceDate = newDate
+                        }
+                    }
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        dragOffset = 0
+                    }
+                }
+        )
+        // Prevent window drag from eating our gesture
+        .onHover { _ in }
     }
 
-    private func dateForSlotOffset(_ offset: Int) -> Date {
-        let calendar = Calendar.current
-        return calendar.date(byAdding: .minute, value: offset * 30, to: timeState.referenceDate) ?? timeState.referenceDate
+    private var labelWidth: CGFloat { 56 }
+
+    // MARK: - Hour labels
+
+    private var hourLabelsRow: some View {
+        HStack(spacing: 0) {
+            ForEach(0..<totalHours, id: \.self) { hour in
+                Text(hour % 3 == 0 ? "\(hour)" : "")
+                    .font(.system(size: 9, weight: .regular, design: .rounded))
+                    .foregroundStyle(Theme.warmGray.opacity(0.7))
+                    .frame(width: hourWidth)
+            }
+        }
+        .frame(height: 14)
+        .offset(x: dragOffset)
     }
 
-    private func shortTimeLabel(for date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.timeZone = TimeZone(identifier: timeState.sourceZoneId) ?? .current
-        formatter.dateFormat = "h:mm a"
-        formatter.amSymbol = "am"
-        formatter.pmSymbol = "pm"
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        return formatter.string(from: date).lowercased()
+    // MARK: - Timeline bar for a zone
+
+    private func timelineBar(for zone: ZoneInfo) -> some View {
+        let tz = zone.timeZone
+
+        return GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                // Day-period color blocks
+                HStack(spacing: 0) {
+                    ForEach(0..<totalHours, id: \.self) { hour in
+                        Rectangle()
+                            .fill(colorForHour(hour))
+                            .frame(width: hourWidth)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .offset(x: dragOffset)
+
+                // Current time indicator
+                let xPos = currentTimeX(in: tz)
+                if xPos >= 0 && xPos <= geo.size.width + abs(dragOffset) {
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(Theme.accent)
+                        .frame(width: 3, height: rowHeight - 4)
+                        .offset(x: xPos + dragOffset - 1.5)
+                }
+            }
+            .frame(height: rowHeight)
+        }
+        .frame(width: CGFloat(totalHours) * hourWidth, height: rowHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Theme.warmBorder.opacity(0.5), lineWidth: 0.5)
+        )
+    }
+
+    // MARK: - Time position
+
+    private func currentTimeX(in zone: TimeZone) -> CGFloat {
+        var calendar = Calendar.current
+        calendar.timeZone = zone
+        let components = calendar.dateComponents([.hour, .minute], from: timeState.referenceDate)
+        let hour = CGFloat(components.hour ?? 0)
+        let minute = CGFloat(components.minute ?? 0)
+        return (hour + minute / 60.0) * hourWidth
+    }
+
+    // MARK: - Day period colors
+
+    private func colorForHour(_ hour: Int) -> Color {
+        switch hour {
+        case 0..<6:     // Night — dark cool gray
+            return Color(red: 0.22, green: 0.24, blue: 0.28).opacity(0.35)
+        case 6..<9:     // Early morning — warm sunrise
+            return Color(red: 0.95, green: 0.85, blue: 0.65).opacity(0.45)
+        case 9..<17:    // Working hours — bright warm
+            return Color(red: 0.92, green: 0.95, blue: 0.85).opacity(0.50)
+        case 17..<20:   // Evening — warm sunset
+            return Color(red: 0.95, green: 0.82, blue: 0.65).opacity(0.45)
+        case 20..<24:   // Night — dark cool gray
+            return Color(red: 0.22, green: 0.24, blue: 0.28).opacity(0.35)
+        default:
+            return Color.clear
+        }
     }
 }

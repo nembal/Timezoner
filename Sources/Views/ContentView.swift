@@ -47,7 +47,7 @@ public struct ContentView: View {
                 }
             })
 
-            TimeScrubber(timeState: timeState)
+            TimeScrubber(zones: zoneStore.zones, timeState: timeState)
         }
         .padding(20)
         .frame(width: idealWidth)
