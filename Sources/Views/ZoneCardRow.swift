@@ -61,9 +61,11 @@ public struct ZoneCardRow: View {
                         }
                     },
                     onDragEnded: {
-                        withAnimation(.easeOut(duration: 0.2)) {
+                        // Instantly clear offset (no animation) to avoid flicker
+                        dragOffset = 0
+                        // Animate only the visual lift (scale/shadow) back
+                        withAnimation(.easeOut(duration: 0.15)) {
                             draggingZoneId = nil
-                            dragOffset = 0
                         }
                     }
                 )
