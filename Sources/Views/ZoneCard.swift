@@ -37,7 +37,7 @@ public struct ZoneCard: View {
         let tz = zone.timeZone
         let date = timeState.referenceDate
 
-        VStack(spacing: 0) {
+        VStack(spacing: 4) {
             // Drag pill — visible on hover
             ZStack {
                 if isHovering && !isEditing {
@@ -47,7 +47,7 @@ public struct ZoneCard: View {
                         .transition(.opacity)
                 }
             }
-            .frame(height: 12)
+            .frame(height: 8)
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
             .gesture(
@@ -61,60 +61,58 @@ public struct ZoneCard: View {
             )
             .cursor(isHovering && !isEditing ? .openHand : .arrow)
 
-            // Card content
-            VStack(spacing: 6) {
-                // City name + GMT offset
-                HStack(spacing: 5) {
-                    Text(zone.label)
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
-                        .foregroundStyle(Theme.textPrimary)
+            // City name + GMT offset
+            HStack(spacing: 5) {
+                Text(zone.label)
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundStyle(Theme.textPrimary)
 
-                    Text(TimeFormatter.gmtOffset(for: tz, at: date))
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundStyle(Theme.textTertiary)
-                }
-                .lineLimit(1)
-
-                // Time: big digits + smaller am/pm
-                if isEditing {
-                    TextField("time", text: $editText)
-                        .font(.system(size: 32, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Theme.textPrimary)
-                        .multilineTextAlignment(.center)
-                        .textFieldStyle(.plain)
-                        .frame(width: 120)
-                        .focused($editFieldFocused)
-                        .onSubmit { editingZoneId = nil }
-                        .onExitCommand { editingZoneId = nil }
-                        .onChange(of: editText) { _, newValue in
-                            liveUpdate(newValue)
-                        }
-                } else {
-                    HStack(alignment: .firstTextBaseline, spacing: 3) {
-                        Text(TimeFormatter.formatTimeDigits(date, in: tz))
-                            .font(.system(size: 32, weight: .semibold, design: .rounded))
-                            .foregroundStyle(Theme.textPrimary)
-                            .contentTransition(.numericText())
-
-                        Text(TimeFormatter.formatAmPm(date, in: tz))
-                            .font(.system(size: 16, weight: .medium, design: .rounded))
-                            .foregroundStyle(Theme.textTertiary)
-                    }
-                    .onTapGesture {
-                        editText = ""
-                        editingZoneId = zone.id
-                        editFieldFocused = true
-                    }
-                }
-
-                // Date
-                Text(TimeFormatter.formatDate(date, in: tz))
-                    .font(.system(size: 13, design: .rounded))
+                Text(TimeFormatter.gmtOffset(for: tz, at: date))
+                    .font(.system(size: 12, design: .rounded))
                     .foregroundStyle(Theme.textTertiary)
             }
-            .padding(.bottom, 14)
-            .padding(.horizontal, 14)
+            .lineLimit(1)
+
+            // Time: big digits + smaller am/pm
+            if isEditing {
+                TextField("time", text: $editText)
+                    .font(.system(size: 32, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Theme.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .textFieldStyle(.plain)
+                    .frame(width: 120)
+                    .focused($editFieldFocused)
+                    .onSubmit { editingZoneId = nil }
+                    .onExitCommand { editingZoneId = nil }
+                    .onChange(of: editText) { _, newValue in
+                        liveUpdate(newValue)
+                    }
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                    Text(TimeFormatter.formatTimeDigits(date, in: tz))
+                        .font(.system(size: 32, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Theme.textPrimary)
+                        .contentTransition(.numericText())
+
+                    Text(TimeFormatter.formatAmPm(date, in: tz))
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.textTertiary)
+                }
+                .onTapGesture {
+                    editText = ""
+                    editingZoneId = zone.id
+                    editFieldFocused = true
+                }
+            }
+
+            // Date
+            Text(TimeFormatter.formatDate(date, in: tz))
+                .font(.system(size: 13, design: .rounded))
+                .foregroundStyle(Theme.textTertiary)
         }
+        .padding(.horizontal, 14)
+        .padding(.top, 4)
+        .padding(.bottom, 14)
         .frame(minWidth: 130, maxWidth: .infinity)
         .background(isEditing ? Theme.accent.opacity(0.04) : Theme.cardBg,
                      in: RoundedRectangle(cornerRadius: 12, style: .continuous))

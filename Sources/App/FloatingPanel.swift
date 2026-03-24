@@ -4,17 +4,8 @@ import TimeZonerLib
 
 class FloatingPanel: NSPanel {
     private let positionKey = "panelPosition"
-    private let menuBarThreshold: CGFloat = 30
-
-    var isHuggingMenuBar: Bool = true {
-        didSet {
-            guard oldValue != isHuggingMenuBar else { return }
-            NotificationCenter.default.post(name: .panelHuggingChanged, object: isHuggingMenuBar)
-        }
-    }
 
     init(contentView: NSView) {
-        // Borderless — no title bar, no traffic lights, no gap
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 750, height: 200),
             styleMask: [.borderless, .nonactivatingPanel],
@@ -30,21 +21,20 @@ class FloatingPanel: NSPanel {
         self.contentView = contentView
         becomesKeyOnlyIfNeeded = false
 
-        // Restore saved position or dock to menu bar
+        // Restore saved position
         if let savedPosition = restorePosition() {
             setFrameOrigin(savedPosition)
-            checkIfHuggingMenuBar()
         } else {
             positionAtMenuBar()
         }
 
+        // Save position when moved
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowDidMove),
             name: NSWindow.didMoveNotification, object: self
         )
     }
 
-    // Borderless panels need these overrides to accept key events
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { true }
 
@@ -58,7 +48,7 @@ class FloatingPanel: NSPanel {
         }
     }
 
-    // MARK: - Menu bar positioning
+    // MARK: - Positioning
 
     func positionAtMenuBar() {
         guard let screen = NSScreen.main else { return }
@@ -66,19 +56,10 @@ class FloatingPanel: NSPanel {
         let x = screen.visibleFrame.midX - frame.width / 2
         let y = visibleTop - frame.height
         setFrameOrigin(NSPoint(x: x, y: y))
-        isHuggingMenuBar = true
     }
 
     @objc private func windowDidMove(_ notification: Notification) {
-        checkIfHuggingMenuBar()
         savePosition()
-    }
-
-    private func checkIfHuggingMenuBar() {
-        guard let screen = NSScreen.main else { return }
-        let screenTop = screen.visibleFrame.maxY
-        let windowTop = frame.origin.y + frame.height
-        isHuggingMenuBar = abs(screenTop - windowTop) < menuBarThreshold
     }
 
     // MARK: - Position persistence

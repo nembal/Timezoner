@@ -5,7 +5,6 @@ public struct ContentView: View {
     @State private var zoneStore = ZoneStore()
     @State private var editingZoneId: UUID? = nil
     @State private var showingHelp = false
-    @State private var isHuggingMenuBar = true
 
     public init() {}
 
@@ -24,61 +23,61 @@ public struct ContentView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Drag handle — thinner when hugging navbar
-            DragHandle(showPill: true, isHugging: isHuggingMenuBar)
+            // Drag handle
+            DragHandle(showPill: true)
 
             VStack(spacing: 14) {
-            // Chat field + Now button
-            HStack(spacing: 8) {
-                ChatField(timeState: timeState, zoneStore: zoneStore, editingZoneId: $editingZoneId)
+                // Chat field + Now + Help
+                HStack(spacing: 8) {
+                    ChatField(timeState: timeState, zoneStore: zoneStore, editingZoneId: $editingZoneId)
 
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        timeState.referenceDate = Date()
-                        editingZoneId = nil
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            timeState.referenceDate = Date()
+                            editingZoneId = nil
+                        }
+                    }) {
+                        Text("Now")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundStyle(isTimeAdjusted ? Theme.accent : Theme.textTertiary)
+                            .padding(.horizontal, 14)
+                            .frame(maxHeight: .infinity)
+                            .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(Theme.border, lineWidth: 0.5)
+                            )
+                            .shadow(color: Theme.shadow, radius: 2, y: 1)
                     }
-                }) {
-                    Text("Now")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(isTimeAdjusted ? Theme.accent : Theme.textTertiary)
-                        .padding(.horizontal, 14)
-                        .frame(maxHeight: .infinity)
-                        .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Theme.border, lineWidth: 0.5)
-                        )
-                        .shadow(color: Theme.shadow, radius: 2, y: 1)
-                }
-                .buttonStyle(.plain)
+                    .buttonStyle(.plain)
 
-                Button(action: { showingHelp.toggle() }) {
-                    Image(systemName: "questionmark.circle")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(showingHelp ? Theme.accent : Theme.textTertiary)
-                        .frame(maxHeight: .infinity)
-                        .padding(.horizontal, 6)
-                        .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .strokeBorder(Theme.border, lineWidth: 0.5)
-                        )
-                        .shadow(color: Theme.shadow, radius: 2, y: 1)
+                    Button(action: { showingHelp.toggle() }) {
+                        Image(systemName: "questionmark.circle")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(showingHelp ? Theme.accent : Theme.textTertiary)
+                            .frame(maxHeight: .infinity)
+                            .padding(.horizontal, 6)
+                            .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                    .strokeBorder(Theme.border, lineWidth: 0.5)
+                            )
+                            .shadow(color: Theme.shadow, radius: 2, y: 1)
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showingHelp, arrowEdge: .bottom) {
+                        HelpPopover()
+                    }
                 }
-                .buttonStyle(.plain)
-                .popover(isPresented: $showingHelp, arrowEdge: .bottom) {
-                    HelpPopover()
-                }
-            }
 
-            // Zone cards with time difference annotations
-            ZoneCardRow(zones: zoneStore.zones, timeState: timeState, editingZoneId: $editingZoneId, onRemove: { id in
-                withAnimation(.easeInOut(duration: 0.3)) {
-                    zoneStore.remove(id: id)
-                }
-            }, onMove: { source, destination in
-                zoneStore.move(from: source, to: destination)
-            })
+                // Zone cards with time difference annotations
+                ZoneCardRow(zones: zoneStore.zones, timeState: timeState, editingZoneId: $editingZoneId, onRemove: { id in
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        zoneStore.remove(id: id)
+                    }
+                }, onMove: { source, destination in
+                    zoneStore.move(from: source, to: destination)
+                })
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
@@ -88,26 +87,12 @@ public struct ContentView: View {
         .fixedSize(horizontal: true, vertical: true)
         .contentShape(Rectangle())
         .onTapGesture {
-            // Clicking background exits edit mode
             editingZoneId = nil
         }
         .background(Theme.background)
-        .clipShape(UnevenRoundedRectangle(
-            topLeadingRadius: isHuggingMenuBar ? 0 : 14,
-            bottomLeadingRadius: 14,
-            bottomTrailingRadius: 14,
-            topTrailingRadius: isHuggingMenuBar ? 0 : 14,
-            style: .continuous
-        ))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         .onAppear {
             ensureDefaultSource()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .panelHuggingChanged)) { notification in
-            if let hugging = notification.object as? Bool {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isHuggingMenuBar = hugging
-                }
-            }
         }
         .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)
         .animation(.easeInOut(duration: 0.25), value: isTimeAdjusted)
@@ -149,5 +134,4 @@ public struct ContentView: View {
 
 extension Notification.Name {
     public static let focusChatField = Notification.Name("focusChatField")
-    public static let panelHuggingChanged = Notification.Name("panelHuggingChanged")
 }

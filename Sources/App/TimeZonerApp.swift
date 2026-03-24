@@ -69,6 +69,5 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let y = buttonFrame.origin.y - panel.frame.height
 
         panel.setFrameOrigin(NSPoint(x: x, y: y))
-        panel.isHuggingMenuBar = true
     }
 }
