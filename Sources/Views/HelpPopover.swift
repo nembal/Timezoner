@@ -40,7 +40,9 @@ public struct HelpPopover: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 tipRow("Click a card's time to edit it live")
-                tipRow("Hover a card for move and remove controls")
+                tipRow("Drag the pill on a card to reorder")
+                tipRow("Hover a card for the remove button")
+                tipRow("Drag the top bar to move the window")
                 tipRow("Press Esc to dismiss the window")
             }
         }
