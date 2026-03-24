@@ -22,6 +22,8 @@ public struct ContentView: View {
 
     public var body: some View {
         VStack(spacing: 14) {
+            // Default the active zone to first card on launch
+            let _ = ensureDefaultSource()
             // Chat field + Now button
             HStack(spacing: 8) {
                 ChatField(timeState: timeState, zoneStore: zoneStore, editingZoneId: $editingZoneId)
@@ -93,6 +95,13 @@ public struct ContentView: View {
                     window.setFrame(newFrame, display: true, animate: true)
                 }
             }
+        }
+    }
+
+    private func ensureDefaultSource() {
+        if let first = zoneStore.zones.first,
+           !zoneStore.zones.contains(where: { $0.timeZoneId == timeState.sourceZoneId }) {
+            timeState.sourceZoneId = first.timeZoneId
         }
     }
 }
