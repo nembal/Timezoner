@@ -3,6 +3,7 @@ import SwiftUI
 public struct ContentView: View {
     @State private var timeState = TimeState()
     @State private var zoneStore = ZoneStore()
+    @State private var editingZoneId: UUID? = nil
 
     public init() {}
 
@@ -46,7 +47,7 @@ public struct ContentView: View {
             }
 
             // Zone cards with time difference annotations
-            ZoneCardRow(zones: zoneStore.zones, timeState: timeState, onRemove: { id in
+            ZoneCardRow(zones: zoneStore.zones, timeState: timeState, editingZoneId: $editingZoneId, onRemove: { id in
                 withAnimation(.easeInOut(duration: 0.3)) {
                     zoneStore.remove(id: id)
                 }

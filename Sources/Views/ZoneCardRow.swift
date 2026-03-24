@@ -3,11 +3,13 @@ import SwiftUI
 public struct ZoneCardRow: View {
     public let zones: [ZoneInfo]
     @Bindable public var timeState: TimeState
+    @Binding public var editingZoneId: UUID?
     public let onRemove: (UUID) -> Void
 
-    public init(zones: [ZoneInfo], timeState: TimeState, onRemove: @escaping (UUID) -> Void) {
+    public init(zones: [ZoneInfo], timeState: TimeState, editingZoneId: Binding<UUID?>, onRemove: @escaping (UUID) -> Void) {
         self.zones = zones
         self.timeState = timeState
+        self._editingZoneId = editingZoneId
         self.onRemove = onRemove
     }
 
@@ -18,6 +20,7 @@ public struct ZoneCardRow: View {
                     zone: zone,
                     timeState: timeState,
                     isSource: timeState.sourceZoneId == zone.timeZoneId,
+                    editingZoneId: $editingZoneId,
                     onRemove: {
                         withAnimation(.easeInOut(duration: 0.3)) {
                             onRemove(zone.id)
@@ -30,7 +33,6 @@ public struct ZoneCardRow: View {
                     removal: .opacity
                 ))
 
-                // Time difference annotation between cards
                 if index < zones.count - 1 {
                     timeDiffLabel(from: zone, to: zones[index + 1])
                 }

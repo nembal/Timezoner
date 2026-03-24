@@ -4,17 +4,22 @@ public struct ZoneCard: View {
     public let zone: ZoneInfo
     @Bindable public var timeState: TimeState
     public let isSource: Bool
+    @Binding public var editingZoneId: UUID?
     public let onRemove: () -> Void
 
-    @State private var isEditing = false
     @State private var editText = ""
     @State private var isHovering = false
     @FocusState private var editFieldFocused: Bool
 
-    public init(zone: ZoneInfo, timeState: TimeState, isSource: Bool, onRemove: @escaping () -> Void) {
+    private var isEditing: Bool {
+        editingZoneId == zone.id
+    }
+
+    public init(zone: ZoneInfo, timeState: TimeState, isSource: Bool, editingZoneId: Binding<UUID?>, onRemove: @escaping () -> Void) {
         self.zone = zone
         self.timeState = timeState
         self.isSource = isSource
+        self._editingZoneId = editingZoneId
         self.onRemove = onRemove
     }
 
@@ -39,8 +44,8 @@ public struct ZoneCard: View {
                     .textFieldStyle(.plain)
                     .frame(width: 120)
                     .focused($editFieldFocused)
-                    .onSubmit { isEditing = false }
-                    .onExitCommand { isEditing = false }
+                    .onSubmit { editingZoneId = nil }
+                    .onExitCommand { editingZoneId = nil }
                     .onChange(of: editText) { _, newValue in
                         liveUpdate(newValue)
                     }
@@ -51,7 +56,7 @@ public struct ZoneCard: View {
                     .contentTransition(.numericText())
                     .onTapGesture {
                         editText = ""
-                        isEditing = true
+                        editingZoneId = zone.id
                         editFieldFocused = true
                     }
             }
@@ -93,19 +98,15 @@ public struct ZoneCard: View {
         }
     }
 
-    /// Live-parse the edit text and update all cards as the user types
     private func liveUpdate(_ text: String) {
         guard let (hour, minute) = parseFlexibleTime(text) else { return }
         timeState.setTime(hour: hour, minute: minute, in: zone.timeZone)
     }
 
-    /// Very forgiving time parser for live editing
-    /// Accepts: "12", "3", "14", "1430", "14:30", "3pm", "3:30pm", "3 pm", "15:00", etc.
     private func parseFlexibleTime(_ raw: String) -> (hour: Int, minute: Int)? {
         let text = raw.trimmingCharacters(in: .whitespaces).lowercased()
         guard !text.isEmpty else { return nil }
 
-        // Detect am/pm suffix
         var stripped = text
         var isPM = false
         var isAM = false
@@ -130,7 +131,6 @@ public struct ZoneCard: View {
         var minute: Int
 
         if stripped.contains(":") {
-            // "14:30", "3:30", "3:"
             let parts = stripped.components(separatedBy: ":")
             guard let h = Int(parts[0].trimmingCharacters(in: .whitespaces)) else { return nil }
             hour = h
@@ -138,11 +138,9 @@ public struct ZoneCard: View {
             minute = Int(minStr) ?? 0
         } else if let num = Int(stripped) {
             if num >= 0 && num <= 24 {
-                // "12" → 12:00, "3" → 3:00, "0" → 0:00
                 hour = num == 24 ? 0 : num
                 minute = 0
             } else if num >= 100 && num <= 2359 {
-                // "1430" → 14:30, "930" → 9:30
                 hour = num / 100
                 minute = num % 100
             } else {
@@ -152,13 +150,10 @@ public struct ZoneCard: View {
             return nil
         }
 
-        // AM/PM conversion
         if isPM && hour < 12 { hour += 12 }
         if isAM && hour == 12 { hour = 0 }
 
-        // Validate
         guard hour >= 0, hour <= 23, minute >= 0, minute <= 59 else { return nil }
-
         return (hour, minute)
     }
 }
