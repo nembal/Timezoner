@@ -59,11 +59,11 @@ public struct ZoneCardRow: View {
 
         return VStack(spacing: 2) {
             Image(systemName: "arrow.right")
-                .font(.system(size: 8, weight: .medium))
+                .font(.system(size: 10, weight: .medium))
                 .foregroundStyle(Theme.textTertiary)
 
             Text(diff)
-                .font(.system(size: 10, weight: .medium, design: .rounded))
+                .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
         }
         .frame(width: 36)

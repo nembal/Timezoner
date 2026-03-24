@@ -41,13 +41,13 @@ public struct ZoneCard: View {
 
         VStack(spacing: 6) {
             // City name + GMT offset
-            HStack(spacing: 4) {
+            HStack(spacing: 5) {
                 Text(zone.label)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundStyle(Theme.textPrimary)
 
                 Text(TimeFormatter.gmtOffset(for: tz, at: date))
-                    .font(.system(size: 10, design: .rounded))
+                    .font(.system(size: 12, design: .rounded))
                     .foregroundStyle(Theme.textTertiary)
             }
             .lineLimit(1)
@@ -74,7 +74,7 @@ public struct ZoneCard: View {
                         .contentTransition(.numericText())
 
                     Text(TimeFormatter.formatAmPm(date, in: tz))
-                        .font(.system(size: 14, weight: .medium, design: .rounded))
+                        .font(.system(size: 16, weight: .medium, design: .rounded))
                         .foregroundStyle(Theme.textTertiary)
                 }
                 .onTapGesture {
@@ -86,7 +86,7 @@ public struct ZoneCard: View {
 
             // Date
             Text(TimeFormatter.formatDate(date, in: tz))
-                .font(.system(size: 11, design: .rounded))
+                .font(.system(size: 13, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
         }
         .padding(.vertical, 16)

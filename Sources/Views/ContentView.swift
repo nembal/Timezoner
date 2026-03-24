@@ -4,6 +4,7 @@ public struct ContentView: View {
     @State private var timeState = TimeState()
     @State private var zoneStore = ZoneStore()
     @State private var editingZoneId: UUID? = nil
+    @State private var showingHelp = false
 
     public init() {}
 
@@ -47,6 +48,24 @@ public struct ContentView: View {
                         .shadow(color: Theme.shadow, radius: 2, y: 1)
                 }
                 .buttonStyle(.plain)
+
+                Button(action: { showingHelp.toggle() }) {
+                    Image(systemName: "questionmark.circle")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(showingHelp ? Theme.accent : Theme.textTertiary)
+                        .frame(maxHeight: .infinity)
+                        .padding(.horizontal, 6)
+                        .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                .strokeBorder(Theme.border, lineWidth: 0.5)
+                        )
+                        .shadow(color: Theme.shadow, radius: 2, y: 1)
+                }
+                .buttonStyle(.plain)
+                .popover(isPresented: $showingHelp, arrowEdge: .bottom) {
+                    HelpPopover()
+                }
             }
 
             // Zone cards with time difference annotations

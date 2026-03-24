@@ -27,7 +27,7 @@ public struct ChatField: View {
 
     public var body: some View {
         TextField(placeholderText, text: $inputText)
-            .font(.system(size: 14, design: .rounded))
+            .font(.system(size: 15, design: .rounded))
             .foregroundStyle(Theme.textPrimary)
             .textFieldStyle(.plain)
             .padding(.horizontal, 14)
