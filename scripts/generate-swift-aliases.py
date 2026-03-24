@@ -5,6 +5,7 @@ Preserves insertion order within each category as found in the JSON.
 """
 
 import json
+import os
 import sys
 import argparse
 from pathlib import Path
@@ -156,6 +157,24 @@ def generate_swift(grouped: dict) -> str:
     return "".join(parts)
 
 
+def generate_typescript(aliases: list, output_path: Path) -> None:
+    """Generate TypeScript alias map from alias data."""
+    lines = [
+        "// Auto-generated from shared/timezone-aliases.json — do not edit manually",
+        "",
+        "export const timezoneAliases: ReadonlyMap<string, string> = new Map([",
+    ]
+    for entry in aliases:
+        lines.append(f'  ["{entry["alias"]}", "{entry["iana_id"]}"],')
+    lines.append("]);")
+    lines.append("")
+
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+    print(f"Generated {len(aliases)} aliases in {output_path}", file=sys.stderr)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Generate TimezoneAliases.swift from JSON")
     parser.add_argument(
@@ -177,6 +196,12 @@ def main():
     output_path.write_text(swift_source, encoding="utf-8")
 
     print(f"Generated {total} aliases in {output_path}", file=sys.stderr)
+
+    # Also generate TypeScript aliases for the Raycast extension
+    with open(json_path, encoding="utf-8") as f:
+        raw_aliases = json.load(f)
+    ts_output = REPO_ROOT / "raycast" / "src" / "data" / "timezones.ts"
+    generate_typescript(raw_aliases, ts_output)
 
 
 if __name__ == "__main__":

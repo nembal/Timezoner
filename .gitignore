@@ -12,6 +12,9 @@ TimeZoner.app/
 *.dmg
 DerivedData/
 
+# Raycast extension
+raycast/node_modules/
+
 # General
 .DS_Store
 /tmp/spm-fix/
