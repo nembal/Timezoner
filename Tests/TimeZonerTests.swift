@@ -4,6 +4,7 @@ import Foundation
 struct TestRunner {
     static func main() {
         runTimezoneAliasTests()
+        runTimeStateTests()
 
         print("\nResults: \(testsPassed) passed, \(testsFailed) failed out of \(testsPassed + testsFailed) tests")
         if testsFailed > 0 {
