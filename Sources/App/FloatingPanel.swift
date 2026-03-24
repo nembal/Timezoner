@@ -9,22 +9,20 @@ class FloatingPanel: NSPanel {
     var isHuggingMenuBar: Bool = true {
         didSet {
             guard oldValue != isHuggingMenuBar else { return }
-            updateTrafficLights()
             NotificationCenter.default.post(name: .panelHuggingChanged, object: isHuggingMenuBar)
         }
     }
 
     init(contentView: NSView) {
+        // Borderless — no title bar, no traffic lights, no gap
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 750, height: 200),
-            styleMask: [.titled, .closable, .fullSizeContentView, .nonactivatingPanel],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
         level = .floating
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        titlebarAppearsTransparent = true
-        titleVisibility = .hidden
         isMovableByWindowBackground = false
         isOpaque = false
         backgroundColor = .clear
@@ -40,23 +38,15 @@ class FloatingPanel: NSPanel {
             positionAtMenuBar()
         }
 
-        // Observe window moves
         NotificationCenter.default.addObserver(
             self, selector: #selector(windowDidMove),
             name: NSWindow.didMoveNotification, object: self
         )
     }
 
-    // Called after orderFront — buttons exist now
-    override func orderFront(_ sender: Any?) {
-        super.orderFront(sender)
-        // Delay to ensure window buttons are created
-        DispatchQueue.main.async { [weak self] in
-            self?.updateTrafficLights()
-        }
-    }
-
+    // Borderless panels need these overrides to accept key events
     override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
 
     override func resignKey() {
         super.resignKey()
@@ -72,10 +62,9 @@ class FloatingPanel: NSPanel {
 
     func positionAtMenuBar() {
         guard let screen = NSScreen.main else { return }
-        let titleBarHeight = frame.height - contentRect(forFrameRect: frame).height
         let visibleTop = screen.visibleFrame.maxY
         let x = screen.visibleFrame.midX - frame.width / 2
-        let y = visibleTop - frame.height + titleBarHeight
+        let y = visibleTop - frame.height
         setFrameOrigin(NSPoint(x: x, y: y))
         isHuggingMenuBar = true
     }
@@ -87,20 +76,9 @@ class FloatingPanel: NSPanel {
 
     private func checkIfHuggingMenuBar() {
         guard let screen = NSScreen.main else { return }
-        let titleBarHeight = frame.height - contentRect(forFrameRect: frame).height
         let screenTop = screen.visibleFrame.maxY
-        let windowContentTop = frame.origin.y + frame.height - titleBarHeight
-        let gap = screenTop - windowContentTop
-        isHuggingMenuBar = abs(gap) < menuBarThreshold
-    }
-
-    // MARK: - Traffic lights
-
-    private func updateTrafficLights() {
-        let hidden = isHuggingMenuBar
-        standardWindowButton(.closeButton)?.isHidden = hidden
-        standardWindowButton(.miniaturizeButton)?.isHidden = hidden
-        standardWindowButton(.zoomButton)?.isHidden = hidden
+        let windowTop = frame.origin.y + frame.height
+        isHuggingMenuBar = abs(screenTop - windowTop) < menuBarThreshold
     }
 
     // MARK: - Position persistence
