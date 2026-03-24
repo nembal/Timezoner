@@ -5,7 +5,11 @@ public struct ZoneCard: View {
     @Bindable public var timeState: TimeState
     public let isSource: Bool
     @Binding public var editingZoneId: UUID?
+    public let canMoveLeft: Bool
+    public let canMoveRight: Bool
     public let onRemove: () -> Void
+    public let onMoveLeft: () -> Void
+    public let onMoveRight: () -> Void
 
     @State private var editText = ""
     @State private var isHovering = false
@@ -15,12 +19,20 @@ public struct ZoneCard: View {
         editingZoneId == zone.id
     }
 
-    public init(zone: ZoneInfo, timeState: TimeState, isSource: Bool, editingZoneId: Binding<UUID?>, onRemove: @escaping () -> Void) {
+    public init(zone: ZoneInfo, timeState: TimeState, isSource: Bool, editingZoneId: Binding<UUID?>,
+                canMoveLeft: Bool = false, canMoveRight: Bool = false,
+                onRemove: @escaping () -> Void,
+                onMoveLeft: @escaping () -> Void = {},
+                onMoveRight: @escaping () -> Void = {}) {
         self.zone = zone
         self.timeState = timeState
         self.isSource = isSource
         self._editingZoneId = editingZoneId
+        self.canMoveLeft = canMoveLeft
+        self.canMoveRight = canMoveRight
         self.onRemove = onRemove
+        self.onMoveLeft = onMoveLeft
+        self.onMoveRight = onMoveRight
     }
 
     public var body: some View {
@@ -77,6 +89,7 @@ public struct ZoneCard: View {
                               lineWidth: isEditing ? 1.5 : 0.5)
         )
         .shadow(color: Theme.shadow, radius: 2, y: 1)
+        // Hover controls: move arrows + remove
         .overlay(alignment: .topTrailing) {
             if isHovering && !isEditing {
                 Button(action: onRemove) {
@@ -88,6 +101,36 @@ public struct ZoneCard: View {
                 }
                 .buttonStyle(.plain)
                 .padding(6)
+                .transition(.opacity)
+            }
+        }
+        .overlay(alignment: .leading) {
+            if isHovering && !isEditing && canMoveLeft {
+                Button(action: onMoveLeft) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(Theme.textTertiary)
+                        .padding(4)
+                        .background(Theme.background, in: Circle())
+                        .overlay(Circle().strokeBorder(Theme.border, lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .offset(x: -6)
+                .transition(.opacity)
+            }
+        }
+        .overlay(alignment: .trailing) {
+            if isHovering && !isEditing && canMoveRight {
+                Button(action: onMoveRight) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(Theme.textTertiary)
+                        .padding(4)
+                        .background(Theme.background, in: Circle())
+                        .overlay(Circle().strokeBorder(Theme.border, lineWidth: 0.5))
+                }
+                .buttonStyle(.plain)
+                .offset(x: 6)
                 .transition(.opacity)
             }
         }
