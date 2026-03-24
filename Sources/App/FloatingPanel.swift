@@ -93,6 +93,13 @@ class FloatingPanel: NSPanel {
         guard let dict = UserDefaults.standard.dictionary(forKey: positionKey),
               let x = dict["x"] as? CGFloat,
               let y = dict["y"] as? CGFloat else { return nil }
-        return NSPoint(x: x, y: y)
+
+        // Validate position is on a connected screen
+        let point = NSPoint(x: x, y: y)
+        let testRect = NSRect(origin: point, size: frame.size)
+        let onScreen = NSScreen.screens.contains { screen in
+            screen.frame.intersects(testRect)
+        }
+        return onScreen ? point : nil
     }
 }

@@ -92,7 +92,7 @@ public struct ZoneCardRow: View {
     }
 
     private func timeDiffLabel(from: ZoneInfo, to: ZoneInfo) -> some View {
-        let diff = hourDifference(from: from.timeZone, to: to.timeZone)
+        let diff = TimeFormatter.relativeOffset(from: from.timeZone, to: to.timeZone, at: timeState.referenceDate)
 
         return VStack(spacing: 2) {
             Image(systemName: "arrow.right")
@@ -104,20 +104,5 @@ public struct ZoneCardRow: View {
                 .foregroundStyle(Theme.textTertiary)
         }
         .frame(width: 36)
-    }
-
-    private func hourDifference(from: TimeZone, to: TimeZone) -> String {
-        let fromOffset = from.secondsFromGMT(for: timeState.referenceDate)
-        let toOffset = to.secondsFromGMT(for: timeState.referenceDate)
-        let diffHours = Double(toOffset - fromOffset) / 3600.0
-
-        if diffHours == diffHours.rounded() {
-            let h = Int(diffHours)
-            return h >= 0 ? "+\(h)h" : "\(h)h"
-        } else {
-            return diffHours >= 0
-                ? String(format: "+%.1fh", diffHours)
-                : String(format: "%.1fh", diffHours)
-        }
     }
 }

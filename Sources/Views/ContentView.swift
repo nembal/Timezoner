@@ -25,7 +25,7 @@ public struct ContentView: View {
     public var body: some View {
         VStack(spacing: 0) {
             // Drag handle
-            DragHandle(showPill: true)
+            DragHandle(showPill: true, isHugging: isHuggingMenuBar)
 
             VStack(spacing: 14) {
                 // Chat field + Now + Help
