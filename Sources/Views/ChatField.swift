@@ -27,6 +27,9 @@ public struct ChatField: View {
             .onSubmit {
                 handleSubmit()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .focusChatField)) { _ in
+                isFocused = true
+            }
     }
 
     private func handleSubmit() {

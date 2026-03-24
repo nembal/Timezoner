@@ -15,11 +15,31 @@ struct TimeZonerApp {
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: FloatingPanel!
+    private var statusItem: NSStatusItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let contentView = NSHostingView(rootView: ContentView())
+        contentView.setFrameSize(NSSize(width: 700, height: 280))
         panel = FloatingPanel(contentView: contentView)
         panel.center()
         panel.orderFront(nil)
+
+        // Menu bar icon
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        if let button = statusItem.button {
+            button.image = NSImage(systemSymbolName: "clock.fill", accessibilityDescription: "TimeZoner")
+            button.action = #selector(togglePanel)
+            button.target = self
+        }
+    }
+
+    @objc func togglePanel() {
+        if panel.isVisible {
+            panel.orderOut(nil)
+        } else {
+            panel.center()
+            panel.orderFront(nil)
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 }

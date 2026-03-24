@@ -17,5 +17,17 @@ class FloatingPanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         self.contentView = contentView
+
+        // Allow the panel to resign key status (clicking outside hides it)
+        becomesKeyOnlyIfNeeded = false
     }
+
+    // Hide the panel when it loses focus (click outside)
+    override func resignKey() {
+        super.resignKey()
+        orderOut(nil)
+    }
+
+    // Allow the panel to become the key window so it can receive keyboard events
+    override var canBecomeKey: Bool { true }
 }

@@ -10,7 +10,7 @@ if [ -x /tmp/spm-fix/swiftc-wrapper.sh ]; then
     export SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh
 fi
 
-swift build -c release
+swift build -c release --product TimeZoner
 rm -rf TimeZoner.app
 mkdir -p TimeZoner.app/Contents/MacOS
 mkdir -p TimeZoner.app/Contents/Resources
