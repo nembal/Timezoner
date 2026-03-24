@@ -24,9 +24,17 @@ class FloatingPanel: NSPanel {
 
     override var canBecomeKey: Bool { true }
 
-    // Hide panel when clicking outside (losing focus)
+    // Only hide when another app's window becomes key (not system dialogs, Spotlight, etc.)
     override func resignKey() {
         super.resignKey()
-        orderOut(nil)
+
+        // Delay slightly to check if the user clicked within the app or outside
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
+            guard let self = self else { return }
+            // If we're still not key and no other window in our app is key, hide
+            if !self.isKeyWindow && NSApp.keyWindow == nil {
+                self.orderOut(nil)
+            }
+        }
     }
 }
