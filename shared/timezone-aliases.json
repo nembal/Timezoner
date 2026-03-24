@@ -1,0 +1,1882 @@
+[
+  {
+    "alias": "abu dhabi",
+    "iana_id": "Asia/Dubai",
+    "category": "city_name"
+  },
+  {
+    "alias": "accra",
+    "iana_id": "Africa/Accra",
+    "category": "city_name"
+  },
+  {
+    "alias": "addis ababa",
+    "iana_id": "Africa/Addis_Ababa",
+    "category": "city_name"
+  },
+  {
+    "alias": "adelaide",
+    "iana_id": "Australia/Adelaide",
+    "category": "city_name"
+  },
+  {
+    "alias": "aedt",
+    "iana_id": "Australia/Sydney",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "aest",
+    "iana_id": "Australia/Sydney",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "akdt",
+    "iana_id": "America/Anchorage",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "akl",
+    "iana_id": "Pacific/Auckland",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "akst",
+    "iana_id": "America/Anchorage",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "algiers",
+    "iana_id": "Africa/Algiers",
+    "category": "city_name"
+  },
+  {
+    "alias": "almaty",
+    "iana_id": "Asia/Almaty",
+    "category": "city_name"
+  },
+  {
+    "alias": "amman",
+    "iana_id": "Asia/Amman",
+    "category": "city_name"
+  },
+  {
+    "alias": "ams",
+    "iana_id": "Europe/Amsterdam",
+    "category": "airport_code"
+  },
+  {
+    "alias": "amsterdam",
+    "iana_id": "Europe/Amsterdam",
+    "category": "city_name"
+  },
+  {
+    "alias": "anchorage",
+    "iana_id": "America/Anchorage",
+    "category": "city_name"
+  },
+  {
+    "alias": "argentina",
+    "iana_id": "America/Argentina/Buenos_Aires",
+    "category": "country_name"
+  },
+  {
+    "alias": "athens",
+    "iana_id": "Europe/Athens",
+    "category": "city_name"
+  },
+  {
+    "alias": "atl",
+    "iana_id": "America/New_York",
+    "category": "airport_code"
+  },
+  {
+    "alias": "atlanta",
+    "iana_id": "America/New_York",
+    "category": "city_name"
+  },
+  {
+    "alias": "atlantic",
+    "iana_id": "America/Halifax",
+    "category": "region_alias"
+  },
+  {
+    "alias": "auckland",
+    "iana_id": "Pacific/Auckland",
+    "category": "city_name"
+  },
+  {
+    "alias": "austin",
+    "iana_id": "America/Chicago",
+    "category": "city_name"
+  },
+  {
+    "alias": "australia",
+    "iana_id": "Australia/Sydney",
+    "category": "country_name"
+  },
+  {
+    "alias": "austria",
+    "iana_id": "Europe/Vienna",
+    "category": "country_name"
+  },
+  {
+    "alias": "baghdad",
+    "iana_id": "Asia/Baghdad",
+    "category": "city_name"
+  },
+  {
+    "alias": "bahrain",
+    "iana_id": "Asia/Bahrain",
+    "category": "city_name"
+  },
+  {
+    "alias": "baku",
+    "iana_id": "Asia/Baku",
+    "category": "city_name"
+  },
+  {
+    "alias": "bali",
+    "iana_id": "Asia/Makassar",
+    "category": "city_name"
+  },
+  {
+    "alias": "bangalore",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_name"
+  },
+  {
+    "alias": "bangkok",
+    "iana_id": "Asia/Bangkok",
+    "category": "city_name"
+  },
+  {
+    "alias": "bangladesh",
+    "iana_id": "Asia/Dhaka",
+    "category": "country_name"
+  },
+  {
+    "alias": "barcelona",
+    "iana_id": "Europe/Madrid",
+    "category": "city_name"
+  },
+  {
+    "alias": "bcn",
+    "iana_id": "Europe/Madrid",
+    "category": "airport_code"
+  },
+  {
+    "alias": "beijing",
+    "iana_id": "Asia/Shanghai",
+    "category": "city_name"
+  },
+  {
+    "alias": "beirut",
+    "iana_id": "Asia/Beirut",
+    "category": "city_name"
+  },
+  {
+    "alias": "belgium",
+    "iana_id": "Europe/Brussels",
+    "category": "country_name"
+  },
+  {
+    "alias": "belgrade",
+    "iana_id": "Europe/Belgrade",
+    "category": "city_name"
+  },
+  {
+    "alias": "bengaluru",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_name"
+  },
+  {
+    "alias": "ber",
+    "iana_id": "Europe/Berlin",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "berlin",
+    "iana_id": "Europe/Berlin",
+    "category": "city_name"
+  },
+  {
+    "alias": "birmingham",
+    "iana_id": "Europe/London",
+    "category": "city_name"
+  },
+  {
+    "alias": "bkk",
+    "iana_id": "Asia/Bangkok",
+    "category": "airport_code"
+  },
+  {
+    "alias": "bne",
+    "iana_id": "Australia/Brisbane",
+    "category": "airport_code"
+  },
+  {
+    "alias": "bogota",
+    "iana_id": "America/Bogota",
+    "category": "city_name"
+  },
+  {
+    "alias": "bogotá",
+    "iana_id": "America/Bogota",
+    "category": "city_name"
+  },
+  {
+    "alias": "bom",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "bos",
+    "iana_id": "America/New_York",
+    "category": "airport_code"
+  },
+  {
+    "alias": "boston",
+    "iana_id": "America/New_York",
+    "category": "city_name"
+  },
+  {
+    "alias": "bratislava",
+    "iana_id": "Europe/Bratislava",
+    "category": "city_name"
+  },
+  {
+    "alias": "brazil",
+    "iana_id": "America/Sao_Paulo",
+    "category": "country_name"
+  },
+  {
+    "alias": "brisbane",
+    "iana_id": "Australia/Brisbane",
+    "category": "city_name"
+  },
+  {
+    "alias": "brussels",
+    "iana_id": "Europe/Brussels",
+    "category": "city_name"
+  },
+  {
+    "alias": "bst",
+    "iana_id": "Europe/London",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "bucharest",
+    "iana_id": "Europe/Bucharest",
+    "category": "city_name"
+  },
+  {
+    "alias": "budapest",
+    "iana_id": "Europe/Budapest",
+    "category": "city_name"
+  },
+  {
+    "alias": "buenos aires",
+    "iana_id": "America/Argentina/Buenos_Aires",
+    "category": "city_name"
+  },
+  {
+    "alias": "busan",
+    "iana_id": "Asia/Seoul",
+    "category": "city_name"
+  },
+  {
+    "alias": "cai",
+    "iana_id": "Africa/Cairo",
+    "category": "airport_code"
+  },
+  {
+    "alias": "cairo",
+    "iana_id": "Africa/Cairo",
+    "category": "city_name"
+  },
+  {
+    "alias": "calcutta",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_name"
+  },
+  {
+    "alias": "calgary",
+    "iana_id": "America/Edmonton",
+    "category": "city_name"
+  },
+  {
+    "alias": "cambodia",
+    "iana_id": "Asia/Phnom_Penh",
+    "category": "country_name"
+  },
+  {
+    "alias": "can",
+    "iana_id": "Asia/Shanghai",
+    "category": "airport_code"
+  },
+  {
+    "alias": "canada",
+    "iana_id": "America/Toronto",
+    "category": "country_name"
+  },
+  {
+    "alias": "cape town",
+    "iana_id": "Africa/Johannesburg",
+    "category": "city_name"
+  },
+  {
+    "alias": "caracas",
+    "iana_id": "America/Caracas",
+    "category": "city_name"
+  },
+  {
+    "alias": "casablanca",
+    "iana_id": "Africa/Casablanca",
+    "category": "city_name"
+  },
+  {
+    "alias": "cdg",
+    "iana_id": "Europe/Paris",
+    "category": "airport_code"
+  },
+  {
+    "alias": "cdt",
+    "iana_id": "America/Chicago",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "central",
+    "iana_id": "America/Chicago",
+    "category": "region_alias"
+  },
+  {
+    "alias": "cest",
+    "iana_id": "Europe/Paris",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "cet",
+    "iana_id": "Europe/Paris",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "cgk",
+    "iana_id": "Asia/Jakarta",
+    "category": "airport_code"
+  },
+  {
+    "alias": "chengdu",
+    "iana_id": "Asia/Shanghai",
+    "category": "city_name"
+  },
+  {
+    "alias": "chennai",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_name"
+  },
+  {
+    "alias": "chi",
+    "iana_id": "America/Chicago",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "chiang mai",
+    "iana_id": "Asia/Bangkok",
+    "category": "city_name"
+  },
+  {
+    "alias": "chicago",
+    "iana_id": "America/Chicago",
+    "category": "city_name"
+  },
+  {
+    "alias": "chile",
+    "iana_id": "America/Santiago",
+    "category": "country_name"
+  },
+  {
+    "alias": "china",
+    "iana_id": "Asia/Shanghai",
+    "category": "country_name"
+  },
+  {
+    "alias": "colombia",
+    "iana_id": "America/Bogota",
+    "category": "country_name"
+  },
+  {
+    "alias": "colombo",
+    "iana_id": "Asia/Colombo",
+    "category": "city_name"
+  },
+  {
+    "alias": "copenhagen",
+    "iana_id": "Europe/Copenhagen",
+    "category": "city_name"
+  },
+  {
+    "alias": "cpt",
+    "iana_id": "Africa/Johannesburg",
+    "category": "airport_code"
+  },
+  {
+    "alias": "cst",
+    "iana_id": "America/Chicago",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "ct",
+    "iana_id": "America/Chicago",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "czech republic",
+    "iana_id": "Europe/Prague",
+    "category": "country_name"
+  },
+  {
+    "alias": "czechia",
+    "iana_id": "Europe/Prague",
+    "category": "country_name"
+  },
+  {
+    "alias": "dallas",
+    "iana_id": "America/Chicago",
+    "category": "city_name"
+  },
+  {
+    "alias": "dar es salaam",
+    "iana_id": "Africa/Dar_es_Salaam",
+    "category": "city_name"
+  },
+  {
+    "alias": "dc",
+    "iana_id": "America/New_York",
+    "category": "city_name"
+  },
+  {
+    "alias": "dca",
+    "iana_id": "America/New_York",
+    "category": "airport_code"
+  },
+  {
+    "alias": "del",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "delhi",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_name"
+  },
+  {
+    "alias": "den",
+    "iana_id": "America/Denver",
+    "category": "airport_code"
+  },
+  {
+    "alias": "denmark",
+    "iana_id": "Europe/Copenhagen",
+    "category": "country_name"
+  },
+  {
+    "alias": "denver",
+    "iana_id": "America/Denver",
+    "category": "city_name"
+  },
+  {
+    "alias": "detroit",
+    "iana_id": "America/Detroit",
+    "category": "city_name"
+  },
+  {
+    "alias": "dfw",
+    "iana_id": "America/Chicago",
+    "category": "airport_code"
+  },
+  {
+    "alias": "dhaka",
+    "iana_id": "Asia/Dhaka",
+    "category": "city_name"
+  },
+  {
+    "alias": "dmk",
+    "iana_id": "Asia/Bangkok",
+    "category": "airport_code"
+  },
+  {
+    "alias": "doh",
+    "iana_id": "Asia/Qatar",
+    "category": "airport_code"
+  },
+  {
+    "alias": "doha",
+    "iana_id": "Asia/Qatar",
+    "category": "city_name"
+  },
+  {
+    "alias": "dtw",
+    "iana_id": "America/Detroit",
+    "category": "airport_code"
+  },
+  {
+    "alias": "dubai",
+    "iana_id": "Asia/Dubai",
+    "category": "city_name"
+  },
+  {
+    "alias": "dublin",
+    "iana_id": "Europe/Dublin",
+    "category": "city_name"
+  },
+  {
+    "alias": "dxb",
+    "iana_id": "Asia/Dubai",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "east coast",
+    "iana_id": "America/New_York",
+    "category": "region_alias"
+  },
+  {
+    "alias": "eastern",
+    "iana_id": "America/New_York",
+    "category": "region_alias"
+  },
+  {
+    "alias": "edinburgh",
+    "iana_id": "Europe/London",
+    "category": "city_name"
+  },
+  {
+    "alias": "edmonton",
+    "iana_id": "America/Edmonton",
+    "category": "city_name"
+  },
+  {
+    "alias": "edt",
+    "iana_id": "America/New_York",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "eest",
+    "iana_id": "Europe/Athens",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "eet",
+    "iana_id": "Europe/Athens",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "egypt",
+    "iana_id": "Africa/Cairo",
+    "category": "country_name"
+  },
+  {
+    "alias": "england",
+    "iana_id": "Europe/London",
+    "category": "country_name"
+  },
+  {
+    "alias": "est",
+    "iana_id": "America/New_York",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "et",
+    "iana_id": "America/New_York",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "europe",
+    "iana_id": "Europe/Paris",
+    "category": "region_alias"
+  },
+  {
+    "alias": "ewr",
+    "iana_id": "America/New_York",
+    "category": "airport_code"
+  },
+  {
+    "alias": "eze",
+    "iana_id": "America/Argentina/Buenos_Aires",
+    "category": "airport_code"
+  },
+  {
+    "alias": "fco",
+    "iana_id": "Europe/Rome",
+    "category": "airport_code"
+  },
+  {
+    "alias": "fiji",
+    "iana_id": "Pacific/Fiji",
+    "category": "city_name"
+  },
+  {
+    "alias": "finland",
+    "iana_id": "Europe/Helsinki",
+    "category": "country_name"
+  },
+  {
+    "alias": "fra",
+    "iana_id": "Europe/Berlin",
+    "category": "airport_code"
+  },
+  {
+    "alias": "france",
+    "iana_id": "Europe/Paris",
+    "category": "country_name"
+  },
+  {
+    "alias": "frankfurt",
+    "iana_id": "Europe/Berlin",
+    "category": "city_name"
+  },
+  {
+    "alias": "geneva",
+    "iana_id": "Europe/Zurich",
+    "category": "city_name"
+  },
+  {
+    "alias": "germany",
+    "iana_id": "Europe/Berlin",
+    "category": "country_name"
+  },
+  {
+    "alias": "gig",
+    "iana_id": "America/Sao_Paulo",
+    "category": "airport_code"
+  },
+  {
+    "alias": "glasgow",
+    "iana_id": "Europe/London",
+    "category": "city_name"
+  },
+  {
+    "alias": "gmt",
+    "iana_id": "Europe/London",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "great britain",
+    "iana_id": "Europe/London",
+    "category": "country_name"
+  },
+  {
+    "alias": "greece",
+    "iana_id": "Europe/Athens",
+    "category": "country_name"
+  },
+  {
+    "alias": "gru",
+    "iana_id": "America/Sao_Paulo",
+    "category": "airport_code"
+  },
+  {
+    "alias": "guadalajara",
+    "iana_id": "America/Mexico_City",
+    "category": "city_name"
+  },
+  {
+    "alias": "guangzhou",
+    "iana_id": "Asia/Shanghai",
+    "category": "city_name"
+  },
+  {
+    "alias": "hamburg",
+    "iana_id": "Europe/Berlin",
+    "category": "city_name"
+  },
+  {
+    "alias": "han",
+    "iana_id": "Asia/Ho_Chi_Minh",
+    "category": "airport_code"
+  },
+  {
+    "alias": "hanoi",
+    "iana_id": "Asia/Ho_Chi_Minh",
+    "category": "city_name"
+  },
+  {
+    "alias": "havana",
+    "iana_id": "America/Havana",
+    "category": "city_name"
+  },
+  {
+    "alias": "helsinki",
+    "iana_id": "Europe/Helsinki",
+    "category": "city_name"
+  },
+  {
+    "alias": "hk",
+    "iana_id": "Asia/Hong_Kong",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "hkg",
+    "iana_id": "Asia/Hong_Kong",
+    "category": "airport_code"
+  },
+  {
+    "alias": "hkt",
+    "iana_id": "Asia/Hong_Kong",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "hnd",
+    "iana_id": "Asia/Tokyo",
+    "category": "airport_code"
+  },
+  {
+    "alias": "hnl",
+    "iana_id": "Pacific/Honolulu",
+    "category": "airport_code"
+  },
+  {
+    "alias": "ho chi minh",
+    "iana_id": "Asia/Ho_Chi_Minh",
+    "category": "city_name"
+  },
+  {
+    "alias": "ho chi minh city",
+    "iana_id": "Asia/Ho_Chi_Minh",
+    "category": "city_name"
+  },
+  {
+    "alias": "hong kong",
+    "iana_id": "Asia/Hong_Kong",
+    "category": "city_name"
+  },
+  {
+    "alias": "honolulu",
+    "iana_id": "Pacific/Honolulu",
+    "category": "city_name"
+  },
+  {
+    "alias": "houston",
+    "iana_id": "America/Chicago",
+    "category": "city_name"
+  },
+  {
+    "alias": "hst",
+    "iana_id": "Pacific/Honolulu",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "hungary",
+    "iana_id": "Europe/Budapest",
+    "category": "country_name"
+  },
+  {
+    "alias": "hyderabad",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_name"
+  },
+  {
+    "alias": "iad",
+    "iana_id": "America/New_York",
+    "category": "airport_code"
+  },
+  {
+    "alias": "iceland",
+    "iana_id": "Atlantic/Reykjavik",
+    "category": "country_name"
+  },
+  {
+    "alias": "icn",
+    "iana_id": "Asia/Seoul",
+    "category": "airport_code"
+  },
+  {
+    "alias": "ict",
+    "iana_id": "Asia/Bangkok",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "india",
+    "iana_id": "Asia/Kolkata",
+    "category": "country_name"
+  },
+  {
+    "alias": "indonesia",
+    "iana_id": "Asia/Jakarta",
+    "category": "country_name"
+  },
+  {
+    "alias": "ireland",
+    "iana_id": "Europe/Dublin",
+    "category": "country_name"
+  },
+  {
+    "alias": "islamabad",
+    "iana_id": "Asia/Karachi",
+    "category": "city_name"
+  },
+  {
+    "alias": "israel",
+    "iana_id": "Asia/Jerusalem",
+    "category": "country_name"
+  },
+  {
+    "alias": "ist",
+    "iana_id": "Europe/Istanbul",
+    "category": "airport_code"
+  },
+  {
+    "alias": "istanbul",
+    "iana_id": "Europe/Istanbul",
+    "category": "city_name"
+  },
+  {
+    "alias": "italy",
+    "iana_id": "Europe/Rome",
+    "category": "country_name"
+  },
+  {
+    "alias": "jakarta",
+    "iana_id": "Asia/Jakarta",
+    "category": "city_name"
+  },
+  {
+    "alias": "japan",
+    "iana_id": "Asia/Tokyo",
+    "category": "country_name"
+  },
+  {
+    "alias": "jeddah",
+    "iana_id": "Asia/Riyadh",
+    "category": "city_name"
+  },
+  {
+    "alias": "jerusalem",
+    "iana_id": "Asia/Jerusalem",
+    "category": "city_name"
+  },
+  {
+    "alias": "jfk",
+    "iana_id": "America/New_York",
+    "category": "airport_code"
+  },
+  {
+    "alias": "jkt",
+    "iana_id": "Asia/Jakarta",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "jnb",
+    "iana_id": "Africa/Johannesburg",
+    "category": "airport_code"
+  },
+  {
+    "alias": "johannesburg",
+    "iana_id": "Africa/Johannesburg",
+    "category": "city_name"
+  },
+  {
+    "alias": "jst",
+    "iana_id": "Asia/Tokyo",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "kampala",
+    "iana_id": "Africa/Kampala",
+    "category": "city_name"
+  },
+  {
+    "alias": "karachi",
+    "iana_id": "Asia/Karachi",
+    "category": "city_name"
+  },
+  {
+    "alias": "kathmandu",
+    "iana_id": "Asia/Kathmandu",
+    "category": "city_name"
+  },
+  {
+    "alias": "kenya",
+    "iana_id": "Africa/Nairobi",
+    "category": "country_name"
+  },
+  {
+    "alias": "kiev",
+    "iana_id": "Europe/Kyiv",
+    "category": "city_name"
+  },
+  {
+    "alias": "kigali",
+    "iana_id": "Africa/Kigali",
+    "category": "city_name"
+  },
+  {
+    "alias": "kix",
+    "iana_id": "Asia/Tokyo",
+    "category": "airport_code"
+  },
+  {
+    "alias": "kolkata",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_name"
+  },
+  {
+    "alias": "korea",
+    "iana_id": "Asia/Seoul",
+    "category": "country_name"
+  },
+  {
+    "alias": "kst",
+    "iana_id": "Asia/Seoul",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "kuala lumpur",
+    "iana_id": "Asia/Kuala_Lumpur",
+    "category": "city_name"
+  },
+  {
+    "alias": "kul",
+    "iana_id": "Asia/Kuala_Lumpur",
+    "category": "airport_code"
+  },
+  {
+    "alias": "kuwait city",
+    "iana_id": "Asia/Kuwait",
+    "category": "city_name"
+  },
+  {
+    "alias": "kyiv",
+    "iana_id": "Europe/Kyiv",
+    "category": "city_name"
+  },
+  {
+    "alias": "la",
+    "iana_id": "America/Los_Angeles",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "lagos",
+    "iana_id": "Africa/Lagos",
+    "category": "city_name"
+  },
+  {
+    "alias": "lahore",
+    "iana_id": "Asia/Karachi",
+    "category": "city_name"
+  },
+  {
+    "alias": "las",
+    "iana_id": "America/Los_Angeles",
+    "category": "airport_code"
+  },
+  {
+    "alias": "las vegas",
+    "iana_id": "America/Los_Angeles",
+    "category": "city_name"
+  },
+  {
+    "alias": "lax",
+    "iana_id": "America/Los_Angeles",
+    "category": "airport_code"
+  },
+  {
+    "alias": "ldn",
+    "iana_id": "Europe/London",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "lga",
+    "iana_id": "America/New_York",
+    "category": "airport_code"
+  },
+  {
+    "alias": "lgw",
+    "iana_id": "Europe/London",
+    "category": "airport_code"
+  },
+  {
+    "alias": "lhr",
+    "iana_id": "Europe/London",
+    "category": "airport_code"
+  },
+  {
+    "alias": "lima",
+    "iana_id": "America/Lima",
+    "category": "city_name"
+  },
+  {
+    "alias": "lisbon",
+    "iana_id": "Europe/Lisbon",
+    "category": "city_name"
+  },
+  {
+    "alias": "lon",
+    "iana_id": "Europe/London",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "london",
+    "iana_id": "Europe/London",
+    "category": "city_name"
+  },
+  {
+    "alias": "los angeles",
+    "iana_id": "America/Los_Angeles",
+    "category": "city_name"
+  },
+  {
+    "alias": "luxembourg",
+    "iana_id": "Europe/Luxembourg",
+    "category": "city_name"
+  },
+  {
+    "alias": "mad",
+    "iana_id": "Europe/Madrid",
+    "category": "airport_code"
+  },
+  {
+    "alias": "madrid",
+    "iana_id": "Europe/Madrid",
+    "category": "city_name"
+  },
+  {
+    "alias": "malaysia",
+    "iana_id": "Asia/Kuala_Lumpur",
+    "category": "country_name"
+  },
+  {
+    "alias": "manchester",
+    "iana_id": "Europe/London",
+    "category": "city_name"
+  },
+  {
+    "alias": "manila",
+    "iana_id": "Asia/Manila",
+    "category": "city_name"
+  },
+  {
+    "alias": "mdt",
+    "iana_id": "America/Denver",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "mdw",
+    "iana_id": "America/Chicago",
+    "category": "airport_code"
+  },
+  {
+    "alias": "mel",
+    "iana_id": "Australia/Melbourne",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "melbourne",
+    "iana_id": "Australia/Melbourne",
+    "category": "city_name"
+  },
+  {
+    "alias": "mex",
+    "iana_id": "America/Mexico_City",
+    "category": "airport_code"
+  },
+  {
+    "alias": "mexico",
+    "iana_id": "America/Mexico_City",
+    "category": "country_name"
+  },
+  {
+    "alias": "mexico city",
+    "iana_id": "America/Mexico_City",
+    "category": "city_name"
+  },
+  {
+    "alias": "mia",
+    "iana_id": "America/New_York",
+    "category": "airport_code"
+  },
+  {
+    "alias": "miami",
+    "iana_id": "America/New_York",
+    "category": "city_name"
+  },
+  {
+    "alias": "milan",
+    "iana_id": "Europe/Rome",
+    "category": "city_name"
+  },
+  {
+    "alias": "minneapolis",
+    "iana_id": "America/Chicago",
+    "category": "city_name"
+  },
+  {
+    "alias": "mnl",
+    "iana_id": "Asia/Manila",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "monterrey",
+    "iana_id": "America/Monterrey",
+    "category": "city_name"
+  },
+  {
+    "alias": "montevideo",
+    "iana_id": "America/Montevideo",
+    "category": "city_name"
+  },
+  {
+    "alias": "montreal",
+    "iana_id": "America/Toronto",
+    "category": "city_name"
+  },
+  {
+    "alias": "morocco",
+    "iana_id": "Africa/Casablanca",
+    "category": "country_name"
+  },
+  {
+    "alias": "moscow",
+    "iana_id": "Europe/Moscow",
+    "category": "city_name"
+  },
+  {
+    "alias": "mountain",
+    "iana_id": "America/Denver",
+    "category": "region_alias"
+  },
+  {
+    "alias": "msp",
+    "iana_id": "America/Chicago",
+    "category": "airport_code"
+  },
+  {
+    "alias": "mst",
+    "iana_id": "America/Denver",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "mt",
+    "iana_id": "America/Denver",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "mtl",
+    "iana_id": "America/Toronto",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "muc",
+    "iana_id": "Europe/Berlin",
+    "category": "airport_code"
+  },
+  {
+    "alias": "mumbai",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_name"
+  },
+  {
+    "alias": "munich",
+    "iana_id": "Europe/Berlin",
+    "category": "city_name"
+  },
+  {
+    "alias": "muscat",
+    "iana_id": "Asia/Muscat",
+    "category": "city_name"
+  },
+  {
+    "alias": "myanmar",
+    "iana_id": "Asia/Yangon",
+    "category": "country_name"
+  },
+  {
+    "alias": "münchen",
+    "iana_id": "Europe/Berlin",
+    "category": "city_name"
+  },
+  {
+    "alias": "nairobi",
+    "iana_id": "Africa/Nairobi",
+    "category": "city_name"
+  },
+  {
+    "alias": "nbo",
+    "iana_id": "Africa/Nairobi",
+    "category": "airport_code"
+  },
+  {
+    "alias": "nepal",
+    "iana_id": "Asia/Kathmandu",
+    "category": "country_name"
+  },
+  {
+    "alias": "netherlands",
+    "iana_id": "Europe/Amsterdam",
+    "category": "country_name"
+  },
+  {
+    "alias": "new delhi",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_name"
+  },
+  {
+    "alias": "new york",
+    "iana_id": "America/New_York",
+    "category": "city_name"
+  },
+  {
+    "alias": "new york city",
+    "iana_id": "America/New_York",
+    "category": "city_name"
+  },
+  {
+    "alias": "new zealand",
+    "iana_id": "Pacific/Auckland",
+    "category": "country_name"
+  },
+  {
+    "alias": "nigeria",
+    "iana_id": "Africa/Lagos",
+    "category": "country_name"
+  },
+  {
+    "alias": "norway",
+    "iana_id": "Europe/Oslo",
+    "category": "country_name"
+  },
+  {
+    "alias": "nrt",
+    "iana_id": "Asia/Tokyo",
+    "category": "airport_code"
+  },
+  {
+    "alias": "ny",
+    "iana_id": "America/New_York",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "nyc",
+    "iana_id": "America/New_York",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "nzdt",
+    "iana_id": "Pacific/Auckland",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "nzst",
+    "iana_id": "Pacific/Auckland",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "oak",
+    "iana_id": "America/Los_Angeles",
+    "category": "airport_code"
+  },
+  {
+    "alias": "ord",
+    "iana_id": "America/Chicago",
+    "category": "airport_code"
+  },
+  {
+    "alias": "ory",
+    "iana_id": "Europe/Paris",
+    "category": "airport_code"
+  },
+  {
+    "alias": "osaka",
+    "iana_id": "Asia/Tokyo",
+    "category": "city_name"
+  },
+  {
+    "alias": "oslo",
+    "iana_id": "Europe/Oslo",
+    "category": "city_name"
+  },
+  {
+    "alias": "ottawa",
+    "iana_id": "America/Toronto",
+    "category": "city_name"
+  },
+  {
+    "alias": "pacific",
+    "iana_id": "America/Los_Angeles",
+    "category": "region_alias"
+  },
+  {
+    "alias": "pakistan",
+    "iana_id": "Asia/Karachi",
+    "category": "country_name"
+  },
+  {
+    "alias": "panama city",
+    "iana_id": "America/Panama",
+    "category": "city_name"
+  },
+  {
+    "alias": "par",
+    "iana_id": "Europe/Paris",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "paris",
+    "iana_id": "Europe/Paris",
+    "category": "city_name"
+  },
+  {
+    "alias": "pdt",
+    "iana_id": "America/Los_Angeles",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "pek",
+    "iana_id": "Asia/Shanghai",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "per",
+    "iana_id": "Australia/Perth",
+    "category": "airport_code"
+  },
+  {
+    "alias": "perth",
+    "iana_id": "Australia/Perth",
+    "category": "city_name"
+  },
+  {
+    "alias": "peru",
+    "iana_id": "America/Lima",
+    "category": "country_name"
+  },
+  {
+    "alias": "philadelphia",
+    "iana_id": "America/New_York",
+    "category": "city_name"
+  },
+  {
+    "alias": "philippines",
+    "iana_id": "Asia/Manila",
+    "category": "country_name"
+  },
+  {
+    "alias": "phl",
+    "iana_id": "America/New_York",
+    "category": "airport_code"
+  },
+  {
+    "alias": "phnom penh",
+    "iana_id": "Asia/Phnom_Penh",
+    "category": "city_name"
+  },
+  {
+    "alias": "phoenix",
+    "iana_id": "America/Phoenix",
+    "category": "city_name"
+  },
+  {
+    "alias": "phuket",
+    "iana_id": "Asia/Bangkok",
+    "category": "city_name"
+  },
+  {
+    "alias": "poland",
+    "iana_id": "Europe/Warsaw",
+    "category": "country_name"
+  },
+  {
+    "alias": "portland",
+    "iana_id": "America/Los_Angeles",
+    "category": "city_name"
+  },
+  {
+    "alias": "portugal",
+    "iana_id": "Europe/Lisbon",
+    "category": "country_name"
+  },
+  {
+    "alias": "prague",
+    "iana_id": "Europe/Prague",
+    "category": "city_name"
+  },
+  {
+    "alias": "pst",
+    "iana_id": "America/Los_Angeles",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "pt",
+    "iana_id": "America/Los_Angeles",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "pune",
+    "iana_id": "Asia/Kolkata",
+    "category": "city_name"
+  },
+  {
+    "alias": "pvg",
+    "iana_id": "Asia/Shanghai",
+    "category": "airport_code"
+  },
+  {
+    "alias": "qatar",
+    "iana_id": "Asia/Qatar",
+    "category": "country_name"
+  },
+  {
+    "alias": "quito",
+    "iana_id": "America/Guayaquil",
+    "category": "city_name"
+  },
+  {
+    "alias": "reykjavik",
+    "iana_id": "Atlantic/Reykjavik",
+    "category": "city_name"
+  },
+  {
+    "alias": "riga",
+    "iana_id": "Europe/Riga",
+    "category": "city_name"
+  },
+  {
+    "alias": "rio",
+    "iana_id": "America/Sao_Paulo",
+    "category": "city_name"
+  },
+  {
+    "alias": "rio de janeiro",
+    "iana_id": "America/Sao_Paulo",
+    "category": "city_name"
+  },
+  {
+    "alias": "riyadh",
+    "iana_id": "Asia/Riyadh",
+    "category": "city_name"
+  },
+  {
+    "alias": "romania",
+    "iana_id": "Europe/Bucharest",
+    "category": "country_name"
+  },
+  {
+    "alias": "rome",
+    "iana_id": "Europe/Rome",
+    "category": "city_name"
+  },
+  {
+    "alias": "russia",
+    "iana_id": "Europe/Moscow",
+    "category": "country_name"
+  },
+  {
+    "alias": "saigon",
+    "iana_id": "Asia/Ho_Chi_Minh",
+    "category": "city_name"
+  },
+  {
+    "alias": "saint petersburg",
+    "iana_id": "Europe/Moscow",
+    "category": "city_name"
+  },
+  {
+    "alias": "salt lake city",
+    "iana_id": "America/Denver",
+    "category": "city_name"
+  },
+  {
+    "alias": "san antonio",
+    "iana_id": "America/Chicago",
+    "category": "city_name"
+  },
+  {
+    "alias": "san diego",
+    "iana_id": "America/Los_Angeles",
+    "category": "city_name"
+  },
+  {
+    "alias": "san francisco",
+    "iana_id": "America/Los_Angeles",
+    "category": "city_name"
+  },
+  {
+    "alias": "santiago",
+    "iana_id": "America/Santiago",
+    "category": "city_name"
+  },
+  {
+    "alias": "sao paulo",
+    "iana_id": "America/Sao_Paulo",
+    "category": "city_name"
+  },
+  {
+    "alias": "saudi arabia",
+    "iana_id": "Asia/Riyadh",
+    "category": "country_name"
+  },
+  {
+    "alias": "scl",
+    "iana_id": "America/Santiago",
+    "category": "airport_code"
+  },
+  {
+    "alias": "scotland",
+    "iana_id": "Europe/London",
+    "category": "country_name"
+  },
+  {
+    "alias": "sea",
+    "iana_id": "America/Los_Angeles",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "seattle",
+    "iana_id": "America/Los_Angeles",
+    "category": "city_name"
+  },
+  {
+    "alias": "sel",
+    "iana_id": "Asia/Seoul",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "seoul",
+    "iana_id": "Asia/Seoul",
+    "category": "city_name"
+  },
+  {
+    "alias": "sf",
+    "iana_id": "America/Los_Angeles",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "sfo",
+    "iana_id": "America/Los_Angeles",
+    "category": "airport_code"
+  },
+  {
+    "alias": "sg",
+    "iana_id": "Asia/Singapore",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "sgn",
+    "iana_id": "Asia/Ho_Chi_Minh",
+    "category": "airport_code"
+  },
+  {
+    "alias": "sgt",
+    "iana_id": "Asia/Singapore",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "sha",
+    "iana_id": "Asia/Shanghai",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "shanghai",
+    "iana_id": "Asia/Shanghai",
+    "category": "city_name"
+  },
+  {
+    "alias": "shenzhen",
+    "iana_id": "Asia/Shanghai",
+    "category": "city_name"
+  },
+  {
+    "alias": "sin",
+    "iana_id": "Asia/Singapore",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "singapore",
+    "iana_id": "Asia/Singapore",
+    "category": "country_name"
+  },
+  {
+    "alias": "sjc",
+    "iana_id": "America/Los_Angeles",
+    "category": "airport_code"
+  },
+  {
+    "alias": "sofia",
+    "iana_id": "Europe/Sofia",
+    "category": "city_name"
+  },
+  {
+    "alias": "south africa",
+    "iana_id": "Africa/Johannesburg",
+    "category": "country_name"
+  },
+  {
+    "alias": "south korea",
+    "iana_id": "Asia/Seoul",
+    "category": "country_name"
+  },
+  {
+    "alias": "spain",
+    "iana_id": "Europe/Madrid",
+    "category": "country_name"
+  },
+  {
+    "alias": "sri lanka",
+    "iana_id": "Asia/Colombo",
+    "category": "country_name"
+  },
+  {
+    "alias": "st petersburg",
+    "iana_id": "Europe/Moscow",
+    "category": "city_name"
+  },
+  {
+    "alias": "stn",
+    "iana_id": "Europe/London",
+    "category": "airport_code"
+  },
+  {
+    "alias": "stockholm",
+    "iana_id": "Europe/Stockholm",
+    "category": "city_name"
+  },
+  {
+    "alias": "suva",
+    "iana_id": "Pacific/Fiji",
+    "category": "city_name"
+  },
+  {
+    "alias": "svo",
+    "iana_id": "Europe/Moscow",
+    "category": "airport_code"
+  },
+  {
+    "alias": "sweden",
+    "iana_id": "Europe/Stockholm",
+    "category": "country_name"
+  },
+  {
+    "alias": "switzerland",
+    "iana_id": "Europe/Zurich",
+    "category": "country_name"
+  },
+  {
+    "alias": "syd",
+    "iana_id": "Australia/Sydney",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "sydney",
+    "iana_id": "Australia/Sydney",
+    "category": "city_name"
+  },
+  {
+    "alias": "são paulo",
+    "iana_id": "America/Sao_Paulo",
+    "category": "city_name"
+  },
+  {
+    "alias": "taipei",
+    "iana_id": "Asia/Taipei",
+    "category": "city_name"
+  },
+  {
+    "alias": "taiwan",
+    "iana_id": "Asia/Taipei",
+    "category": "country_name"
+  },
+  {
+    "alias": "tallinn",
+    "iana_id": "Europe/Tallinn",
+    "category": "city_name"
+  },
+  {
+    "alias": "tashkent",
+    "iana_id": "Asia/Tashkent",
+    "category": "city_name"
+  },
+  {
+    "alias": "tbilisi",
+    "iana_id": "Asia/Tbilisi",
+    "category": "city_name"
+  },
+  {
+    "alias": "tehran",
+    "iana_id": "Asia/Tehran",
+    "category": "city_name"
+  },
+  {
+    "alias": "tel aviv",
+    "iana_id": "Asia/Jerusalem",
+    "category": "city_name"
+  },
+  {
+    "alias": "thailand",
+    "iana_id": "Asia/Bangkok",
+    "category": "country_name"
+  },
+  {
+    "alias": "tok",
+    "iana_id": "Asia/Tokyo",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "tokyo",
+    "iana_id": "Asia/Tokyo",
+    "category": "city_name"
+  },
+  {
+    "alias": "toronto",
+    "iana_id": "America/Toronto",
+    "category": "city_name"
+  },
+  {
+    "alias": "tpe",
+    "iana_id": "Asia/Taipei",
+    "category": "airport_code"
+  },
+  {
+    "alias": "tunis",
+    "iana_id": "Africa/Tunis",
+    "category": "city_name"
+  },
+  {
+    "alias": "turkey",
+    "iana_id": "Europe/Istanbul",
+    "category": "country_name"
+  },
+  {
+    "alias": "tyo",
+    "iana_id": "Asia/Tokyo",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "uae",
+    "iana_id": "Asia/Dubai",
+    "category": "country_name"
+  },
+  {
+    "alias": "uk",
+    "iana_id": "Europe/London",
+    "category": "country_name"
+  },
+  {
+    "alias": "ukraine",
+    "iana_id": "Europe/Kyiv",
+    "category": "country_name"
+  },
+  {
+    "alias": "ulaanbaatar",
+    "iana_id": "Asia/Ulaanbaatar",
+    "category": "city_name"
+  },
+  {
+    "alias": "united arab emirates",
+    "iana_id": "Asia/Dubai",
+    "category": "country_name"
+  },
+  {
+    "alias": "united kingdom",
+    "iana_id": "Europe/London",
+    "category": "country_name"
+  },
+  {
+    "alias": "utc",
+    "iana_id": "GMT",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "vancouver",
+    "iana_id": "America/Vancouver",
+    "category": "city_name"
+  },
+  {
+    "alias": "vienna",
+    "iana_id": "Europe/Vienna",
+    "category": "city_name"
+  },
+  {
+    "alias": "vietnam",
+    "iana_id": "Asia/Ho_Chi_Minh",
+    "category": "country_name"
+  },
+  {
+    "alias": "vilnius",
+    "iana_id": "Europe/Vilnius",
+    "category": "city_name"
+  },
+  {
+    "alias": "warsaw",
+    "iana_id": "Europe/Warsaw",
+    "category": "city_name"
+  },
+  {
+    "alias": "washington",
+    "iana_id": "America/New_York",
+    "category": "city_name"
+  },
+  {
+    "alias": "washington dc",
+    "iana_id": "America/New_York",
+    "category": "city_name"
+  },
+  {
+    "alias": "wellington",
+    "iana_id": "Pacific/Auckland",
+    "category": "city_name"
+  },
+  {
+    "alias": "west coast",
+    "iana_id": "America/Los_Angeles",
+    "category": "region_alias"
+  },
+  {
+    "alias": "wet",
+    "iana_id": "Europe/Lisbon",
+    "category": "tz_abbreviation"
+  },
+  {
+    "alias": "winnipeg",
+    "iana_id": "America/Winnipeg",
+    "category": "city_name"
+  },
+  {
+    "alias": "yangon",
+    "iana_id": "Asia/Yangon",
+    "category": "city_name"
+  },
+  {
+    "alias": "yerevan",
+    "iana_id": "Asia/Yerevan",
+    "category": "city_name"
+  },
+  {
+    "alias": "yvr",
+    "iana_id": "America/Vancouver",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "yyz",
+    "iana_id": "America/Toronto",
+    "category": "city_abbreviation"
+  },
+  {
+    "alias": "zagreb",
+    "iana_id": "Europe/Zagreb",
+    "category": "city_name"
+  },
+  {
+    "alias": "zrh",
+    "iana_id": "Europe/Zurich",
+    "category": "airport_code"
+  },
+  {
+    "alias": "zurich",
+    "iana_id": "Europe/Zurich",
+    "category": "city_name"
+  },
+  {
+    "alias": "zürich",
+    "iana_id": "Europe/Zurich",
+    "category": "city_name"
+  }
+]
