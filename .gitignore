@@ -1,5 +1,6 @@
 .build/
 TimeZoner.app/
+*.dmg
 .swiftpm/
 *.xcodeproj/
 DerivedData/

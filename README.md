@@ -30,21 +30,29 @@ Type `3pm SF` and instantly see what time that is in Bangkok, New York, London, 
 add Hong Kong       remove Europe       12 (bare → active zone)
 ```
 
-## Install
+## Download
 
-Requires macOS 14+ and Swift 5.9+.
+**[Download the latest DMG](https://github.com/nembal/Timezoner/releases/latest)** (Apple Silicon, ~440KB)
+
+1. Open the DMG
+2. Drag TimeZoner to Applications
+3. First launch: right-click the app → **Open** (required for unsigned apps)
+
+Requires macOS 14+ (Sonoma or later). Apple Silicon only (M1/M2/M3/M4/M5).
+
+## Build from source
 
 ```bash
 git clone https://github.com/nembal/Timezoner.git
-cd TimeZoner
+cd Timezoner
 chmod +x build.sh
 ./build.sh
 open TimeZoner.app
 ```
 
-### Build note
+To create a DMG: `./scripts/create-dmg.sh 0.1.0`
 
-If `swift build` fails with a linker error about `PackageDescription`, your Command Line Tools may have a known mismatch. The included `fix-spm.sh` creates a VFS overlay workaround, and `build.sh` applies it automatically. Installing Xcode resolves this permanently.
+If `swift build` fails with a linker error about `PackageDescription`, your Command Line Tools may have a known mismatch. `build.sh` applies a workaround automatically. Installing Xcode resolves this permanently.
 
 ## Architecture
 
