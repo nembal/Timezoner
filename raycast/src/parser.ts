@@ -32,7 +32,12 @@ function parseTime(input: string): ParsedQuery | undefined {
     if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return undefined;
     const tz = resolveTimezone(zoneStr);
     if (!tz) return undefined;
-    return { hour, minute, sourceTimezone: tz, sourceLabel: zoneStr.toLowerCase() };
+    return {
+      hour,
+      minute,
+      sourceTimezone: tz,
+      sourceLabel: zoneStr.toLowerCase(),
+    };
   }
 
   // Pattern B: HHMM [am/pm] ZONE
@@ -44,7 +49,12 @@ function parseTime(input: string): ParsedQuery | undefined {
     if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return undefined;
     const tz = resolveTimezone(zoneStr);
     if (!tz) return undefined;
-    return { hour, minute, sourceTimezone: tz, sourceLabel: zoneStr.toLowerCase() };
+    return {
+      hour,
+      minute,
+      sourceTimezone: tz,
+      sourceLabel: zoneStr.toLowerCase(),
+    };
   }
 
   // Pattern C: H am/pm ZONE
@@ -55,7 +65,12 @@ function parseTime(input: string): ParsedQuery | undefined {
     if (hour < 0 || hour > 23) return undefined;
     const tz = resolveTimezone(zoneStr);
     if (!tz) return undefined;
-    return { hour, minute: 0, sourceTimezone: tz, sourceLabel: zoneStr.toLowerCase() };
+    return {
+      hour,
+      minute: 0,
+      sourceTimezone: tz,
+      sourceLabel: zoneStr.toLowerCase(),
+    };
   }
 
   return undefined;
@@ -75,7 +90,12 @@ function parseSpecialWord(input: string): ParsedQuery | undefined {
   const tz = resolveTimezone(zoneStr);
   if (!tz) return undefined;
 
-  return { hour, minute: 0, sourceTimezone: tz, sourceLabel: zoneStr.toLowerCase() };
+  return {
+    hour,
+    minute: 0,
+    sourceTimezone: tz,
+    sourceLabel: zoneStr.toLowerCase(),
+  };
 }
 
 function parseTimeInContext(input: string): ParsedQuery | undefined {

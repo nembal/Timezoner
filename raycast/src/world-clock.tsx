@@ -1,7 +1,19 @@
-import { Action, ActionPanel, Color, getPreferenceValues, Icon, List } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Color,
+  getPreferenceValues,
+  Icon,
+  List,
+} from "@raycast/api";
 import { useMemo } from "react";
 import { resolveZones } from "./aliases";
-import { formatTime, formatDate, formatForCopy, formatAllForCopy } from "./formatter";
+import {
+  formatTime,
+  formatDate,
+  formatForCopy,
+  formatAllForCopy,
+} from "./formatter";
 import type { ZoneResult } from "./types";
 
 interface Preferences {
@@ -12,7 +24,10 @@ interface Preferences {
 
 export default function WorldClock() {
   const prefs = getPreferenceValues<Preferences>();
-  const zones = useMemo(() => resolveZones(prefs.defaultZones), [prefs.defaultZones]);
+  const zones = useMemo(
+    () => resolveZones(prefs.defaultZones),
+    [prefs.defaultZones],
+  );
   const now = new Date();
 
   const results: ZoneResult[] = zones.map((zone) => ({
@@ -43,15 +58,26 @@ export default function WorldClock() {
               <ActionPanel>
                 <Action.CopyToClipboard
                   title="Copy Time"
-                  content={formatForCopy(now, zone.timezone, zone.label, prefs.timeFormat, prefs.copyFormat)}
+                  content={formatForCopy(
+                    now,
+                    zone.timezone,
+                    zone.label,
+                    prefs.timeFormat,
+                    prefs.copyFormat,
+                  )}
                 />
                 <Action.CopyToClipboard
                   title="Copy All Times"
-                  content={formatAllForCopy(now, zones, prefs.timeFormat, prefs.copyFormat)}
+                  content={formatAllForCopy(
+                    now,
+                    zones,
+                    prefs.timeFormat,
+                    prefs.copyFormat,
+                  )}
                   shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
                 />
                 <Action.Open
-                  title="Open in TimeZoner"
+                  title="Open in Timezoner"
                   target="timezoner://"
                   shortcut={{ modifiers: ["cmd"], key: "o" }}
                 />

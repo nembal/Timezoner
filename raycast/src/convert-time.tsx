@@ -1,8 +1,21 @@
-import { Action, ActionPanel, Color, getPreferenceValues, Icon, List } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Color,
+  getPreferenceValues,
+  Icon,
+  List,
+} from "@raycast/api";
 import { useState, useMemo } from "react";
 import { parseQuery } from "./parser";
 import { resolveZones } from "./aliases";
-import { buildReferenceDate, formatTime, formatDate, formatForCopy, formatAllForCopy } from "./formatter";
+import {
+  buildReferenceDate,
+  formatTime,
+  formatDate,
+  formatForCopy,
+  formatAllForCopy,
+} from "./formatter";
 import type { ZoneResult } from "./types";
 
 interface Preferences {
@@ -13,7 +26,10 @@ interface Preferences {
 
 export default function ConvertTime() {
   const prefs = getPreferenceValues<Preferences>();
-  const zones = useMemo(() => resolveZones(prefs.defaultZones), [prefs.defaultZones]);
+  const zones = useMemo(
+    () => resolveZones(prefs.defaultZones),
+    [prefs.defaultZones],
+  );
   const [searchText, setSearchText] = useState("");
 
   const parsed = useMemo(
@@ -22,7 +38,10 @@ export default function ConvertTime() {
   );
 
   const refDate = useMemo(
-    () => (parsed ? buildReferenceDate(parsed.hour, parsed.minute, parsed.sourceTimezone) : new Date()),
+    () =>
+      parsed
+        ? buildReferenceDate(parsed.hour, parsed.minute, parsed.sourceTimezone)
+        : new Date(),
     [parsed],
   );
 
@@ -33,7 +52,9 @@ export default function ConvertTime() {
         time: formatTime(refDate, zone.timezone, prefs.timeFormat),
         date: formatDate(refDate, zone.timezone),
         isSource: parsed ? zone.timezone === parsed.sourceTimezone : false,
-        isTarget: parsed?.targetTimezone ? zone.timezone === parsed.targetTimezone : false,
+        isTarget: parsed?.targetTimezone
+          ? zone.timezone === parsed.targetTimezone
+          : false,
       })),
     [refDate, parsed, zones, prefs.timeFormat],
   );
@@ -69,15 +90,26 @@ export default function ConvertTime() {
               <ActionPanel>
                 <Action.CopyToClipboard
                   title="Copy Time"
-                  content={formatForCopy(refDate, zone.timezone, zone.label, prefs.timeFormat, prefs.copyFormat)}
+                  content={formatForCopy(
+                    refDate,
+                    zone.timezone,
+                    zone.label,
+                    prefs.timeFormat,
+                    prefs.copyFormat,
+                  )}
                 />
                 <Action.CopyToClipboard
                   title="Copy All Times"
-                  content={formatAllForCopy(refDate, zones, prefs.timeFormat, prefs.copyFormat)}
+                  content={formatAllForCopy(
+                    refDate,
+                    zones,
+                    prefs.timeFormat,
+                    prefs.copyFormat,
+                  )}
                   shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
                 />
                 <Action.Open
-                  title="Open in TimeZoner"
+                  title="Open in Timezoner"
                   target="timezoner://"
                   shortcut={{ modifiers: ["cmd"], key: "o" }}
                 />

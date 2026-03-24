@@ -5,7 +5,11 @@ type CopyFormat = "time-tz" | "24h-tz" | "time-city";
  * Format a time for display.
  * Uses Intl.DateTimeFormat — no external dependencies.
  */
-export function formatTime(date: Date, timezone: string, format: TimeFormat): string {
+export function formatTime(
+  date: Date,
+  timezone: string,
+  format: TimeFormat,
+): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: timezone,
     hour: "numeric",
@@ -66,7 +70,9 @@ export function formatAllForCopy(
   format: TimeFormat,
   copyFormat: CopyFormat,
 ): string {
-  return zones.map((z) => formatForCopy(date, z.timezone, z.label, format, copyFormat)).join("\n");
+  return zones
+    .map((z) => formatForCopy(date, z.timezone, z.label, format, copyFormat))
+    .join("\n");
 }
 
 /**
@@ -75,7 +81,11 @@ export function formatAllForCopy(
  * Strategy: start with today's date in the target timezone, then adjust
  * to get the desired local time.
  */
-export function buildReferenceDate(hour: number, minute: number, timezone: string): Date {
+export function buildReferenceDate(
+  hour: number,
+  minute: number,
+  timezone: string,
+): Date {
   // Get today's date parts in the target timezone
   const now = new Date();
   const parts = new Intl.DateTimeFormat("en-US", {
