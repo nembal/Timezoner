@@ -4,7 +4,7 @@ import TimeZonerLib
 
 class FloatingPanel: NSPanel {
     private let positionKey = "panelPosition"
-    private let menuBarThreshold: CGFloat = 10 // pixels from top to count as "hugging"
+    private let menuBarThreshold: CGFloat = 30 // pixels from top to count as "hugging"
 
     var isHuggingMenuBar: Bool = true {
         didSet {
@@ -82,10 +82,10 @@ class FloatingPanel: NSPanel {
 
     private func checkIfHuggingMenuBar() {
         guard let screen = NSScreen.main else { return }
-        let titleBarHeight = frame.height - contentRect(forFrameRect: frame).height
         let screenTop = screen.visibleFrame.maxY
-        let windowContentTop = frame.maxY - titleBarHeight
-        let newHugging = abs(windowContentTop - screenTop) < menuBarThreshold
+        // Check if the window's top is near the visible screen top
+        let gap = screenTop - frame.origin.y - frame.height
+        let newHugging = abs(gap) < menuBarThreshold
         if newHugging != isHuggingMenuBar {
             isHuggingMenuBar = newHugging
         }
