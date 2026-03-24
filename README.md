@@ -35,7 +35,7 @@ add Hong Kong       remove Europe       12 (bare → active zone)
 Requires macOS 14+ and Swift 5.9+.
 
 ```bash
-git clone https://github.com/youruser/TimeZoner.git
+git clone https://github.com/nembal/Timezoner.git
 cd TimeZoner
 chmod +x build.sh
 ./build.sh

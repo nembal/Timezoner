@@ -2,6 +2,8 @@
 
 A lightweight macOS floating-panel app for instant timezone conversion. Built for people who live in one timezone and work across several others.
 
+**Repo:** https://github.com/nembal/Timezoner
+
 ## Quick Start
 
 ```bash
@@ -9,7 +11,7 @@ A lightweight macOS floating-panel app for instant timezone conversion. Built fo
 open TimeZoner.app  # launches the app
 ```
 
-Build requires the SPM fix wrapper (auto-applied by `build.sh`) due to a CLT toolchain mismatch. Tests run via:
+Build requires the SPM fix wrapper (auto-applied by `build.sh`) due to a CLT toolchain mismatch. If you have Xcode installed, plain `swift build` works. Tests:
 
 ```bash
 SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests
@@ -17,44 +19,29 @@ SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests
 
 ## Vision
 
-Replace the "google what time is it in SF" workflow with a single floating panel that's always one keystroke away. Type natural language ("11:30am BKK", "3p SF", "noon NYC"), get instant results across all your zones. No accounts, no network, no friction.
-
-Future: Raycast extension, menu bar popover mode, flight arrival time conversion, widgets.
+Replace the "google what time is it in SF" workflow with a single floating panel that's always one keystroke away. Type natural language, get instant results across all your zones. No accounts, no network, no friction.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────┐
-│                  FloatingPanel                   │
-│  (NSPanel, always-on-top, .ultraThinMaterial)    │
-│                                                  │
-│  ┌─────────────────────────────────────────────┐ │
-│  │  ChatField (natural language input)         │ │
-│  │  "11:30am SF, +Tokyo, -NYC..."              │ │
-│  └──────────────────────┬──────────────────────┘ │
-│                         │ InputParser.parse()     │
-│                         ▼                         │
-│  ┌──────────────────────────────────────────────┐│
-│  │  TimeState (@Observable)                     ││
-│  │  Single source of truth: referenceDate       ││
-│  │  All inputs update this, all views read it   ││
-│  └──────────────────────┬───────────────────────┘│
-│                         │                         │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐    │
-│  │Bangkok │ │  SF    │ │  NY    │ │ Europe │    │
-│  │11:30AM │ │9:30PM  │ │12:30AM │ │ 5:30AM │    │
-│  │ZoneCard│ │ZoneCard│ │ZoneCard│ │ZoneCard│    │
-│  └────────┘ └────────┘ └────────┘ └────────┘    │
-│                                                  │
-│  ┌─────────────────────────────────────────────┐ │
-│  │  TimeScrubber (30-min increments, ±12h)     │ │
-│  └─────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│  ─── drag pill ───                           │
+│  [chat field]                    [Now]  [?]  │
+│                                              │
+│  [BKK] →+14h→ [SF] →+3h→ [NY] →+5h→ [LDN]  │
+│   drag pill    drag pill   drag pill         │
+└──────────────────────────────────────────────┘
      ▲
      │ NSStatusItem (clock icon in menu bar)
+
+TimeState (@Observable)  ← single source of truth (one Date)
+ZoneStore (@Observable)  ← user's zone list (UserDefaults)
+InputParser              ← regex-based forgiving NL parser
+TimezoneAliases          ← 376-entry lookup table
+TimeFormatter            ← cached DateFormatter instances
 ```
 
-**Data flow:** Every input (chat field, card edit, scrubber drag) updates `TimeState.referenceDate`. Every zone card is a pure function: `referenceDate → formatted time in that zone`. One source of truth, many views.
+**Data flow:** Every input (chat, card edit) → `TimeState.setTime()` → all cards recompute as pure functions of that date.
 
 ## Project Structure
 
@@ -62,26 +49,28 @@ Future: Raycast extension, menu bar popover mode, flight arrival time conversion
 Sources/
   App/
     TimeZonerApp.swift      # @main, AppDelegate, NSStatusItem
-    FloatingPanel.swift     # NSPanel subclass (floating, translucent)
+    FloatingPanel.swift     # Borderless NSPanel (floating, position memory)
   Models/
-    TimeState.swift         # @Observable — the reference moment being converted
+    TimeState.swift         # @Observable — the reference moment
     ZoneInfo.swift          # Single zone (id, label, IANA timezone id)
   Stores/
-    ZoneStore.swift         # @Observable — user's zone list, persisted to UserDefaults
+    ZoneStore.swift         # @Observable — zone list, UserDefaults persistence
   Data/
-    TimezoneAliases.swift   # 376 entries: cities, abbreviations, airports → IANA ids
+    TimezoneAliases.swift   # 376 entries: cities, abbreviations, airports → IANA
   Parser/
-    InputParser.swift       # Regex-based forgiving time + zone parser
+    InputParser.swift       # Forgiving time + zone parser, cached regex
   Views/
-    ContentView.swift       # Main layout wiring ChatField + ZoneCardRow + TimeScrubber
-    ChatField.swift         # Top input field with auto-focus and shake-on-error
-    ZoneCard.swift          # Editable timezone card (click time to edit inline)
-    ZoneCardRow.swift       # Horizontal ScrollView of zone cards
-    TimeScrubber.swift      # Draggable horizontal time strip
+    ContentView.swift       # Main layout: chat + cards + highlights
+    ChatField.swift         # NL input with auto-focus, shake-on-error
+    ZoneCard.swift          # Editable time card, drag pill, hover controls
+    ZoneCardRow.swift       # Horizontal card row with time diffs + drag reorder
+    DragHandle.swift        # Window drag via manual mouse tracking
+    HelpPopover.swift       # Input format examples
+    Theme.swift             # Adaptive light/dark color palette
   Utilities/
-    TimeFormatter.swift     # formatTime, formatDate, relativeOffset helpers
+    TimeFormatter.swift     # Cached formatters, thread-safe
 Tests/
-    TimeZonerTests.swift    # Test runner (@main entry point)
+    TimeZonerTests.swift    # Test runner (@main)
     TimezoneAliasTests.swift
     TimeStateTests.swift
     ZoneStoreTests.swift
@@ -89,47 +78,48 @@ Tests/
     TimeFormatterTests.swift
 ```
 
-**Two SPM targets:**
+**Three SPM targets:**
 - `TimeZonerLib` (library) — all code except App/
 - `TimeZoner` (executable) — App/ files, depends on TimeZonerLib
-- `TimeZonerTests` (executable) — custom test runner (no XCTest/Xcode required)
+- `TimeZonerTests` (executable) — custom test runner (no XCTest required)
 
 ## Tech Stack
 
-- **SwiftUI** + **AppKit** (NSPanel for floating window)
-- **Swift Package Manager** — no Xcode project needed
-- **macOS 14+** (Observation framework for `@Observable`)
-- **No network, no API keys, no server** — everything is bundled
+- **SwiftUI** + **AppKit** (borderless NSPanel)
+- **Swift Package Manager** — no Xcode project
+- **macOS 14+** (Observation framework)
+- **Zero dependencies, zero network**
 
 ## Key Design Decisions
 
-- **`@Observable` (not `ObservableObject`)** — Uses the Observation framework (macOS 14+). Views use `@State` and `@Bindable`, not `@StateObject`/`@ObservedObject`.
-- **Executable test target** — No Xcode installed, XCTest unavailable. Tests are a standalone executable with a minimal assertion framework.
-- **Bundled alias data** — 376 static entries instead of external data files. Covers cities, abbreviations (SF, NYC, BKK), airport codes (SFO, JFK, LHR), country names, timezone abbreviations. No network lookup needed.
-- **Single source of truth** — `TimeState.referenceDate` is one absolute `Date`. Timezones are just formatting lenses on that same moment.
-
-## Data Sources Referenced
-
-- **[city-timezones](https://github.com/kevinroberts/city-timezones)** (161 stars) — JSON mapping of 7K cities to IANA timezone IDs. Used as reference for building our curated alias table.
-- **[mwgg/Airports](https://github.com/mwgg/Airports)** (725 stars) — 29K airports with IATA codes and timezones. Used as reference for airport code mappings.
-- **[Clocker](https://github.com/n0shake/clocker)** (600 stars) — Existing macOS timezone app. Studied for UI patterns (time slider concept). Our UI is modernized and horizontal.
-- **Apple `TimeZone` API** — Used as fallback for IANA identifiers and DST handling.
+- **`@Observable` not `ObservableObject`** — macOS 14+ Observation framework. Views use `@State`/`@Bindable`.
+- **Borderless NSPanel** — no title bar, no traffic lights. Custom drag handle with manual mouse tracking (avoids macOS tiling gestures).
+- **Menu bar hugging** — square top corners when docked to menu bar, rounded when floating.
+- **Executable test target** — standalone test runner, no XCTest/Xcode needed.
+- **376 bundled aliases** — cities, abbreviations, airport codes, countries, timezone abbrevs.
+- **Single source of truth** — `TimeState.referenceDate` is one absolute `Date`.
+- **Cached DateFormatters** — thread-safe FormatterCache with NSLock.
+- **Adaptive dark mode** — `NSColor(dynamicProvider:)` for all theme colors.
 
 ## Chat Parser Input Formats
 
-The parser is intentionally forgiving. All of these work:
-
 ```
-11:30am PT       11:30 am PT      1130am PT       1130 am PT
-1130 a BKK       3 p SF           11:30 a.m. NYC  3pm bangkok
-15:00 BKK        noon NYC         midnight CET
-+Tokyo           add HK           -SF             remove NYC
+11:30am SF        3pm bangkok       15:00 BKK
+1130 am PT        noon NYC          midnight CET
+1130am BKK in SF  +Tokyo            -NYC
+add Hong Kong     remove Europe     12 (bare → active zone)
 ```
 
-## Future Roadmap (v2)
+## Branches
 
-- Raycast extension for launch-from-anywhere
-- Menu bar popover mode (full UI in menu bar dropdown)
-- Flight tracking — type a flight number, see arrival time in your home timezone (AviationStack free tier)
+- `main` — stable, release-ready
+- `feature/timezone-map` — PRD for collapsible world timezone map (upcoming)
+
+## Future Roadmap
+
+- Interactive timezone map (PRD in `docs/prd/`)
+- Raycast extension
+- Flight tracking (AviationStack free tier)
 - macOS widget
-- Global hotkey for instant activation
+- Settings panel (default cities, theme, frosted glass toggle)
+- Global hotkey
