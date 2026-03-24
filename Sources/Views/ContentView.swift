@@ -5,6 +5,7 @@ public struct ContentView: View {
     @State private var zoneStore = ZoneStore()
     @State private var editingZoneId: UUID? = nil
     @State private var showingHelp = false
+    @State private var isHuggingMenuBar = true
 
     public init() {}
 
@@ -23,8 +24,8 @@ public struct ContentView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Drag handle
-            DragHandle()
+            // Drag handle — always present for dragging, but pill only visible when not hugging
+            DragHandle(showPill: !isHuggingMenuBar)
 
             VStack(spacing: 14) {
             // Chat field + Now button
@@ -90,10 +91,34 @@ public struct ContentView: View {
             // Clicking background exits edit mode
             editingZoneId = nil
         }
-        .background(Theme.background)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background {
+            Group {
+                if isHuggingMenuBar {
+                    Theme.background
+                } else {
+                    ZStack {
+                        Theme.background.opacity(0.85)
+                        Color.clear.background(.ultraThinMaterial)
+                    }
+                }
+            }
+        }
+        .clipShape(UnevenRoundedRectangle(
+            topLeadingRadius: isHuggingMenuBar ? 0 : 14,
+            bottomLeadingRadius: 14,
+            bottomTrailingRadius: 14,
+            topTrailingRadius: isHuggingMenuBar ? 0 : 14,
+            style: .continuous
+        ))
         .onAppear {
             ensureDefaultSource()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .panelHuggingChanged)) { notification in
+            if let hugging = notification.object as? Bool {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    isHuggingMenuBar = hugging
+                }
+            }
         }
         .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)
         .animation(.easeInOut(duration: 0.25), value: isTimeAdjusted)
@@ -135,4 +160,5 @@ public struct ContentView: View {
 
 extension Notification.Name {
     public static let focusChatField = Notification.Name("focusChatField")
+    public static let panelHuggingChanged = Notification.Name("panelHuggingChanged")
 }
