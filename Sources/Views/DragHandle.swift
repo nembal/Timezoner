@@ -5,14 +5,16 @@ import AppKit
 /// Uses manual mouse tracking to avoid macOS tiling gestures.
 public struct DragHandle: View {
     public var showPill: Bool
+    public var isHugging: Bool
 
-    public init(showPill: Bool = true) {
+    public init(showPill: Bool = true, isHugging: Bool = false) {
         self.showPill = showPill
+        self.isHugging = isHugging
     }
 
     public var body: some View {
         DragHandleRepresentable(showPill: showPill)
-            .frame(height: showPill ? 20 : 12)
+            .frame(height: isHugging ? 8 : 20)
             .frame(maxWidth: .infinity)
     }
 }

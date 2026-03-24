@@ -24,8 +24,8 @@ public struct ContentView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Drag handle — always visible
-            DragHandle(showPill: true)
+            // Drag handle — thinner when hugging navbar
+            DragHandle(showPill: true, isHugging: isHuggingMenuBar)
 
             VStack(spacing: 14) {
             // Chat field + Now button
