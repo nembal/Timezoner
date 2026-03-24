@@ -22,7 +22,7 @@ class FloatingPanel: NSPanel {
             defer: false
         )
         level = .floating
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .fullScreenDisallowsTiling]
         isMovableByWindowBackground = false
         isOpaque = false
         backgroundColor = .clear
