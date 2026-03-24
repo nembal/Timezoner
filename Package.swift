@@ -5,28 +5,21 @@ let package = Package(
     name: "TimeZoner",
     platforms: [.macOS(.v14)],
     targets: [
+        .target(
+            name: "TimeZonerLib",
+            path: "Sources",
+            exclude: ["App"],
+            sources: ["Data", "Models", "Stores", "Parser", "Utilities", "Views"]
+        ),
         .executableTarget(
             name: "TimeZoner",
-            path: "Sources"
+            dependencies: ["TimeZonerLib"],
+            path: "Sources/App"
         ),
-        .testTarget(
+        .executableTarget(
             name: "TimeZonerTests",
-            dependencies: ["TimeZoner"],
-            path: "Tests",
-            swiftSettings: [
-                .unsafeFlags([
-                    "-F", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
-                    "-external-plugin-path",
-                    "/Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing#/Library/Developer/CommandLineTools/usr/bin/swift-plugin-server"
-                ])
-            ],
-            linkerSettings: [
-                .unsafeFlags([
-                    "-F", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
-                    "-framework", "Testing",
-                    "-Xlinker", "-rpath", "-Xlinker", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks"
-                ])
-            ]
+            dependencies: ["TimeZonerLib"],
+            path: "Tests"
         )
     ]
 )
