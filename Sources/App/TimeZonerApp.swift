@@ -29,10 +29,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let contentView = NSHostingView(rootView: ContentView())
         contentView.setFrameSize(NSSize(width: 750, height: 220))
         panel = FloatingPanel(contentView: contentView)
-
-        // Position below the status item on first launch
-        positionPanelBelowStatusItem()
         panel.orderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+
+        // Position below status item after a brief delay (button window needs time to appear)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            if UserDefaults.standard.dictionary(forKey: "panelPosition") == nil {
+                self?.positionPanelBelowStatusItem()
+            }
+        }
     }
 
     @objc func togglePanel() {
