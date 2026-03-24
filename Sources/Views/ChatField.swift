@@ -15,14 +15,17 @@ public struct ChatField: View {
 
     public var body: some View {
         TextField("11:30am SF, +Tokyo, -NYC...", text: $inputText)
-            .font(.system(.body, design: .rounded))
+            .font(.system(size: 14, design: .rounded))
+            .foregroundStyle(Theme.textPrimary)
             .textFieldStyle(.plain)
-            .padding(12)
-            .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .strokeBorder(Theme.warmBorder, lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(isFocused ? Theme.accent.opacity(0.4) : Theme.border, lineWidth: isFocused ? 1.5 : 0.5)
             )
+            .shadow(color: Theme.shadow, radius: 2, y: 1)
             .focused($isFocused)
             .offset(x: shakeOffset)
             .onAppear {
@@ -55,24 +58,20 @@ public struct ChatField: View {
             }
 
         case .removeZone(let label):
-            // Find matching zone by label (case-insensitive)
             if let match = zoneStore.zones.first(where: {
                 $0.label.caseInsensitiveCompare(label) == .orderedSame
             }) {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     zoneStore.remove(id: match.id)
                 }
-            } else {
-                // Try matching by resolving the label to a timezone and comparing identifiers
-                if let targetTZ = resolveTimezone(label),
-                   let match = zoneStore.zones.first(where: { $0.timeZoneId == targetTZ.identifier }) {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        zoneStore.remove(id: match.id)
-                    }
-                } else {
-                    triggerShake()
-                    return
+            } else if let targetTZ = resolveTimezone(label),
+                      let match = zoneStore.zones.first(where: { $0.timeZoneId == targetTZ.identifier }) {
+                withAnimation(.easeInOut(duration: 0.3)) {
+                    zoneStore.remove(id: match.id)
                 }
+            } else {
+                triggerShake()
+                return
             }
         }
 

@@ -7,10 +7,12 @@ public struct ContentView: View {
     public init() {}
 
     private var idealWidth: CGFloat {
-        let cardWidth: CGFloat = 150
-        let spacing: CGFloat = 12
+        let cardWidth: CGFloat = 155
+        let diffLabelWidth: CGFloat = 36
         let padding: CGFloat = 40
-        return max(400, CGFloat(zoneStore.zones.count) * (cardWidth + spacing) + padding + 20)
+        let count = CGFloat(max(zoneStore.zones.count, 2))
+        let diffs = max(count - 1, 0) * diffLabelWidth
+        return count * cardWidth + diffs + padding
     }
 
     private var isTimeAdjusted: Bool {
@@ -18,7 +20,8 @@ public struct ContentView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: 14) {
+            // Chat field + Now button
             HStack(spacing: 8) {
                 ChatField(timeState: timeState, zoneStore: zoneStore)
 
@@ -29,29 +32,40 @@ public struct ContentView: View {
                         }
                     }) {
                         Text("Now")
-                            .font(.system(.caption, design: .rounded).weight(.medium))
+                            .font(.system(size: 12, weight: .medium, design: .rounded))
                             .foregroundStyle(Theme.accent)
                             .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
+                            .padding(.vertical, 7)
                             .background(Theme.cardBg, in: Capsule())
-                            .overlay(Capsule().strokeBorder(Theme.warmBorder, lineWidth: 0.5))
+                            .overlay(Capsule().strokeBorder(Theme.border, lineWidth: 0.5))
+                            .shadow(color: Theme.shadow, radius: 1, y: 1)
                     }
                     .buttonStyle(.plain)
                     .transition(.opacity.combined(with: .scale))
                 }
             }
 
+            // Zone cards with time difference annotations
             ZoneCardRow(zones: zoneStore.zones, timeState: timeState, onRemove: { id in
                 withAnimation(.easeInOut(duration: 0.3)) {
                     zoneStore.remove(id: id)
                 }
             })
 
-            TimeScrubber(zones: zoneStore.zones, timeState: timeState)
+            // Subtle divider
+            Rectangle()
+                .fill(Theme.border)
+                .frame(height: 0.5)
+                .padding(.horizontal, 4)
+
+            // Time stepper
+            TimeStepper(timeState: timeState)
         }
         .padding(20)
         .frame(width: idealWidth)
-        .background(.ultraThinMaterial)
+        .fixedSize(horizontal: true, vertical: true)
+        .background(Theme.background)
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)
         .animation(.easeInOut(duration: 0.25), value: isTimeAdjusted)
         .onKeyPress(.escape) {
@@ -59,7 +73,6 @@ public struct ContentView: View {
             return .handled
         }
         .background {
-            // Hidden button to capture Cmd+N keyboard shortcut
             Button("") {
                 NotificationCenter.default.post(name: .focusChatField, object: nil)
             }
@@ -67,7 +80,6 @@ public struct ContentView: View {
             .hidden()
         }
         .onChange(of: zoneStore.zones.count) {
-            // Notify the window to resize
             DispatchQueue.main.async {
                 if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }) {
                     let frame = window.frame
