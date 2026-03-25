@@ -86,6 +86,30 @@ The parser handles messy typing. All of these work:
 | `-SF` | Remove zone |
 | `12` | Bare time → active zone |
 
+## ![Raycast](https://img.shields.io/badge/Raycast-Extension-FF6363?logo=raycast&logoColor=white) Raycast Extension
+
+If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. Type `tz 3pm SF` and get conversions across your zones.
+
+| Command | Keyword | What it does |
+|---------|---------|-------------|
+| Convert Time | `tz` | Type a time + city, see it in all your zones |
+| World Clock | `wc` | Current time in all your zones |
+
+Uses the same 376 timezone aliases as the macOS app.
+
+### Install
+
+```bash
+git clone https://github.com/nembal/Timezoner.git
+cd Timezoner/raycast
+npm install
+npm run dev
+```
+
+Open Raycast, type `tz 3pm SF`.
+
+> You can also import it manually: Raycast → Settings → Extensions → `+` → Import Extension → select the [`raycast/`](https://github.com/nembal/Timezoner/tree/main/raycast) directory.
+
 ## Build from source
 
 ```bash

@@ -16,13 +16,7 @@ import {
   formatForCopy,
   formatAllForCopy,
 } from "./formatter";
-import type { ZoneResult } from "./types";
-
-interface Preferences {
-  defaultZones: string;
-  timeFormat: "12h" | "24h";
-  copyFormat: "time-tz" | "24h-tz" | "time-city";
-}
+import type { Preferences, ZoneResult } from "./types";
 
 export default function ConvertTime() {
   const prefs = getPreferenceValues<Preferences>();
