@@ -4,7 +4,7 @@
   "title": "TimeZoner",
   "description": "Natural language timezone conversion. Type 'tz 3pm SF' to convert times instantly.",
   "icon": "icon.png",
-  "author": "nembal",
+  "author": "Nembal",
   "categories": ["Productivity"],
   "license": "MIT",
   "commands": [
