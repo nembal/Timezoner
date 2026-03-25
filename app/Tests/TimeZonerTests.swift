@@ -8,6 +8,7 @@ struct TestRunner {
         runZoneStoreTests()
         runInputParserTests()
         runTimeFormatterTests()
+        runTimezoneMapTests()
 
         print("\nResults: \(testsPassed) passed, \(testsFailed) failed out of \(testsPassed + testsFailed) tests")
         if testsFailed > 0 {

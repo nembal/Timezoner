@@ -5,8 +5,10 @@ I work across Bangkok, San Francisco, New York, and London. Every day I need to 
 TimeZoner is a tiny macOS app that floats over everything. Type a time, see it in all your zones. That's it.
 
 ![TimeZoner docked to menu bar](docs/images/timezoner-docked.png)
+*Docked to the menu bar*
 
-![TimeZoner floating](docs/images/timezoner-floating.png)
+![TimeZoner floating with world map](docs/images/timezoner-floating-map.png)
+*Floating, with the timezone map open*
 
 ## Download
 
@@ -47,21 +49,25 @@ add Hong Kong       → adds Hong Kong
 remove Europe       → removes Europe
 ```
 
+### Timezone map
+
+There's a world map below the cards. Your zones show up as highlighted bands with city dots. Hover any region to see the GMT offset, click to add it as a new card. The boundaries follow real timezone lines (not straight vertical stripes), so half-hour zones like India and Nepal show up correctly. Collapse it if you don't need it.
+
 ### Edit cards directly
 
 Click any time on a card and start typing. All other cards update live as you type. Type `12` and it becomes 12:00. Type `3pm` and it becomes 15:00. Hit Enter or click away to finish.
 
 ### Drag to reorder
 
-Hover a card — a small pill appears at the top. Grab it and drag left or right to rearrange your zones. The time differences between cards update automatically.
+Hover a card and a small pill appears at the top. Grab it and drag left or right to rearrange your zones.
 
 ### Docks to the menu bar
 
 The app starts right below your menu bar with a clean flat top. Drag it down to use it as a floating widget anywhere on screen. It remembers where you put it between launches.
 
-### Always on top, always fast
+### Stays on top
 
-TimeZoner floats over all windows. Click the clock icon in your menu bar to show/hide it. Press Escape to dismiss. It's always one click away.
+TimeZoner floats over all windows. Click the clock icon in your menu bar to show/hide it. Escape to dismiss.
 
 ### Works offline
 

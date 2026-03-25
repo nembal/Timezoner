@@ -20,6 +20,10 @@ public enum Theme {
                                             dark: .init(red: 0.50, green: 0.48, blue: 0.46))
     public static let shadow = Color(light: Color.black.opacity(0.06),
                                       dark: Color.black.opacity(0.3))
+
+    // Map
+    public static let mapLand = Color(light: .init(red: 0.86, green: 0.85, blue: 0.82),
+                                       dark: .init(red: 0.22, green: 0.22, blue: 0.20))
 }
 
 // Adaptive Color helper — no asset catalog needed

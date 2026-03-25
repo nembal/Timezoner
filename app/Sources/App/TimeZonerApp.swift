@@ -27,7 +27,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let contentView = NSHostingView(rootView: ContentView())
-        contentView.setFrameSize(NSSize(width: 750, height: 220))
+        contentView.setFrameSize(NSSize(width: 750, height: 580))
         panel = FloatingPanel(contentView: contentView)
 
         // Show and position

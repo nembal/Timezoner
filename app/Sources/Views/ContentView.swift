@@ -20,7 +20,7 @@ public struct ContentView: View {
     }
 
     private var isTimeAdjusted: Bool {
-        abs(timeState.referenceDate.timeIntervalSinceNow) > 60
+        !timeState.isLive
     }
 
     public var body: some View {
@@ -35,7 +35,7 @@ public struct ContentView: View {
 
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            timeState.referenceDate = Date()
+                            timeState.goLive()
                             editingZoneId = nil
                         }
                     }) {
@@ -71,9 +71,21 @@ public struct ContentView: View {
                 }, onMove: { source, destination in
                     zoneStore.move(from: source, to: destination)
                 })
+
+                // Timezone map
+                TimezoneMapView(
+                    zones: zoneStore.zones,
+                    timeState: timeState,
+                    highlightedZoneIds: highlightedZoneIds,
+                    onAddZone: { label, ianaId in
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            zoneStore.add(label: label, timezoneId: ianaId)
+                        }
+                    }
+                )
             }
             .padding(.horizontal, 20)
-            .padding(.bottom, 20)
+            .padding(.bottom, 8)
             .padding(.top, 6)
         }
         .frame(width: idealWidth)

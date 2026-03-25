@@ -9,7 +9,8 @@ let package = Package(
             name: "TimeZonerLib",
             path: "Sources",
             exclude: ["App"],
-            sources: ["Data", "Models", "Stores", "Parser", "Utilities", "Views"]
+            sources: ["Data", "Models", "Stores", "Parser", "Utilities", "Views"],
+            resources: [.copy("Resources/timezone-boundaries.json")]
         ),
         .executableTarget(
             name: "TimeZoner",

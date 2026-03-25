@@ -9,7 +9,7 @@ class FloatingPanel: NSPanel {
 
     init(contentView: NSView) {
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 750, height: 200),
+            contentRect: NSRect(x: 0, y: 0, width: 750, height: 580),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false

@@ -92,7 +92,20 @@ func runTimeStateTests() {
     expectEqualInt(nyHour2, 18, "SF 15:00 -> NY hour")
     expectEqualInt(nyMin2, 0, "SF 15:00 -> NY minute")
 
-    // ── Test 3: ZoneInfo Codable round-trip ──────────────────────
+    // ── Test 3: isLive flag ───────────────────────────────────────
+
+    let liveState = TimeState()
+    expectTrue(liveState.isLive == true, "isLive: starts true")
+
+    liveState.setTime(hour: 15, minute: 0, in: sf)
+    expectTrue(liveState.isLive == false, "isLive: false after setTime")
+
+    liveState.goLive()
+    expectTrue(liveState.isLive == true, "isLive: true after goLive")
+    let diff = abs(liveState.referenceDate.timeIntervalSinceNow)
+    expectTrue(diff < 2, "goLive: referenceDate is approximately now")
+
+    // ── Test 4: ZoneInfo Codable round-trip ──────────────────────
 
     let zone = ZoneInfo(label: "Bangkok", timeZoneId: "Asia/Bangkok")
     let encoder = JSONEncoder()
