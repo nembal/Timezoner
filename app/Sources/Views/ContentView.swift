@@ -4,9 +4,10 @@ public struct ContentView: View {
     @State private var timeState = TimeState()
     @State private var zoneStore = ZoneStore()
     @State private var editingZoneId: UUID? = nil
-    @State private var showingHelp = false
+    @State private var showingSettings = false
     @State private var isHuggingMenuBar = true
     @State private var highlightedZoneIds: Set<UUID> = []
+    private let settings = SettingsStore.shared
 
     public init() {}
 
@@ -52,14 +53,17 @@ public struct ContentView: View {
                         }
                     .buttonStyle(.plain)
 
-                    Button(action: { showingHelp.toggle() }) {
-                        Image(systemName: "questionmark.circle")
+                    Button(action: { showingSettings.toggle() }) {
+                        Image(systemName: "gearshape")
                             .font(.system(size: 15))
-                            .foregroundStyle(showingHelp ? Theme.accent : Theme.textTertiary)
+                            .foregroundStyle(showingSettings ? Theme.accent : Theme.textTertiary)
+                            .rotationEffect(.degrees(showingSettings ? 22 : 0))
+                            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: showingSettings)
                         }
                     .buttonStyle(.plain)
-                    .popover(isPresented: $showingHelp, arrowEdge: .bottom) {
-                        HelpPopover()
+                    .help("Settings (⌘,)")
+                    .popover(isPresented: $showingSettings, arrowEdge: .bottom) {
+                        SettingsPopover(settings: settings)
                     }
                 }
 
@@ -124,6 +128,11 @@ public struct ContentView: View {
             }
             .keyboardShortcut("n", modifiers: .command)
             .hidden()
+        }
+        .background {
+            Button("") { showingSettings.toggle() }
+                .keyboardShortcut(",", modifiers: .command)
+                .hidden()
         }
         .onChange(of: zoneStore.zones.count) {
             DispatchQueue.main.async {

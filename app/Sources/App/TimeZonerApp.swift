@@ -16,6 +16,11 @@ struct TimeZonerApp {
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: FloatingPanel!
     private var statusItem: NSStatusItem!
+    private let settings = SettingsStore.shared
+
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        settings.applyAppearance()
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Menu bar icon first
@@ -29,6 +34,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let contentView = NSHostingView(rootView: ContentView())
         contentView.setFrameSize(NSSize(width: 750, height: 580))
         panel = FloatingPanel(contentView: contentView)
+
+        // Reconcile login item (handles external changes in System Settings)
+        _ = LaunchAtLogin.reconcile(desired: settings.launchAtLogin)
+
+        // Global hotkey
+        HotkeyManager.shared.onTrigger = { [weak self] in self?.togglePanel() }
+        HotkeyManager.shared.rebind(settings.hotkey)
+        settings.onHotkeyChange = { shortcut in
+            HotkeyManager.shared.rebind(shortcut)
+        }
 
         // Show and position
         showPanel()
