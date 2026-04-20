@@ -56,6 +56,7 @@ app/                              # macOS SwiftUI app
       ZoneInfo.swift              # Single zone (id, label, IANA timezone id)
     Stores/
       ZoneStore.swift             # @Observable — zone list, UserDefaults
+      SettingsStore.swift         # @Observable — user prefs (appearance, hotkey, login)
     Data/
       TimezoneAliases.swift       # Auto-generated from shared JSON
     Parser/
@@ -66,10 +67,13 @@ app/                              # macOS SwiftUI app
       ZoneCard.swift              # Editable time card
       ZoneCardRow.swift           # Horizontal card row
       DragHandle.swift            # Window drag
-      HelpPopover.swift           # Input format examples
+      SettingsPopover.swift       # ⚙ popover (appearance, hotkey, login, help)
+      HotkeyRecorderField.swift   # Keystroke capture NSView
       Theme.swift                 # Adaptive light/dark palette
     Utilities/
       TimeFormatter.swift         # Cached formatters, thread-safe
+      HotkeyManager.swift         # Carbon RegisterEventHotKey wrapper
+      LaunchAtLogin.swift         # SMAppService helper
   Tests/
     TimeZonerTests.swift          # Test runner (@main)
     TimezoneAliasTests.swift
@@ -77,6 +81,8 @@ app/                              # macOS SwiftUI app
     ZoneStoreTests.swift
     InputParserTests.swift
     TimeFormatterTests.swift
+    TimezoneMapTests.swift
+    SettingsStoreTests.swift
   Package.swift
   Info.plist
   fix-spm.sh
@@ -114,6 +120,8 @@ docs/
 - **Single source of truth** — `TimeState.referenceDate` is one absolute `Date`.
 - **Cached DateFormatters** — thread-safe FormatterCache with NSLock.
 - **Adaptive dark mode** — `NSColor(dynamicProvider:)` for all theme colors.
+- **Global hotkey via Carbon** — `RegisterEventHotKey` keeps zero-dep rule and intercepts system-wide. Default `⌘⌥T`.
+- **Settings popover, not a window** — gear button opens a SwiftUI popover with appearance override (System/Light/Dark), launch-at-login, hotkey recorder, and input-format help. `⌘,` also opens it.
 
 ## Shared Data
 
@@ -135,13 +143,9 @@ add Hong Kong     remove Europe     12 (bare → active zone)
 ## Branches
 
 - `main` — stable, release-ready
-- `feature/timezone-map` — PRD for collapsible world timezone map (upcoming)
 
 ## Future Roadmap
 
-- Interactive timezone map (PRD in `docs/prd/`)
-- Raycast extension
 - Flight tracking (AviationStack free tier)
 - macOS widget
-- Settings panel (default cities, theme, frosted glass toggle)
-- Global hotkey
+- Default-cities picker in Settings

@@ -12,7 +12,7 @@ TimeZoner is a tiny macOS app that floats over everything. Type a time, see it i
 
 ## Download
 
-**[Download the latest DMG](https://github.com/nembal/Timezoner/releases/latest)** (~440KB, Apple Silicon)
+**[Download the latest DMG](https://github.com/nembal/Timezoner/releases/latest)** (~620KB, Apple Silicon)
 
 Open the DMG, drag to Applications, right-click → Open on first launch.
 Requires macOS 14+ (Sonoma) on Apple Silicon (M1/M2/M3/M4/M5).
@@ -67,7 +67,16 @@ The app starts right below your menu bar with a clean flat top. Drag it down to 
 
 ### Stays on top
 
-TimeZoner floats over all windows. Click the clock icon in your menu bar to show/hide it. Escape to dismiss.
+TimeZoner floats over all windows. Click the clock icon in your menu bar to show/hide it. Escape to dismiss. Global hotkey **⌘⌥T** toggles the panel from any app (rebindable in Settings).
+
+### Settings
+
+Click the ⚙ in the panel (or press **⌘,**) to open Settings:
+
+- **Appearance** — System / Light / Dark override
+- **Global hotkey** — click the recorder and press a new combo; Esc cancels, Clear unbinds
+- **Launch at login** — opens automatically when you sign in
+- **Input formats** — quick reference for the chat parser
 
 ### Works offline
 
@@ -125,7 +134,7 @@ cd Timezoner
 open app/TimeZoner.app
 ```
 
-Create a DMG: `./scripts/create-dmg.sh 0.1.0`
+Create a DMG: `./scripts/create-dmg.sh 0.2.0`
 
 Run tests: `cd app && swift run TimeZonerTests`
 

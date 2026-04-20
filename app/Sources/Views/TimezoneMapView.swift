@@ -125,33 +125,28 @@ public struct TimezoneMapView: View {
                         let darkOutline: Bool
 
                         if state == .highlighted {
-                            fill = Theme.accent.opacity(0.25)
+                            fill = Theme.accent.opacity(0.55)
                             border = Theme.accent
                             borderWidth = 1.5
                             darkOutline = true
                         } else if state == .highlightBand {
-                            fill = Theme.accent.opacity(0.25)
-                            border = Theme.accent.opacity(0.15)
+                            fill = Theme.accent.opacity(0.40)
+                            border = Theme.accent.opacity(0.35)
                             borderWidth = 0.5
                             darkOutline = false
                         } else if state == .userZone {
-                            fill = Theme.accent.opacity(0.12)
-                            border = Theme.accent.opacity(0.6)
+                            fill = Theme.accent.opacity(0.38)
+                            border = Theme.accent.opacity(0.75)
                             borderWidth = 1.5
                             darkOutline = true
                         } else if state == .userBand {
-                            fill = Theme.accent.opacity(0.12)
-                            border = Theme.accent.opacity(0.08)
+                            fill = Theme.accent.opacity(0.30)
+                            border = Theme.accent.opacity(0.25)
                             borderWidth = 0.5
                             darkOutline = false
-                        } else if isHoveredPolygon {
-                            fill = Theme.textSecondary.opacity(0.15)
-                            border = Theme.textSecondary.opacity(0.4)
-                            borderWidth = 1.0
-                            darkOutline = true
                         } else if isInHoveredBand {
-                            fill = Theme.textSecondary.opacity(0.08)
-                            border = Theme.border.opacity(0.3)
+                            fill = Theme.hover.opacity(0.32)
+                            border = Theme.hover.opacity(0.35)
                             borderWidth = 0.5
                             darkOutline = false
                         } else {
@@ -169,13 +164,20 @@ public struct TimezoneMapView: View {
                             featurePaths = projection!.pathsForFeature(geoData.features[i])
                         }
 
+                        // If hovering this band, layer a blue tint + outline on top of the
+                        // base fill so even selected/highlighted zones show hover feedback.
+                        let drawHoverOverlay = isInHoveredBand && state != .defaultLand
                         for cgPath in featurePaths {
                             let swiftPath = Path(cgPath)
                             context.fill(swiftPath, with: .color(fill))
                             if darkOutline {
-                                context.stroke(swiftPath, with: .color(Color.black.opacity(0.25)), lineWidth: borderWidth + 1)
+                                context.stroke(swiftPath, with: .color(Theme.mapOutline), lineWidth: borderWidth + 1)
                             }
                             context.stroke(swiftPath, with: .color(border), lineWidth: borderWidth)
+                            if drawHoverOverlay {
+                                context.fill(swiftPath, with: .color(Theme.hover.opacity(0.22)))
+                                context.stroke(swiftPath, with: .color(Theme.hover.opacity(0.6)), lineWidth: 0.75)
+                            }
                         }
                     }
 
@@ -190,7 +192,7 @@ public struct TimezoneMapView: View {
                                              width: radius * 2, height: radius * 2)
                         let outlineRect = CGRect(x: point.x - radius - 1, y: point.y - radius - 1,
                                                  width: (radius + 1) * 2, height: (radius + 1) * 2)
-                        context.fill(Path(ellipseIn: outlineRect), with: .color(.white.opacity(0.8)))
+                        context.fill(Path(ellipseIn: outlineRect), with: .color(Theme.mapCityHalo))
                         context.fill(Path(ellipseIn: dotRect), with: .color(Theme.accent))
                         if isHL {
                             let glowRect = CGRect(x: point.x - 7, y: point.y - 7, width: 14, height: 14)
