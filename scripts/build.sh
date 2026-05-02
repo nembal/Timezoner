@@ -10,7 +10,7 @@ mkdir -p TimeZoner.app/Contents/Resources
 cp .build/release/TimeZoner TimeZoner.app/Contents/MacOS/
 cp Info.plist TimeZoner.app/Contents/
 
-# Ad-hoc code sign
-codesign --force --sign - TimeZoner.app 2>/dev/null || true
+# Ad-hoc code sign — required for stable identity, not a substitute for notarization
+codesign --force --sign - TimeZoner.app
 
-echo "Built TimeZoner.app"
+echo "Built TimeZoner.app (signed ad-hoc)"

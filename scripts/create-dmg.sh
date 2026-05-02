@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
-cd "$(dirname "$0")/../app"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR/../app"
 
 VERSION="${1:-0.1.0}"
 APP_NAME="TimeZoner"
@@ -24,7 +25,7 @@ cp Info.plist "${APP_NAME}.app/Contents/"
 /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${VERSION}" "${APP_NAME}.app/Contents/Info.plist" 2>/dev/null || \
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${VERSION}" "${APP_NAME}.app/Contents/Info.plist"
 
-# Ad-hoc code sign
+# Ad-hoc code sign — required for stable identity, not a substitute for notarization
 codesign --force --sign - "${APP_NAME}.app"
 
 echo "Built ${APP_NAME}.app (signed ad-hoc)"
@@ -34,6 +35,7 @@ rm -f "${DMG_NAME}.dmg"
 DMG_DIR=$(mktemp -d)
 cp -R "${APP_NAME}.app" "${DMG_DIR}/"
 ln -s /Applications "${DMG_DIR}/Applications"
+cp "$SCRIPT_DIR/dmg-readme.txt" "${DMG_DIR}/README.txt"
 
 hdiutil create -volname "${APP_NAME}" \
     -srcfolder "${DMG_DIR}" \
