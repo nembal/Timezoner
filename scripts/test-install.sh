@@ -19,8 +19,12 @@ grep -F -- "--dry-run" <<<"$help_output" >/dev/null
 tmpdir="$(mktemp -d)"
 trap 'rm -rf "$tmpdir"' EXIT
 
-dry_run_output="$(./install.sh --dry-run --skip-build --destination "$tmpdir/Applications")"
+dry_run_output="$(./install.sh --dry-run --destination "$tmpdir/Applications")"
+grep -F -- "Would build TimeZoner.app locally" <<<"$dry_run_output" >/dev/null
 grep -F -- "Would install TimeZoner.app" <<<"$dry_run_output" >/dev/null
 grep -F -- "$tmpdir/Applications" <<<"$dry_run_output" >/dev/null
+
+grep -F -- 'destination="${1:-$HOME/Applications}"' Formula/timezoner.rb >/dev/null
+grep -F -- "timezoner-install-app /Applications" Formula/timezoner.rb >/dev/null
 
 echo "install.sh checks passed"

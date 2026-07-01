@@ -37,7 +37,7 @@ class Timezoner < Formula
       #!/bin/bash
       set -euo pipefail
 
-      destination="${1:-/Applications}"
+      destination="${1:-$HOME/Applications}"
       mkdir -p "$destination"
       rm -rf "$destination/TimeZoner.app"
       cp -R "#{prefix}/TimeZoner.app" "$destination/TimeZoner.app"
@@ -57,11 +57,14 @@ class Timezoner < Formula
       Launch the Homebrew app bundle:
         timezoner
 
-      Install a copy into /Applications:
+      Install a copy into ~/Applications:
         timezoner-install-app
 
-      Then launch it from /Applications, Spotlight, or:
-        open /Applications/TimeZoner.app
+      Install explicitly into /Applications:
+        timezoner-install-app /Applications
+
+      Then launch it from ~/Applications, Spotlight, or:
+        open ~/Applications/TimeZoner.app
     EOS
   end
 
