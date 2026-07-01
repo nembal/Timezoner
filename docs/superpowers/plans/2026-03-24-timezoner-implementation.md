@@ -1,5 +1,7 @@
 # TimeZoner Implementation Plan
 
+**Status:** Historical implementation plan. The shipped app moved into the `app/` package layout, uses a menu-bar status item, settings popover, timezone map, source-built install scripts, and Raycast source extension. Current architecture and commands are documented in `README.md` and `CLAUDE.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a lightweight SwiftUI Mac floating-panel app for instant timezone conversion with natural language input, editable zone cards, and a horizontal time scrubber.

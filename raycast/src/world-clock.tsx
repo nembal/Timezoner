@@ -5,24 +5,54 @@ import {
   getPreferenceValues,
   Icon,
   List,
+  showToast,
+  Toast,
 } from "@raycast/api";
-import { useMemo } from "react";
-import { resolveZones } from "./aliases";
+import { useEffect, useState } from "react";
 import {
   formatTime,
   formatDate,
   formatForCopy,
   formatAllForCopy,
 } from "./formatter";
-import type { Preferences, ZoneResult } from "./types";
+import { loadZones } from "./zones";
+import type { Preferences, ZoneInfo, ZoneResult } from "./types";
+
+function errorMessage(error: unknown): string | undefined {
+  return error instanceof Error ? error.message : undefined;
+}
 
 export default function WorldClock() {
   const prefs = getPreferenceValues<Preferences>();
-  const zones = useMemo(
-    () => resolveZones(prefs.defaultZones),
-    [prefs.defaultZones],
-  );
+  const [zones, setZones] = useState<ZoneInfo[]>([]);
+  const [isLoadingZones, setIsLoadingZones] = useState(true);
   const now = new Date();
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoadingZones(true);
+
+    loadZones(prefs.defaultZones)
+      .then((loadedZones) => {
+        if (!cancelled) setZones(loadedZones);
+      })
+      .catch(async (error: unknown) => {
+        if (!cancelled) {
+          await showToast(
+            Toast.Style.Failure,
+            "Could not load zones",
+            errorMessage(error),
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingZones(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [prefs.defaultZones]);
 
   const results: ZoneResult[] = zones.map((zone) => ({
     ...zone,
@@ -33,8 +63,8 @@ export default function WorldClock() {
   }));
 
   return (
-    <List>
-      {results.length === 0 ? (
+    <List isLoading={isLoadingZones}>
+      {results.length === 0 && !isLoadingZones ? (
         <List.EmptyView
           title="No zones configured"
           description="Set your default zones in extension preferences"
@@ -72,7 +102,7 @@ export default function WorldClock() {
                 />
                 <Action.Open
                   title="Open in Timezoner"
-                  target="timezoner://"
+                  target="timezoner://open"
                   shortcut={{ modifiers: ["cmd"], key: "o" }}
                 />
               </ActionPanel>

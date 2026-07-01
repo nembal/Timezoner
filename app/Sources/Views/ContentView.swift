@@ -7,7 +7,9 @@ public struct ContentView: View {
     @State private var showingSettings = false
     @State private var isHuggingMenuBar = true
     @State private var highlightedZoneIds: Set<UUID> = []
+    @State private var highlightClearToken = UUID()
     private let settings = SettingsStore.shared
+    private let deepLinkRouter = DeepLinkRouter.shared
 
     public init() {}
 
@@ -108,6 +110,7 @@ public struct ContentView: View {
         ))
         .onAppear {
             ensureDefaultSource()
+            consumePendingDeepLink()
         }
         .onReceive(NotificationCenter.default.publisher(for: .panelHuggingChanged)) { notification in
             if let hugging = notification.object as? Bool {
@@ -115,6 +118,9 @@ public struct ContentView: View {
                     isHuggingMenuBar = hugging
                 }
             }
+        }
+        .onChange(of: deepLinkRouter.pendingCommand) {
+            consumePendingDeepLink()
         }
         .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)
         .animation(.easeInOut(duration: 0.25), value: isTimeAdjusted)
@@ -156,6 +162,54 @@ public struct ContentView: View {
            !zoneStore.zones.contains(where: { $0.timeZoneId == timeState.sourceZoneId }) {
             timeState.sourceZoneId = first.timeZoneId
         }
+    }
+
+    private func consumePendingDeepLink() {
+        guard let deepLink = deepLinkRouter.pendingCommand else { return }
+        deepLinkRouter.pendingCommand = nil
+        handleDeepLink(deepLink)
+    }
+
+    private func handleDeepLink(_ deepLink: TimeZonerDeepLink) {
+        editingZoneId = nil
+
+        switch deepLink {
+        case .open:
+            focusChatField()
+        case .setTime(let hour, let minute, let zoneID, let label):
+            guard let timeZone = TimeZone(identifier: zoneID) else { return }
+            ensureZoneExists(zoneID: zoneID, label: label)
+            timeState.setTime(hour: hour, minute: minute, in: timeZone)
+            highlightZones(matchingZoneID: zoneID)
+            focusChatField()
+        }
+    }
+
+    private func ensureZoneExists(zoneID: String, label: String?) {
+        guard !zoneStore.zones.contains(where: { $0.timeZoneId == zoneID }) else { return }
+        let fallbackLabel = zoneID.components(separatedBy: "/").last?.replacingOccurrences(of: "_", with: " ") ?? zoneID
+        withAnimation(.easeInOut(duration: 0.3)) {
+            zoneStore.add(label: label ?? fallbackLabel, timezoneId: zoneID)
+        }
+    }
+
+    private func highlightZones(matchingZoneID zoneID: String) {
+        let ids = Set(zoneStore.zones.filter { $0.timeZoneId == zoneID }.map(\.id))
+        let token = UUID()
+        highlightClearToken = token
+        withAnimation(.easeInOut(duration: 0.2)) {
+            highlightedZoneIds = ids
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            guard highlightClearToken == token else { return }
+            withAnimation(.easeInOut(duration: 0.5)) {
+                highlightedZoneIds = []
+            }
+        }
+    }
+
+    private func focusChatField() {
+        NotificationCenter.default.post(name: .focusChatField, object: nil)
     }
 }
 

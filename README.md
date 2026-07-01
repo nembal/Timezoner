@@ -10,12 +10,46 @@ TimeZoner is a tiny macOS app that floats over everything. Type a time, see it i
 ![TimeZoner floating with world map](docs/images/timezoner-floating-map.png)
 *Floating, with the timezone map open*
 
-## Download
+## Install
 
-**[Download the latest DMG](https://github.com/nembal/Timezoner/releases/latest)** (~620KB, Apple Silicon)
+Requires macOS 14+ (Sonoma).
 
-Open the DMG, drag to Applications, right-click → Open on first launch.
-Requires macOS 14+ (Sonoma) on Apple Silicon (M1/M2/M3/M4/M5).
+The current no-Apple-account install path is source-built: TimeZoner is built and ad-hoc signed on your Mac. The Homebrew formula is HEAD-only until the next tagged release includes these packaging changes.
+
+### Recommended: Homebrew source build
+
+This builds TimeZoner locally from source and ad-hoc signs the app on your Mac.
+
+```bash
+brew tap nembal/timezoner https://github.com/nembal/Timezoner
+brew install --HEAD timezoner
+timezoner-install-app
+timezoner
+```
+
+`timezoner` opens the Homebrew Cellar app bundle. After `timezoner-install-app`, you can launch the copied app from Spotlight/Finder or run:
+
+```bash
+open ~/Applications/TimeZoner.app
+```
+
+### Source checkout
+
+```bash
+git clone https://github.com/nembal/Timezoner.git
+cd Timezoner
+./install.sh --open
+```
+
+By default this installs to `~/Applications/TimeZoner.app`. Use `./install.sh --applications` for `/Applications`, or `./install.sh --destination /path/to/Applications` for another folder.
+
+### Manual DMG install
+
+The DMG is a manual fallback for people who prefer dragging the app into Applications:
+
+**[Download the latest release DMG](https://github.com/nembal/Timezoner/releases/latest)**
+
+Open the DMG, drag TimeZoner to Applications, then right-click and choose Open on first launch if macOS asks you to confirm trust. The app is ad-hoc signed but not Apple-notarized.
 
 ## How it works
 
@@ -103,7 +137,7 @@ The parser handles messy typing. All of these work:
 
 ## ![Raycast](https://img.shields.io/badge/Raycast-Extension-FF6363?logo=raycast&logoColor=white) Raycast Extension
 
-If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. Type `tz 3pm SF` and get conversions across your zones.
+If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. The extension is implemented in this repo and installs from source for now. Open **Convert Time** with `tz`, then type `3pm SF` to get conversions across your zones.
 
 | Command | Keyword | What it does |
 |---------|---------|-------------|
@@ -111,6 +145,8 @@ If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. Type 
 | World Clock | `wc` | Current time in all your zones |
 
 Uses the same 376 timezone aliases as the macOS app.
+
+`Convert Time` also supports `+Tokyo`, `add Hong Kong`, `-SF`, and `remove NYC`. Raycast stores its zone list in Raycast LocalStorage, so both Raycast commands share zones with each other. It does not sync that list with the macOS app. Press **⌘O** from Raycast to open TimeZoner.app through the `timezoner://` URL scheme when the app is installed.
 
 ### Install
 
@@ -121,7 +157,7 @@ npm install
 npm run dev
 ```
 
-Open Raycast, type `tz 3pm SF`.
+Open Raycast, type `tz` to open **Convert Time**, then enter `3pm SF`.
 
 > You can also import it manually: Raycast → Settings → Extensions → `+` → Import Extension → select the [`raycast/`](https://github.com/nembal/Timezoner/tree/main/raycast) directory.
 
@@ -134,9 +170,24 @@ cd Timezoner
 open app/TimeZoner.app
 ```
 
-Create a DMG: `./scripts/create-dmg.sh 0.2.0`
+Create a Manual DMG: `./scripts/create-dmg.sh 0.2.0`
 
-Run tests: `cd app && swift run TimeZonerTests`
+Run checks:
+
+```bash
+scripts/test-install.sh
+cd app && swift run TimeZonerTests
+cd ../raycast && npm test && npm run lint && npm run build
+```
+
+Deep-link smoke test:
+
+```bash
+open "timezoner://open"
+open "timezoner://set?hour=15&minute=30&zone=America%2FLos_Angeles&label=SF"
+```
+
+Release readiness is tracked in [docs/RELEASE_READINESS.md](docs/RELEASE_READINESS.md).
 
 ## Tech stack
 

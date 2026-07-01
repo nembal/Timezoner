@@ -1,17 +1,21 @@
 # Settings Panel — Design
 
 **Date:** 2026-04-20
-**Status:** Approved, ready to implement
+**Status:** Implemented with scope adjustments. Appearance, launch at login, global hotkey, input-format help, and Quit shipped in the settings popover. The frosted-glass toggle did not ship.
 
 ## Goals
 
-Add a user-facing Settings popover to TimeZoner covering:
+Original goal: add a user-facing Settings popover to TimeZoner covering:
 
 1. **Appearance override** — System / Light / Dark (app-wide)
 2. **Launch at login**
-3. **Frosted glass toggle** for the panel background
+3. **Frosted glass toggle** for the panel background (not shipped)
 4. **Global hotkey** to show/hide the panel (default ⌘⌥T)
 5. Migrate existing input-format help content into Settings
+
+## Current implementation
+
+The shipped `SettingsStore` has `appearance`, `launchAtLogin`, and `hotkey`. There is no `settings.frostedGlass` key in the current app, and the settings popover does not show a frosted-glass toggle.
 
 ## Non-goals
 
@@ -140,11 +144,11 @@ Then in `applicationDidFinishLaunching`:
 - Manual QA checklist:
   - Appearance switch reflects instantly in panel + popover.
   - Login item toggle survives reboot.
-  - Frosted glass on/off visibly changes the panel background.
+  - Frosted glass on/off visibly changes the panel background. Not shipped.
   - Hotkey triggers toggle from another focused app.
   - `Esc` / `Clear` behave in the recorder.
   - Denying Login Items in System Settings reverts the toggle on next launch.
 
 ## Rollout
 
-Single feature branch, one PR. No migration needed (all keys are new). Bump version patch on merge.
+No migration needed. The shipped settings keys are `settings.appearance`, `settings.launchAtLogin`, and `settings.hotkey`.

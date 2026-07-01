@@ -2,7 +2,7 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "timezoner",
   "title": "TimeZoner",
-  "description": "Natural language timezone conversion. Type 'tz 3pm SF' to convert times instantly.",
+  "description": "Natural language timezone conversion. Open with 'tz', then type '3pm SF'.",
   "icon": "icon.png",
   "author": "Nembal",
   "categories": ["Productivity"],

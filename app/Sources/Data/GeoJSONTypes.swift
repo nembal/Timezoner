@@ -63,8 +63,42 @@ public struct GeoJSONLoader {
         try JSONDecoder().decode(GeoJSONFeatureCollection.self, from: data)
     }
 
+    public static func resourceURL(
+        mainResourceURL: URL?,
+        mainBundleURL: URL,
+        moduleBundle: Bundle?
+    ) -> URL? {
+        let bundleName = "TimeZoner_TimeZonerLib.bundle"
+        let candidates: [Bundle?] = [
+            mainResourceURL
+                .map { $0.appendingPathComponent(bundleName) }
+                .flatMap(Bundle.init(url:)),
+            Bundle(url: mainBundleURL.appendingPathComponent(bundleName)),
+            moduleBundle
+        ]
+
+        for bundle in candidates.compactMap({ $0 }) {
+            if let url = bundle.url(forResource: "timezone-boundaries", withExtension: "json") {
+                return url
+            }
+        }
+        return nil
+    }
+
+    private static func resourceURL() -> URL? {
+        if let url = resourceURL(
+            mainResourceURL: Bundle.main.resourceURL,
+            mainBundleURL: Bundle.main.bundleURL,
+            moduleBundle: nil
+        ) {
+            return url
+        }
+
+        return Bundle.module.url(forResource: "timezone-boundaries", withExtension: "json")
+    }
+
     public static func loadFromBundle() -> GeoJSONFeatureCollection? {
-        guard let url = Bundle.module.url(forResource: "timezone-boundaries", withExtension: "json"),
+        guard let url = resourceURL(),
               let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(GeoJSONFeatureCollection.self, from: data)
     }

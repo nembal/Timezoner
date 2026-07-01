@@ -1,5 +1,7 @@
 # PRD: Raycast Extension
 
+**Status:** Implemented in source. Public Raycast Store submission is still pending.
+
 ## Overview
 
 A Raycast extension that brings TimeZoner's natural language timezone conversion directly into Raycast's search bar. Type `tz 3pm SF` and instantly see the converted time across all your zones without opening the full app.
@@ -28,7 +30,7 @@ Type a timezone query in Raycast, see instant results. Copy with one keystroke. 
 2. **As a user**, I type `tz 1130am BKK in SF` and see the conversion highlighted.
 3. **As a user**, I press Enter on a result to copy the time to my clipboard.
 4. **As a user**, I press Cmd+O on a result to open TimeZoner.app with that time set.
-5. **As a user**, I type `tz +Tokyo` to add Tokyo to my zone list (synced with the app).
+5. **As a user**, I type `tz +Tokyo` to add Tokyo to my Raycast zone list.
 6. **As a user**, I can configure my default zones in Raycast preferences.
 
 ## Design
@@ -62,6 +64,7 @@ Shows current time in all saved zones. Same list format, no input needed.
 - **Enter**: copies the focused zone's time (e.g., "3:00 PM PST")
 - **Cmd+Shift+C**: copies all zones as a formatted block
 - **Cmd+O**: opens TimeZoner.app (if installed)
+- **Add/remove commands**: `+Tokyo`, `add Hong Kong`, `-SF`, and `remove Europe` update the Raycast-local zone list
 - **Empty query**: shows current time across all zones (like World Clock)
 
 ### Preferences
@@ -80,16 +83,17 @@ TimeZoner/
 │   ├── Sources/
 │   ├── Tests/
 │   ├── Package.swift
-│   ├── build.sh
 │   └── Info.plist
-├── raycast/                      # Raycast extension (new)
+├── raycast/                      # Raycast extension (source-installed for now)
 │   ├── src/
 │   │   ├── convert-time.tsx      # Main command
 │   │   ├── world-clock.tsx       # Current time command
 │   │   ├── data/
-│   │   │   └── timezones.ts      # Ported alias table (376 entries)
+│   │   │   └── timezones.ts      # Generated alias table (376 entries)
 │   │   ├── parser.ts             # Ported InputParser logic
-│   │   └── utils.ts              # Time formatting helpers
+│   │   ├── formatter.ts          # Time formatting helpers
+│   │   ├── zones.ts              # Raycast LocalStorage zone persistence
+│   │   └── timezoner-url.ts      # timezoner:// URL builder
 │   ├── package.json
 │   ├── tsconfig.json
 │   └── assets/
@@ -99,10 +103,14 @@ TimeZoner/
 ├── scripts/
 │   ├── build.sh                  # App build
 │   ├── create-dmg.sh             # App packaging
+│   ├── test-install.sh           # Install/formula packaging checks
 │   └── sync-aliases.sh           # Generate .ts and .swift from shared JSON
+├── Formula/
+│   └── timezoner.rb              # HEAD-only Homebrew formula
 ├── docs/
 ├── README.md
 ├── CLAUDE.md
+├── install.sh
 └── LICENSE
 ```
 
@@ -111,8 +119,8 @@ TimeZoner/
 The 376-timezone alias table is the core asset shared between the Swift app and the Raycast extension. To keep them in sync:
 
 1. **Source of truth**: `shared/timezone-aliases.json` — a JSON array of `{ alias, iana_id }` pairs
-2. **Swift generation**: `scripts/sync-aliases.sh` generates `Sources/Data/TimezoneAliases.swift` from the JSON
-3. **TypeScript import**: `raycast/src/data/timezones.ts` imports the JSON directly
+2. **Swift generation**: `scripts/sync-aliases.sh` generates `app/Sources/Data/TimezoneAliases.swift` from the JSON
+3. **TypeScript generation**: the same script generates `raycast/src/data/timezones.ts`
 
 This means adding a new alias is a single edit to one JSON file.
 
@@ -143,9 +151,9 @@ const timeStr = formatter.format(date); // "3:00 PM"
 
 ### App Communication
 
-1. **Shared UserDefaults**: Both the app and extension can read/write to the same UserDefaults suite (via app group, if both are signed with the same team ID)
-2. **URL scheme**: The app registers `timezoner://` — the extension can `open("timezoner://set?time=1500&zone=America/Los_Angeles")`
-3. **Fallback**: If the app isn't installed, the extension works standalone with its own zone preferences
+1. **Raycast LocalStorage**: Raycast stores add/remove zone changes locally for the extension. The macOS app's `UserDefaults` zone list is separate.
+2. **URL scheme**: The app registers `timezoner://` — the extension opens `timezoner://open` or `timezoner://set?hour=15&minute=0&zone=America%2FLos_Angeles&label=SF`.
+3. **Fallback**: If the app isn't installed, the extension works standalone with its own zones and copy actions.
 
 ## Data Size
 
@@ -160,6 +168,8 @@ const timeStr = formatter.format(date); // "3:00 PM"
 
 ## Publishing
 
+The extension is implemented and source-installable from `raycast/`. Store distribution still needs:
+
 1. Fork `github.com/raycast/extensions`
 2. Add extension under `extensions/timezoner/`
 3. Submit PR with README, icon, screenshots
@@ -168,7 +178,7 @@ const timeStr = formatter.format(date); // "3:00 PM"
 
 ## Out of Scope (v1)
 
-- Syncing zone list between app and extension (use separate preferences initially)
+- Syncing zone list between app and extension (Raycast uses separate LocalStorage preferences initially)
 - Calendar integration
 - Meeting time suggestion ("find overlap")
 - Relative time queries ("3 hours from now in Tokyo")
@@ -178,11 +188,11 @@ const timeStr = formatter.format(date); // "3:00 PM"
 1. Type `tz 3pm SF` → see results in <100ms
 2. All 376 aliases resolve correctly
 3. Copy-to-clipboard works for quick pasting into Slack/email
-4. Published in Raycast Store within 2 weeks
+4. Source extension passes tests, lint, and build before store submission
 5. Standalone — works without TimeZoner.app installed
 
 ## Open Questions
 
-1. Should the extension auto-detect the user's local timezone for the default "home" zone?
-2. Should we support relative queries like "in 3 hours" in v1?
-3. Should zone preferences sync with the app via a shared file/defaults, or stay independent?
+1. Default home zone: not implemented in v1; users configure default zones in Raycast preferences.
+2. Relative queries: out of scope for v1.
+3. Zone sync: stay independent for v1. Raycast uses LocalStorage; app integration is via `timezoner://`.
