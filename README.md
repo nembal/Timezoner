@@ -14,6 +14,8 @@ TimeZoner is a tiny macOS app that floats over everything. Type a time, see it i
 
 Requires macOS 14+ (Sonoma).
 
+The current no-Apple-account install path is source-built: TimeZoner is built and ad-hoc signed on your Mac. The Homebrew formula is HEAD-only until the next tagged release includes these packaging changes.
+
 ### Recommended: Homebrew source build
 
 This builds TimeZoner locally from source and ad-hoc signs the app on your Mac.
@@ -45,7 +47,7 @@ By default this installs to `~/Applications/TimeZoner.app`. Use `./install.sh --
 
 The DMG is a manual fallback for people who prefer dragging the app into Applications:
 
-**[Download the latest DMG](https://github.com/nembal/Timezoner/releases/latest)** (~620KB, Apple Silicon)
+**[Download the latest release DMG](https://github.com/nembal/Timezoner/releases/latest)**
 
 Open the DMG, drag TimeZoner to Applications, then right-click and choose Open on first launch if macOS asks you to confirm trust. The app is ad-hoc signed but not Apple-notarized.
 
@@ -135,7 +137,7 @@ The parser handles messy typing. All of these work:
 
 ## ![Raycast](https://img.shields.io/badge/Raycast-Extension-FF6363?logo=raycast&logoColor=white) Raycast Extension
 
-If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. Open **Convert Time** with `tz`, then type `3pm SF` to get conversions across your zones.
+If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. The extension is implemented in this repo and installs from source for now. Open **Convert Time** with `tz`, then type `3pm SF` to get conversions across your zones.
 
 | Command | Keyword | What it does |
 |---------|---------|-------------|
@@ -143,6 +145,8 @@ If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. Open 
 | World Clock | `wc` | Current time in all your zones |
 
 Uses the same 376 timezone aliases as the macOS app.
+
+`Convert Time` also supports `+Tokyo`, `add Hong Kong`, `-SF`, and `remove NYC`. Raycast stores its zone list in Raycast LocalStorage, so both Raycast commands share zones with each other. It does not sync that list with the macOS app. Press **⌘O** from Raycast to open TimeZoner.app through the `timezoner://` URL scheme when the app is installed.
 
 ### Install
 
@@ -166,9 +170,24 @@ cd Timezoner
 open app/TimeZoner.app
 ```
 
-Create a DMG: `./scripts/create-dmg.sh 0.2.0`
+Create a Manual DMG: `./scripts/create-dmg.sh 0.2.0`
 
-Run tests: `cd app && swift run TimeZonerTests`
+Run checks:
+
+```bash
+scripts/test-install.sh
+cd app && swift run TimeZonerTests
+cd ../raycast && npm test && npm run lint && npm run build
+```
+
+Deep-link smoke test:
+
+```bash
+open "timezoner://open"
+open "timezoner://set?hour=15&minute=30&zone=America%2FLos_Angeles&label=SF"
+```
+
+Release readiness is tracked in [docs/RELEASE_READINESS.md](docs/RELEASE_READINESS.md).
 
 ## Tech stack
 

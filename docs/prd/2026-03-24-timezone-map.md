@@ -1,8 +1,10 @@
 # PRD: Interactive Timezone Map
 
+**Status:** Implemented.
+
 ## Overview
 
-Add a collapsible world timezone map below the zone cards. The map highlights which timezone regions are currently active/selected, providing visual geographic context for the time conversion. Purely decorative and informational — the core chat + card workflow remains primary.
+Add a collapsible world timezone map below the zone cards. The map highlights which timezone regions are currently active/selected, provides visual geographic context for the time conversion, shows current offset information on hover, and supports click-to-add for new zone cards. The core chat + card workflow remains primary.
 
 ## Problem
 
@@ -18,7 +20,9 @@ A minimal, beautiful, offline timezone map that highlights active zones with the
 2. **As a user**, when I type `3pm SF` in the chat, the SF timezone region highlights on the map.
 3. **As a user**, when I type `1130am BKK in SF`, both BKK and SF regions highlight.
 4. **As a user**, I can collapse the map to keep the app compact.
-5. **As a user**, the map works offline with no network dependency.
+5. **As a user**, I can hover a region to see its GMT offset.
+6. **As a user**, I can click a timezone region to add it as a card.
+7. **As a user**, the map works offline with no network dependency.
 
 ## Design
 
@@ -47,14 +51,15 @@ A minimal, beautiful, offline timezone map that highlights active zones with the
 - Highlighted zones: terracotta fill (Theme.accent at ~30% opacity) with solid terracotta border
 - Follows existing highlight system — same zones that get orange card borders also glow on the map
 - Dark mode: darker fills, same terracotta highlights
-- No country labels, no city dots, no grid lines — clean and minimal
-- Map height: ~120-150px, spans full card width
+- No country labels or grid lines — clean and minimal
+- City dots mark the user's saved zones
+- Map height: 320px, spans full card width
 
 ### Interaction
 
 - **Collapse/expand**: chevron button toggles map visibility, state persisted to UserDefaults
-- **No click interaction on map** (v1) — it's display-only, highlights follow card selection
-- **Future (v2)**: click a timezone region to add it as a card
+- **Hover**: shows the region's current GMT offset and highlights matching-offset bands
+- **Click**: adds a card for the clicked timezone if it is not already in the user's zone list
 
 ### Animation
 
@@ -138,27 +143,31 @@ Map IANA timezone IDs from the GeoJSON (`America/Los_Angeles`) to the user's zon
 ### File Structure
 
 ```
-Sources/
+app/Sources/
   Views/
-    TimezoneMap.swift       # Canvas renderer + projection
-    MapToggle.swift         # Chevron expand/collapse button
+    TimezoneMapView.swift   # Canvas renderer, toggle, hover, click-to-add
+  Utilities/
+    MapProjection.swift     # Projection and path construction
+    MapColorLogic.swift     # Highlight/user/hover band visual state
   Data/
-    timezone-boundaries.json  # Bundled GeoJSON (~500KB-1.4MB)
-    GeoJSONTypes.swift        # Codable structs for parsing
+    GeoJSONTypes.swift      # Codable structs and bundle lookup
+    CityCoordinates.swift   # City dot coordinates
+  Resources/
+    timezone-boundaries.json  # Bundled GeoJSON (~328KB)
 ```
 
 ## Data Size Budget
 
 | Component | Size |
 |-----------|------|
-| GeoJSON boundaries | 500KB - 1.4MB |
+| GeoJSON boundaries | ~328KB |
 | GeoJSON parser code | ~100 lines |
 | Map renderer code | ~150 lines |
 | Toggle UI code | ~30 lines |
 | **Total code** | ~280 lines |
-| **Total bundle impact** | ~500KB - 1.4MB |
+| **Total bundle impact** | ~328KB data plus renderer code |
 
-Current app binary: 532KB. The map data roughly doubles the bundle size. Acceptable for the visual value.
+The shipped resource is 332,741 bytes. It is small enough for the local-first app and is copied into `TimeZoner_TimeZonerLib.bundle` by the build, install, Homebrew, and DMG packaging paths.
 
 ## Attribution
 
@@ -170,9 +179,8 @@ If using MIT-licensed alternatives (timezone-picker, dejurin), no attribution re
 
 ## Out of Scope (v1)
 
-- Click-to-add timezone from map
 - Zoom/pan on map
-- City markers or labels
+- Country/city labels
 - Country borders (only timezone regions)
 - Animated day/night shadow
 - Alternative projections (Mercator, Robinson)
@@ -189,6 +197,6 @@ If using MIT-licensed alternatives (timezone-picker, dejurin), no attribution re
 
 ## Open Questions
 
-1. Should we further simplify the GeoJSON to ~500KB, or is 1.4MB acceptable?
-2. Should the map default to expanded or collapsed on first launch?
-3. Should we show the map toggle even when there's only one timezone card?
+1. GeoJSON size: resolved at ~328KB.
+2. Default state: expanded on first launch and persisted with `@AppStorage("mapExpanded")`.
+3. Toggle visibility: always shown as the map section control.

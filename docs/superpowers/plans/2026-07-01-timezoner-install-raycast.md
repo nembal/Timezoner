@@ -8,6 +8,8 @@
 
 **Tech Stack:** Bash, Homebrew Formula Ruby, SwiftPM, SwiftUI/AppKit, Raycast API, TypeScript, Vitest.
 
+**Implementation outcome:** Completed on branch `codex/install-raycast-distribution` and opened as PR #2. Final implementation keeps the formula HEAD-only until the next tagged release, copies the SwiftPM `TimeZoner_TimeZonerLib.bundle` through every app packaging path, hardens deep-link cold-start delivery, and persists Raycast zones in Raycast LocalStorage rather than syncing them with the macOS app.
+
 ---
 
 ## Requirements
@@ -1122,4 +1124,4 @@ Expected: one feature commit on `codex/install-raycast-distribution`.
 - Spec coverage: Homebrew source install is Task 3, `install.sh` and CLT build reliability are Task 2, Manual DMG rename is Task 4, Raycast completion is Task 6, native app URL support for Raycast is Task 5, verification is Task 7, and the fresh reviewer subagent checkpoint is recorded in Requirements and Current Evidence.
 - Placeholder scan: no replacement tokens remain. The v0.2.0 tarball SHA256 is `b2ee6fe0b0f87eae1fa036f44f46d820f5b9f123ff1aaab614714609869f92ce`.
 - Type consistency: Raycast parser returns `ParsedQuery`; conversion consumers narrow to `kind: "conversion"`; app deep link parser returns `TimeZonerDeepLink`.
-- Risk callout: the formula's stable URL targets v0.2.0 until a new tag is cut. `head` points at `main` for current source-build installs.
+- Risk callout: the formula is intentionally HEAD-only until a new tag includes the packaging/resource-bundle changes. A stable formula needs a fresh release tarball and SHA256 after merge.

@@ -1,5 +1,7 @@
 # TimeZoner — Design Document
 
+**Status:** Historical design draft. Current behavior is documented in `README.md` and `CLAUDE.md`. The shipped app uses a menu-bar status item, settings popover, global hotkey, collapsible timezone map, and Raycast source extension. The original time scrubber concept did not ship.
+
 ## Overview
 
 A lightweight SwiftUI Mac app for instant time zone conversion. Floating panel, no dock icon, launches fast for Spotlight/Raycast users. Modern 2026 UI.
@@ -24,7 +26,7 @@ User can add/remove zones dynamically. Number of columns is flexible.
 - Always on top, no dock icon
 - Compact: width scales with number of zone cards, ~250px tall
 - Translucent vibrancy background (.ultraThinMaterial)
-- Menu bar icon version planned for later
+- Menu bar status item shipped
 
 ## Visual Design
 
@@ -77,7 +79,7 @@ All bundled in the app. No network required.
 
 ## Future (v2)
 
-- Menu bar icon mode
-- Raycast extension
+- Stable Homebrew formula after the next tagged release
+- Raycast Store submission
 - Flight tracking (AviationStack or AeroDataBox free tier)
 - Widget

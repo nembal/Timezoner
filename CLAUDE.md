@@ -7,6 +7,7 @@ A lightweight macOS floating-panel app for instant timezone conversion. Built fo
 ## Quick Start
 
 ```bash
+./install.sh --open # builds, signs, installs to ~/Applications, and launches
 ./build.sh          # builds TimeZoner.app (in app/)
 open app/TimeZoner.app  # launches the app
 ```
@@ -26,10 +27,11 @@ Replace the "google what time is it in SF" workflow with a single floating panel
 ```
 ┌──────────────────────────────────────────────┐
 │  ─── drag pill ───                           │
-│  [chat field]                    [Now]  [?]  │
+│  [chat field]                    [Now]  [⚙]  │
 │                                              │
 │  [BKK] →+14h→ [SF] →+3h→ [NY] →+5h→ [LDN]  │
 │   drag pill    drag pill   drag pill         │
+│  [collapsible timezone map]                  │
 └──────────────────────────────────────────────┘
      ▲
      │ NSStatusItem (clock icon in menu bar)
@@ -39,9 +41,12 @@ ZoneStore (@Observable)  ← user's zone list (UserDefaults)
 InputParser              ← regex-based forgiving NL parser
 TimezoneAliases          ← 376-entry lookup table
 TimeFormatter            ← cached DateFormatter instances
+TimeZonerDeepLink        ← timezoner://open and timezoner://set?... parser
 ```
 
 **Data flow:** Every input (chat, card edit) → `TimeState.setTime()` → all cards recompute as pure functions of that date.
+
+**Integration flow:** Raycast builds `timezoner://` URLs → AppDelegate parses them → `DeepLinkRouter` queues/dispatches the command → `ContentView` adds a missing zone if needed, sets `TimeState`, and highlights the target card.
 
 ## Project Structure
 
@@ -59,6 +64,8 @@ app/                              # macOS SwiftUI app
       SettingsStore.swift         # @Observable — user prefs (appearance, hotkey, login)
     Data/
       TimezoneAliases.swift       # Auto-generated from shared JSON
+      GeoJSONTypes.swift          # Bundled timezone boundary loader
+      CityCoordinates.swift       # City dot coordinates for the map
     Parser/
       InputParser.swift           # Forgiving time + zone parser
     Views/
@@ -69,11 +76,17 @@ app/                              # macOS SwiftUI app
       DragHandle.swift            # Window drag
       SettingsPopover.swift       # ⚙ popover (appearance, hotkey, login, help)
       HotkeyRecorderField.swift   # Keystroke capture NSView
+      TimezoneMapView.swift       # Collapsible hoverable/clickable timezone map
       Theme.swift                 # Adaptive light/dark palette
     Utilities/
       TimeFormatter.swift         # Cached formatters, thread-safe
       HotkeyManager.swift         # Carbon RegisterEventHotKey wrapper
       LaunchAtLogin.swift         # SMAppService helper
+      MapColorLogic.swift         # Timezone map visual state
+      MapProjection.swift         # Equirectangular projection + paths
+      TimeZonerDeepLink.swift     # URL scheme parser + router
+    Resources/
+      timezone-boundaries.json    # Bundled timezone GeoJSON
   Tests/
     TimeZonerTests.swift          # Test runner (@main)
     TimezoneAliasTests.swift
@@ -83,19 +96,32 @@ app/                              # macOS SwiftUI app
     TimeFormatterTests.swift
     TimezoneMapTests.swift
     SettingsStoreTests.swift
+    TimeZonerDeepLinkTests.swift
   Package.swift
   Info.plist
   fix-spm.sh
 shared/
   timezone-aliases.json           # 376 aliases — single source of truth
-raycast/                          # Raycast extension (planned)
+raycast/                          # Raycast extension (source-installed for now)
+  src/
+    convert-time.tsx              # `tz` command
+    world-clock.tsx               # `wc` command
+    parser.ts                     # TypeScript parser port
+    zones.ts                      # Raycast LocalStorage zone persistence
+    timezoner-url.ts              # timezoner:// URL builder
+    data/timezones.ts             # Generated alias map
 scripts/
   build.sh                        # App build
   create-dmg.sh                   # DMG packaging
+  test-install.sh                 # Install/formula packaging checks
   sync-aliases.sh                 # Generate Swift from shared JSON
   generate-swift-aliases.py       # Python codegen
+Formula/
+  timezoner.rb                    # HEAD-only Homebrew source-build formula
 docs/
   prd/                            # Product requirements
+  RELEASE_READINESS.md            # Remaining release/distribution checklist
+install.sh                        # Source checkout installer
 ```
 
 **Three SPM targets** (defined in `app/Package.swift`):
@@ -122,13 +148,17 @@ docs/
 - **Adaptive dark mode** — `NSColor(dynamicProvider:)` for all theme colors.
 - **Global hotkey via Carbon** — `RegisterEventHotKey` keeps zero-dep rule and intercepts system-wide. Default `⌘⌥T`.
 - **Settings popover, not a window** — gear button opens a SwiftUI popover with appearance override (System/Light/Dark), launch-at-login, hotkey recorder, and input-format help. `⌘,` also opens it.
+- **Source-built distribution first** — Homebrew and `install.sh` build locally, copy the SwiftPM resource bundle, and ad-hoc sign the result. This avoids requiring an Apple Developer Program account for the primary install path.
+- **Homebrew formula is HEAD-only until the next release** — current packaging resources are not in the last stable tag, so `brew install --HEAD timezoner` is the documented path until a new tag and formula checksum exist.
+- **Deep links are the app integration contract** — Raycast opens `timezoner://open` or `timezoner://set?hour=15&minute=30&zone=America%2FLos_Angeles&label=SF`; the app queues links safely during cold start.
+- **Raycast zones are standalone** — Raycast persists add/remove zone commands in Raycast LocalStorage and does not sync zone lists with the macOS app.
 
 ## Shared Data
 
 The 376-timezone alias table is shared between the macOS app and the Raycast extension:
 
 - **Source of truth:** `shared/timezone-aliases.json` — JSON array of `{ alias, iana_id, category }` objects
-- **Swift generation:** `scripts/sync-aliases.sh` regenerates `app/Sources/Data/TimezoneAliases.swift` from the JSON
+- **Generation:** `scripts/sync-aliases.sh` regenerates both `app/Sources/Data/TimezoneAliases.swift` and `raycast/src/data/timezones.ts` from the JSON
 - **Adding an alias:** Edit `shared/timezone-aliases.json`, then run `bash scripts/sync-aliases.sh`
 
 ## Chat Parser Input Formats
@@ -146,6 +176,8 @@ add Hong Kong     remove Europe     12 (bare → active zone)
 
 ## Future Roadmap
 
+- Stable Homebrew formula after the next tagged release
+- Raycast Store submission
 - Flight tracking (AviationStack free tier)
 - macOS widget
 - Default-cities picker in Settings
