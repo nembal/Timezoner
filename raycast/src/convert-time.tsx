@@ -8,7 +8,7 @@ import {
   showToast,
   Toast,
 } from "@raycast/api";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { parseQuery } from "./parser";
 import {
   buildReferenceDate,
@@ -37,17 +37,21 @@ export default function ConvertTime() {
   const [zones, setZones] = useState<ZoneInfo[]>([]);
   const [isLoadingZones, setIsLoadingZones] = useState(true);
   const [searchText, setSearchText] = useState("");
+  const zoneLoadVersionRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
+    const loadVersion = zoneLoadVersionRef.current;
     setIsLoadingZones(true);
 
     loadZones(prefs.defaultZones)
       .then((loadedZones) => {
-        if (!cancelled) setZones(loadedZones);
+        if (!cancelled && zoneLoadVersionRef.current === loadVersion) {
+          setZones(loadedZones);
+        }
       })
       .catch(async (error: unknown) => {
-        if (!cancelled) {
+        if (!cancelled && zoneLoadVersionRef.current === loadVersion) {
           await showToast(
             Toast.Style.Failure,
             "Could not load zones",
@@ -117,6 +121,9 @@ export default function ConvertTime() {
   );
 
   async function handleAddZone(zone: ZoneInfo) {
+    zoneLoadVersionRef.current += 1;
+    setIsLoadingZones(false);
+
     try {
       const currentZones = await loadZones(prefs.defaultZones);
       const next = addZone(currentZones, zone);
@@ -134,6 +141,9 @@ export default function ConvertTime() {
   }
 
   async function handleRemoveZone(label: string) {
+    zoneLoadVersionRef.current += 1;
+    setIsLoadingZones(false);
+
     try {
       const currentZones = await loadZones(prefs.defaultZones);
       const next = removeZone(currentZones, label);

@@ -14,7 +14,7 @@ struct TimeZonerApp {
 }
 
 class AppDelegate: NSObject, NSApplicationDelegate {
-    private var panel: FloatingPanel!
+    private var panel: FloatingPanel?
     private var statusItem: NSStatusItem!
     private let settings = SettingsStore.shared
 
@@ -52,12 +52,17 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     func application(_ application: NSApplication, open urls: [URL]) {
         for url in urls {
             guard let deepLink = TimeZonerDeepLink.parse(url) else { continue }
-            showPanel()
             DeepLinkRouter.shared.pendingCommand = deepLink
+            showPanel()
         }
     }
 
     @objc func togglePanel() {
+        guard let panel else {
+            showPanel()
+            return
+        }
+
         if panel.isVisible {
             panel.orderOut(nil)
         } else {
@@ -66,6 +71,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func showPanel() {
+        guard let panel else {
+            NSApp.activate(ignoringOtherApps: true)
+            return
+        }
+
         panel.orderFront(nil)
         panel.makeKey()
         NSApp.activate(ignoringOtherApps: true)
