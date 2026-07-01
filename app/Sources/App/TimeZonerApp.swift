@@ -53,7 +53,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         for url in urls {
             guard let deepLink = TimeZonerDeepLink.parse(url) else { continue }
             showPanel()
-            NotificationCenter.default.post(name: .timeZonerDeepLink, object: deepLink)
+            DeepLinkRouter.shared.pendingCommand = deepLink
         }
     }
 

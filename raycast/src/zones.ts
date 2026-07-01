@@ -15,12 +15,22 @@ function normalize(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function isZoneInfo(value: unknown): value is ZoneInfo {
+function isValidTimezone(timezone: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isStoredZoneInfo(value: unknown): value is ZoneInfo {
   if (!value || typeof value !== "object") return false;
   const candidate = value as Record<string, unknown>;
   return (
     typeof candidate.label === "string" &&
-    typeof candidate.timezone === "string"
+    typeof candidate.timezone === "string" &&
+    isValidTimezone(candidate.timezone)
   );
 }
 
@@ -43,6 +53,18 @@ export function removeZone(
   );
 }
 
+export function parseStoredZones(stored: string): ZoneInfo[] | undefined {
+  try {
+    const parsed = JSON.parse(stored) as unknown;
+    if (!Array.isArray(parsed) || !parsed.every(isStoredZoneInfo)) {
+      return undefined;
+    }
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
 export async function loadZones(defaultZones: string): Promise<ZoneInfo[]> {
   const LocalStorage = await getLocalStorage();
   const stored = await LocalStorage.getItem<string>(STORAGE_KEY);
@@ -51,19 +73,20 @@ export async function loadZones(defaultZones: string): Promise<ZoneInfo[]> {
     return resolveZones(defaultZones);
   }
 
-  try {
-    const parsed = JSON.parse(stored) as unknown;
-    if (!Array.isArray(parsed) || !parsed.every(isZoneInfo)) {
-      throw new Error("Invalid zone storage");
-    }
-    return parsed;
-  } catch {
+  const parsed = parseStoredZones(stored);
+  if (!parsed) {
     await LocalStorage.removeItem(STORAGE_KEY);
     return resolveZones(defaultZones);
   }
+
+  return parsed;
 }
 
 export async function saveZones(zones: ZoneInfo[]): Promise<void> {
+  if (!parseStoredZones(JSON.stringify(zones))) {
+    throw new Error("Cannot save invalid zones");
+  }
+
   const LocalStorage = await getLocalStorage();
   await LocalStorage.setItem(STORAGE_KEY, JSON.stringify(zones));
 }

@@ -28,22 +28,35 @@ function appendMissingZone(zones: ZoneInfo[], zone: ZoneInfo): ZoneInfo[] {
   return [...zones, zone];
 }
 
+function errorMessage(error: unknown): string | undefined {
+  return error instanceof Error ? error.message : undefined;
+}
+
 export default function ConvertTime() {
   const prefs = getPreferenceValues<Preferences>();
   const [zones, setZones] = useState<ZoneInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingZones, setIsLoadingZones] = useState(true);
   const [searchText, setSearchText] = useState("");
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
+    setIsLoadingZones(true);
 
     loadZones(prefs.defaultZones)
       .then((loadedZones) => {
         if (!cancelled) setZones(loadedZones);
       })
+      .catch(async (error: unknown) => {
+        if (!cancelled) {
+          await showToast(
+            Toast.Style.Failure,
+            "Could not load zones",
+            errorMessage(error),
+          );
+        }
+      })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) setIsLoadingZones(false);
       });
 
     return () => {
@@ -104,31 +117,49 @@ export default function ConvertTime() {
   );
 
   async function handleAddZone(zone: ZoneInfo) {
-    const next = addZone(zones, zone);
-    setZones(next);
-    await saveZones(next);
-    setSearchText("");
-    await showToast(Toast.Style.Success, `Added ${zone.label}`);
+    try {
+      const currentZones = await loadZones(prefs.defaultZones);
+      const next = addZone(currentZones, zone);
+      await saveZones(next);
+      setZones(next);
+      setSearchText("");
+      await showToast(Toast.Style.Success, `Added ${zone.label}`);
+    } catch (error) {
+      await showToast(
+        Toast.Style.Failure,
+        `Could not add ${zone.label}`,
+        errorMessage(error),
+      );
+    }
   }
 
   async function handleRemoveZone(label: string) {
-    const next = removeZone(zones, label);
-    if (next.length === zones.length) {
-      await showToast(Toast.Style.Failure, `No zone matched ${label}`);
-      return;
-    }
+    try {
+      const currentZones = await loadZones(prefs.defaultZones);
+      const next = removeZone(currentZones, label);
+      if (next.length === currentZones.length) {
+        await showToast(Toast.Style.Failure, `No zone matched ${label}`);
+        return;
+      }
 
-    setZones(next);
-    await saveZones(next);
-    setSearchText("");
-    await showToast(Toast.Style.Success, `Removed ${label}`);
+      await saveZones(next);
+      setZones(next);
+      setSearchText("");
+      await showToast(Toast.Style.Success, `Removed ${label}`);
+    } catch (error) {
+      await showToast(
+        Toast.Style.Failure,
+        `Could not remove ${label}`,
+        errorMessage(error),
+      );
+    }
   }
 
   const openURL = buildTimeZonerURL(conversion);
 
   return (
     <List
-      isLoading={isLoading}
+      isLoading={isLoadingZones}
       searchText={searchText}
       onSearchTextChange={setSearchText}
       searchBarPlaceholder="3pm SF, +Tokyo, remove NYC..."
@@ -179,7 +210,7 @@ export default function ConvertTime() {
             </ActionPanel>
           }
         />
-      ) : results.length === 0 && !isLoading ? (
+      ) : results.length === 0 && !isLoadingZones ? (
         <List.EmptyView
           title="No zones configured"
           description="Set your default zones in extension preferences"

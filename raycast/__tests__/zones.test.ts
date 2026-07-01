@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ZoneInfo } from "../src/types";
-import { addZone, removeZone } from "../src/zones";
+import { addZone, parseStoredZones, removeZone } from "../src/zones";
 
 describe("zones", () => {
   it("adds zones and replaces duplicates by timezone", () => {
@@ -31,6 +31,32 @@ describe("zones", () => {
     expect(removeZone(zones, "america/new_york")).toEqual([
       { label: "SF", timezone: "America/Los_Angeles" },
     ]);
+  });
+
+  it("parses valid stored zones", () => {
+    expect(
+      parseStoredZones(
+        JSON.stringify([{ label: "Tokyo", timezone: "Asia/Tokyo" }]),
+      ),
+    ).toEqual([{ label: "Tokyo", timezone: "Asia/Tokyo" }]);
+  });
+
+  it("rejects stored zones with malformed items", () => {
+    expect(
+      parseStoredZones(JSON.stringify([{ label: "Tokyo", timezone: 7 }])),
+    ).toBeUndefined();
+  });
+
+  it("rejects stored zones with invalid timezones", () => {
+    expect(
+      parseStoredZones(
+        JSON.stringify([{ label: "Tokyo", timezone: "Not/A_Timezone" }]),
+      ),
+    ).toBeUndefined();
+  });
+
+  it("rejects invalid JSON", () => {
+    expect(parseStoredZones("{nope")).toBeUndefined();
   });
 
   // LocalStorage is intentionally exercised through Raycast build/runtime.

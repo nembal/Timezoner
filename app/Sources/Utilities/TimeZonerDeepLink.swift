@@ -38,6 +38,13 @@ public enum TimeZonerDeepLink: Equatable {
     }
 }
 
-extension Notification.Name {
-    public static let timeZonerDeepLink = Notification.Name("timeZonerDeepLink")
+@Observable
+public final class DeepLinkRouter {
+    public static let shared = DeepLinkRouter()
+
+    public var pendingCommand: TimeZonerDeepLink?
+
+    public init(pendingCommand: TimeZonerDeepLink? = nil) {
+        self.pendingCommand = pendingCommand
+    }
 }

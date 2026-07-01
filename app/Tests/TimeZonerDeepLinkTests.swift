@@ -28,6 +28,15 @@ private func expectDeepLinkNil(_ actual: TimeZonerDeepLink?, _ label: String, li
     }
 }
 
+private func expectDeepLinkEqual(_ actual: TimeZonerDeepLink?, _ expected: TimeZonerDeepLink, _ label: String, line: Int = #line) {
+    if actual == expected {
+        testsPassed += 1
+    } else {
+        testsFailed += 1
+        print("  FAIL [line \(line)] \(label): expected \(expected), got \(String(describing: actual))")
+    }
+}
+
 func runTimeZonerDeepLinkTests() {
     print("Running TimeZonerDeepLinkTests...")
 
@@ -58,4 +67,15 @@ func runTimeZonerDeepLinkTests() {
         TimeZonerDeepLink.parse(URL(string: "https://set?hour=15&minute=30&zone=America%2FLos_Angeles")!),
         "wrong scheme rejection"
     )
+
+    let router = DeepLinkRouter()
+    router.pendingCommand = .setTime(hour: 9, minute: 5, zoneID: "America/New_York", label: "NYC")
+    expectDeepLinkEqual(
+        router.pendingCommand,
+        .setTime(hour: 9, minute: 5, zoneID: "America/New_York", label: "NYC"),
+        "router stores pending command"
+    )
+
+    router.pendingCommand = nil
+    expectDeepLinkNil(router.pendingCommand, "router clears pending command")
 }

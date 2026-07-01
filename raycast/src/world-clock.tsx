@@ -5,6 +5,8 @@ import {
   getPreferenceValues,
   Icon,
   List,
+  showToast,
+  Toast,
 } from "@raycast/api";
 import { useEffect, useState } from "react";
 import {
@@ -16,22 +18,35 @@ import {
 import { loadZones } from "./zones";
 import type { Preferences, ZoneInfo, ZoneResult } from "./types";
 
+function errorMessage(error: unknown): string | undefined {
+  return error instanceof Error ? error.message : undefined;
+}
+
 export default function WorldClock() {
   const prefs = getPreferenceValues<Preferences>();
   const [zones, setZones] = useState<ZoneInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingZones, setIsLoadingZones] = useState(true);
   const now = new Date();
 
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
+    setIsLoadingZones(true);
 
     loadZones(prefs.defaultZones)
       .then((loadedZones) => {
         if (!cancelled) setZones(loadedZones);
       })
+      .catch(async (error: unknown) => {
+        if (!cancelled) {
+          await showToast(
+            Toast.Style.Failure,
+            "Could not load zones",
+            errorMessage(error),
+          );
+        }
+      })
       .finally(() => {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) setIsLoadingZones(false);
       });
 
     return () => {
@@ -48,8 +63,8 @@ export default function WorldClock() {
   }));
 
   return (
-    <List isLoading={isLoading}>
-      {results.length === 0 && !isLoading ? (
+    <List isLoading={isLoadingZones}>
+      {results.length === 0 && !isLoadingZones ? (
         <List.EmptyView
           title="No zones configured"
           description="Set your default zones in extension preferences"

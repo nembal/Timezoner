@@ -7,7 +7,9 @@ public struct ContentView: View {
     @State private var showingSettings = false
     @State private var isHuggingMenuBar = true
     @State private var highlightedZoneIds: Set<UUID> = []
+    @State private var highlightClearToken = UUID()
     private let settings = SettingsStore.shared
+    private let deepLinkRouter = DeepLinkRouter.shared
 
     public init() {}
 
@@ -108,6 +110,7 @@ public struct ContentView: View {
         ))
         .onAppear {
             ensureDefaultSource()
+            consumePendingDeepLink()
         }
         .onReceive(NotificationCenter.default.publisher(for: .panelHuggingChanged)) { notification in
             if let hugging = notification.object as? Bool {
@@ -116,9 +119,8 @@ public struct ContentView: View {
                 }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: .timeZonerDeepLink)) { notification in
-            guard let deepLink = notification.object as? TimeZonerDeepLink else { return }
-            handleDeepLink(deepLink)
+        .onChange(of: deepLinkRouter.pendingCommand) {
+            consumePendingDeepLink()
         }
         .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)
         .animation(.easeInOut(duration: 0.25), value: isTimeAdjusted)
@@ -162,6 +164,12 @@ public struct ContentView: View {
         }
     }
 
+    private func consumePendingDeepLink() {
+        guard let deepLink = deepLinkRouter.pendingCommand else { return }
+        deepLinkRouter.pendingCommand = nil
+        handleDeepLink(deepLink)
+    }
+
     private func handleDeepLink(_ deepLink: TimeZonerDeepLink) {
         editingZoneId = nil
 
@@ -187,10 +195,13 @@ public struct ContentView: View {
 
     private func highlightZones(matchingZoneID zoneID: String) {
         let ids = Set(zoneStore.zones.filter { $0.timeZoneId == zoneID }.map(\.id))
+        let token = UUID()
+        highlightClearToken = token
         withAnimation(.easeInOut(duration: 0.2)) {
             highlightedZoneIds = ids
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            guard highlightClearToken == token else { return }
             withAnimation(.easeInOut(duration: 0.5)) {
                 highlightedZoneIds = []
             }
