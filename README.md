@@ -140,7 +140,7 @@ The parser handles messy typing. All of these work:
 
 ## ![Raycast](https://img.shields.io/badge/Raycast-Extension-FF6363?logo=raycast&logoColor=white) Raycast Extension
 
-If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. The extension is implemented in this repo and installs from source for now. Open **Convert Time** with `tz`, then type `3pm SF` to get conversions across your zones.
+If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. The extension is implemented in this repo and installs from source for now while the public Store submission is in review. Open **Convert Time** with `tz`, then type `3pm SF` to get conversions across your zones.
 
 | Command | Keyword | What it does |
 |---------|---------|-------------|
@@ -163,6 +163,8 @@ npm run dev
 Open Raycast, type `tz` to open **Convert Time**, then enter `3pm SF`.
 
 > You can also import it manually: Raycast → Settings → Extensions → `+` → Import Extension → select the [`raycast/`](https://github.com/nembal/Timezoner/tree/main/raycast) directory.
+
+Raycast Store submission is tracked at [raycast/extensions#29168](https://github.com/raycast/extensions/pull/29168). Before it can be fully ready, the PR needs real Raycast Window Capture screenshots in `raycast/metadata/`.
 
 ## Build from source
 

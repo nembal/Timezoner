@@ -16,3 +16,5 @@ Capture at least these PNGs:
 - `timezoner-world-clock.png`: World Clock showing the saved zone list.
 
 Raycast's screenshot spec is 2000 x 1250 PNG, landscape, 16:10. Use the same desktop background for all screenshots and avoid showing other apps.
+
+After capture, keep the PNGs in this folder and copy them to `extensions/timezoner/metadata/` in the `raycast/extensions` Store PR branch before pushing the final Store update.
