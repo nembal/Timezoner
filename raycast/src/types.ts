@@ -25,8 +25,8 @@ export interface Preferences {
   copyFormat: "time-tz" | "24h-tz" | "time-city";
 }
 
-/** Parsed time query from user input */
-export interface ParsedQuery {
+export interface ParsedConversionQuery {
+  kind: "conversion";
   /** Hour (0-23) */
   hour: number;
   /** Minute (0-59) */
@@ -40,3 +40,20 @@ export interface ParsedQuery {
   /** Target zone label as typed by user */
   targetLabel?: string;
 }
+
+export interface ParsedAddZoneCommand {
+  kind: "addZone";
+  label: string;
+  timezone: string;
+}
+
+export interface ParsedRemoveZoneCommand {
+  kind: "removeZone";
+  label: string;
+}
+
+/** Parsed time query or zone command from user input */
+export type ParsedQuery =
+  | ParsedConversionQuery
+  | ParsedAddZoneCommand
+  | ParsedRemoveZoneCommand;

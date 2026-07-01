@@ -6,23 +6,38 @@ import {
   Icon,
   List,
 } from "@raycast/api";
-import { useMemo } from "react";
-import { resolveZones } from "./aliases";
+import { useEffect, useState } from "react";
 import {
   formatTime,
   formatDate,
   formatForCopy,
   formatAllForCopy,
 } from "./formatter";
-import type { Preferences, ZoneResult } from "./types";
+import { loadZones } from "./zones";
+import type { Preferences, ZoneInfo, ZoneResult } from "./types";
 
 export default function WorldClock() {
   const prefs = getPreferenceValues<Preferences>();
-  const zones = useMemo(
-    () => resolveZones(prefs.defaultZones),
-    [prefs.defaultZones],
-  );
+  const [zones, setZones] = useState<ZoneInfo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const now = new Date();
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+
+    loadZones(prefs.defaultZones)
+      .then((loadedZones) => {
+        if (!cancelled) setZones(loadedZones);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [prefs.defaultZones]);
 
   const results: ZoneResult[] = zones.map((zone) => ({
     ...zone,
@@ -33,8 +48,8 @@ export default function WorldClock() {
   }));
 
   return (
-    <List>
-      {results.length === 0 ? (
+    <List isLoading={isLoading}>
+      {results.length === 0 && !isLoading ? (
         <List.EmptyView
           title="No zones configured"
           description="Set your default zones in extension preferences"
@@ -72,7 +87,7 @@ export default function WorldClock() {
                 />
                 <Action.Open
                   title="Open in Timezoner"
-                  target="timezoner://"
+                  target="timezoner://open"
                   shortcut={{ modifiers: ["cmd"], key: "o" }}
                 />
               </ActionPanel>

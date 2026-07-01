@@ -1,4 +1,9 @@
-import type { ParsedQuery } from "./types";
+import type {
+  ParsedAddZoneCommand,
+  ParsedConversionQuery,
+  ParsedQuery,
+  ParsedRemoveZoneCommand,
+} from "./types";
 import { resolveTimezone } from "./aliases";
 
 // Regex patterns matching Swift InputParser
@@ -13,14 +18,15 @@ const PATTERN_C = /^(\d{1,2})\s*(a\.m\.|p\.m\.|am|pm|a|p)\s+(.+)$/i;
 
 function adjustHourForAmPm(hour: number, ampm: string | undefined): number {
   if (!ampm) return hour;
-  const isPm = ampm.startsWith("p");
-  const isAm = ampm.startsWith("a");
+  const normalized = ampm.toLowerCase();
+  const isPm = normalized.startsWith("p");
+  const isAm = normalized.startsWith("a");
   if (isPm && hour < 12) return hour + 12;
   if (isAm && hour === 12) return 0;
   return hour;
 }
 
-function parseTime(input: string): ParsedQuery | undefined {
+function parseTime(input: string): ParsedConversionQuery | undefined {
   let match: RegExpMatchArray | null;
 
   // Pattern A: HH:MM [am/pm] ZONE
@@ -33,10 +39,11 @@ function parseTime(input: string): ParsedQuery | undefined {
     const tz = resolveTimezone(zoneStr);
     if (!tz) return undefined;
     return {
+      kind: "conversion",
       hour,
       minute,
       sourceTimezone: tz,
-      sourceLabel: zoneStr.toLowerCase(),
+      sourceLabel: zoneStr,
     };
   }
 
@@ -50,10 +57,11 @@ function parseTime(input: string): ParsedQuery | undefined {
     const tz = resolveTimezone(zoneStr);
     if (!tz) return undefined;
     return {
+      kind: "conversion",
       hour,
       minute,
       sourceTimezone: tz,
-      sourceLabel: zoneStr.toLowerCase(),
+      sourceLabel: zoneStr,
     };
   }
 
@@ -66,23 +74,25 @@ function parseTime(input: string): ParsedQuery | undefined {
     const tz = resolveTimezone(zoneStr);
     if (!tz) return undefined;
     return {
+      kind: "conversion",
       hour,
       minute: 0,
       sourceTimezone: tz,
-      sourceLabel: zoneStr.toLowerCase(),
+      sourceLabel: zoneStr,
     };
   }
 
   return undefined;
 }
 
-function parseSpecialWord(input: string): ParsedQuery | undefined {
+function parseSpecialWord(input: string): ParsedConversionQuery | undefined {
   const parts = input.split(/\s+/, 2);
   if (parts.length !== 2) return undefined;
 
   let hour: number;
-  if (parts[0] === "noon") hour = 12;
-  else if (parts[0] === "midnight") hour = 0;
+  const word = parts[0].toLowerCase();
+  if (word === "noon") hour = 12;
+  else if (word === "midnight") hour = 0;
   else return undefined;
 
   // The zone might have spaces (e.g., "new york"), so take everything after the first word
@@ -91,15 +101,16 @@ function parseSpecialWord(input: string): ParsedQuery | undefined {
   if (!tz) return undefined;
 
   return {
+    kind: "conversion",
     hour,
     minute: 0,
     sourceTimezone: tz,
-    sourceLabel: zoneStr.toLowerCase(),
+    sourceLabel: zoneStr,
   };
 }
 
-function parseTimeInContext(input: string): ParsedQuery | undefined {
-  const inIndex = input.indexOf(" in ");
+function parseTimeInContext(input: string): ParsedConversionQuery | undefined {
+  const inIndex = input.toLowerCase().indexOf(" in ");
   if (inIndex === -1) return undefined;
 
   const timePart = input.slice(0, inIndex).trim();
@@ -115,8 +126,42 @@ function parseTimeInContext(input: string): ParsedQuery | undefined {
   return {
     ...result,
     targetTimezone: targetTz,
-    targetLabel: targetStr.toLowerCase(),
+    targetLabel: targetStr,
   };
+}
+
+function parseCommand(
+  input: string,
+): ParsedAddZoneCommand | ParsedRemoveZoneCommand | undefined {
+  const trimmed = input.trim();
+  if (!trimmed) return undefined;
+
+  if (trimmed.startsWith("+")) {
+    const label = trimmed.slice(1).trim();
+    if (!label) return undefined;
+    const timezone = resolveTimezone(label);
+    return timezone ? { kind: "addZone", label, timezone } : undefined;
+  }
+
+  if (trimmed.startsWith("-")) {
+    const label = trimmed.slice(1).trim();
+    return label ? { kind: "removeZone", label } : undefined;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (lower.startsWith("add ")) {
+    const label = trimmed.slice(4).trim();
+    if (!label) return undefined;
+    const timezone = resolveTimezone(label);
+    return timezone ? { kind: "addZone", label, timezone } : undefined;
+  }
+
+  if (lower.startsWith("remove ")) {
+    const label = trimmed.slice(7).trim();
+    return label ? { kind: "removeZone", label } : undefined;
+  }
+
+  return undefined;
 }
 
 /**
@@ -131,16 +176,17 @@ export function parseQuery(input: string): ParsedQuery | undefined {
   const trimmed = input.trim();
   if (!trimmed) return undefined;
 
-  const normalized = trimmed.toLowerCase();
+  const command = parseCommand(trimmed);
+  if (command) return command;
 
   // Try "X in Y" syntax first
-  const inContext = parseTimeInContext(normalized);
+  const inContext = parseTimeInContext(trimmed);
   if (inContext) return inContext;
 
   // Try special words
-  const special = parseSpecialWord(normalized);
+  const special = parseSpecialWord(trimmed);
   if (special) return special;
 
   // Try time patterns
-  return parseTime(normalized);
+  return parseTime(trimmed);
 }

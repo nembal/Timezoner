@@ -49,6 +49,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         showPanel()
     }
 
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for url in urls {
+            guard let deepLink = TimeZonerDeepLink.parse(url) else { continue }
+            showPanel()
+            NotificationCenter.default.post(name: .timeZonerDeepLink, object: deepLink)
+        }
+    }
+
     @objc func togglePanel() {
         if panel.isVisible {
             panel.orderOut(nil)

@@ -10,6 +10,17 @@
     <string>APPL</string>
     <key>CFBundleExecutable</key>
     <string>TimeZoner</string>
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.timezoner.app</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>timezoner</string>
+            </array>
+        </dict>
+    </array>
     <key>LSUIElement</key>
     <true/>
 </dict>

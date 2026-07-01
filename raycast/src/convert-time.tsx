@@ -5,10 +5,11 @@ import {
   getPreferenceValues,
   Icon,
   List,
+  showToast,
+  Toast,
 } from "@raycast/api";
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { parseQuery } from "./parser";
-import { resolveZones } from "./aliases";
 import {
   buildReferenceDate,
   formatTime,
@@ -16,51 +17,169 @@ import {
   formatForCopy,
   formatAllForCopy,
 } from "./formatter";
-import type { Preferences, ZoneResult } from "./types";
+import { buildTimeZonerURL } from "./timezoner-url";
+import { addZone, loadZones, removeZone, saveZones } from "./zones";
+import type { Preferences, ZoneInfo, ZoneResult } from "./types";
+
+function appendMissingZone(zones: ZoneInfo[], zone: ZoneInfo): ZoneInfo[] {
+  if (zones.some((existing) => existing.timezone === zone.timezone)) {
+    return zones;
+  }
+  return [...zones, zone];
+}
 
 export default function ConvertTime() {
   const prefs = getPreferenceValues<Preferences>();
-  const zones = useMemo(
-    () => resolveZones(prefs.defaultZones),
-    [prefs.defaultZones],
-  );
+  const [zones, setZones] = useState<ZoneInfo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+
+    loadZones(prefs.defaultZones)
+      .then((loadedZones) => {
+        if (!cancelled) setZones(loadedZones);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [prefs.defaultZones]);
 
   const parsed = useMemo(
     () => (searchText.trim() ? parseQuery(searchText) : undefined),
     [searchText],
   );
+  const conversion = parsed?.kind === "conversion" ? parsed : undefined;
 
   const refDate = useMemo(
     () =>
-      parsed
-        ? buildReferenceDate(parsed.hour, parsed.minute, parsed.sourceTimezone)
+      conversion
+        ? buildReferenceDate(
+            conversion.hour,
+            conversion.minute,
+            conversion.sourceTimezone,
+          )
         : new Date(),
-    [parsed],
+    [conversion],
   );
+
+  const displayZones = useMemo(() => {
+    if (!conversion) return zones;
+
+    let next = appendMissingZone(zones, {
+      label: conversion.sourceLabel,
+      timezone: conversion.sourceTimezone,
+    });
+
+    if (conversion.targetTimezone && conversion.targetLabel) {
+      next = appendMissingZone(next, {
+        label: conversion.targetLabel,
+        timezone: conversion.targetTimezone,
+      });
+    }
+
+    return next;
+  }, [conversion, zones]);
 
   const results = useMemo(
     (): ZoneResult[] =>
-      zones.map((zone) => ({
+      displayZones.map((zone) => ({
         ...zone,
         time: formatTime(refDate, zone.timezone, prefs.timeFormat),
         date: formatDate(refDate, zone.timezone),
-        isSource: parsed ? zone.timezone === parsed.sourceTimezone : false,
-        isTarget: parsed?.targetTimezone
-          ? zone.timezone === parsed.targetTimezone
+        isSource: conversion
+          ? zone.timezone === conversion.sourceTimezone
+          : false,
+        isTarget: conversion?.targetTimezone
+          ? zone.timezone === conversion.targetTimezone
           : false,
       })),
-    [refDate, parsed, zones, prefs.timeFormat],
+    [displayZones, refDate, conversion, prefs.timeFormat],
   );
+
+  async function handleAddZone(zone: ZoneInfo) {
+    const next = addZone(zones, zone);
+    setZones(next);
+    await saveZones(next);
+    setSearchText("");
+    await showToast(Toast.Style.Success, `Added ${zone.label}`);
+  }
+
+  async function handleRemoveZone(label: string) {
+    const next = removeZone(zones, label);
+    if (next.length === zones.length) {
+      await showToast(Toast.Style.Failure, `No zone matched ${label}`);
+      return;
+    }
+
+    setZones(next);
+    await saveZones(next);
+    setSearchText("");
+    await showToast(Toast.Style.Success, `Removed ${label}`);
+  }
+
+  const openURL = buildTimeZonerURL(conversion);
 
   return (
     <List
+      isLoading={isLoading}
       searchText={searchText}
       onSearchTextChange={setSearchText}
-      searchBarPlaceholder="3pm SF, 1130am BKK in NYC, noon London..."
+      searchBarPlaceholder="3pm SF, +Tokyo, remove NYC..."
       throttle
     >
-      {results.length === 0 ? (
+      {parsed?.kind === "addZone" ? (
+        <List.Item
+          icon={{ source: Icon.Plus, tintColor: Color.Green }}
+          title={`Add ${parsed.label}`}
+          subtitle={parsed.timezone}
+          actions={
+            <ActionPanel>
+              <Action
+                title="Add Zone"
+                icon={Icon.Plus}
+                onAction={() =>
+                  handleAddZone({
+                    label: parsed.label,
+                    timezone: parsed.timezone,
+                  })
+                }
+              />
+              <Action.Open
+                title="Open in Timezoner"
+                target="timezoner://open"
+                shortcut={{ modifiers: ["cmd"], key: "o" }}
+              />
+            </ActionPanel>
+          }
+        />
+      ) : parsed?.kind === "removeZone" ? (
+        <List.Item
+          icon={{ source: Icon.Minus, tintColor: Color.Red }}
+          title={`Remove ${parsed.label}`}
+          subtitle="Remove a matching label or timezone"
+          actions={
+            <ActionPanel>
+              <Action
+                title="Remove Zone"
+                icon={Icon.Minus}
+                onAction={() => handleRemoveZone(parsed.label)}
+              />
+              <Action.Open
+                title="Open in Timezoner"
+                target="timezoner://open"
+                shortcut={{ modifiers: ["cmd"], key: "o" }}
+              />
+            </ActionPanel>
+          }
+        />
+      ) : results.length === 0 && !isLoading ? (
         <List.EmptyView
           title="No zones configured"
           description="Set your default zones in extension preferences"
@@ -96,7 +215,7 @@ export default function ConvertTime() {
                   title="Copy All Times"
                   content={formatAllForCopy(
                     refDate,
-                    zones,
+                    displayZones,
                     prefs.timeFormat,
                     prefs.copyFormat,
                   )}
@@ -104,7 +223,7 @@ export default function ConvertTime() {
                 />
                 <Action.Open
                   title="Open in Timezoner"
-                  target="timezoner://"
+                  target={openURL}
                   shortcut={{ modifiers: ["cmd"], key: "o" }}
                 />
               </ActionPanel>
