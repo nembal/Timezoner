@@ -79,7 +79,6 @@ All bundled in the app. No network required.
 
 ## Future (v2)
 
-- Stable Homebrew formula after the next tagged release
 - Raycast Store submission
 - Flight tracking (AviationStack or AeroDataBox free tier)
 - Widget

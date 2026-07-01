@@ -28,16 +28,10 @@ grep -F -- "$tmpdir/Applications" <<<"$dry_run_output" >/dev/null
 
 grep -F -- "destination=\"\${1:-\$HOME/Applications}\"" Formula/timezoner.rb >/dev/null
 grep -F -- "timezoner-install-app /Applications" Formula/timezoner.rb >/dev/null
+grep -F -- 'url "https://github.com/nembal/Timezoner/archive/refs/tags/v0.3.0.tar.gz"' Formula/timezoner.rb >/dev/null
+grep -F -- 'sha256 "59c129efb6900881f55d6187f372cac6f154321be2de474b6427732febfe357c"' Formula/timezoner.rb >/dev/null
 grep -F -- 'head "https://github.com/nembal/Timezoner.git", branch: "main"' Formula/timezoner.rb >/dev/null
 grep -F -- '"--disable-sandbox"' Formula/timezoner.rb >/dev/null
-if grep -Eq '^  url ' Formula/timezoner.rb; then
-    echo "error: Formula/timezoner.rb must be HEAD-only; remove stable url" >&2
-    exit 1
-fi
-if grep -Eq '^  sha256 ' Formula/timezoner.rb; then
-    echo "error: Formula/timezoner.rb must be HEAD-only; remove stable sha256" >&2
-    exit 1
-fi
 
 bash scripts/build.sh
 ./install.sh --skip-build --destination "$tmpdir/Applications"

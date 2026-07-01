@@ -5,7 +5,7 @@ Recommended Homebrew source build
 ---------------------------------
 
     brew tap nembal/timezoner https://github.com/nembal/Timezoner
-    brew install --HEAD timezoner
+    brew install timezoner
     timezoner-install-app
     timezoner
 

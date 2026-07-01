@@ -14,7 +14,7 @@ TimeZoner is a tiny macOS app that floats over everything. Type a time, see it i
 
 Requires macOS 14+ (Sonoma).
 
-The current no-Apple-account install path is source-built: TimeZoner is built and ad-hoc signed on your Mac. The Homebrew formula is HEAD-only until the next tagged release includes these packaging changes.
+The no-Apple-account install path is source-built: TimeZoner is built and ad-hoc signed on your Mac. No Developer ID or notarization is required for the primary Homebrew/source checkout flow.
 
 ### Recommended: Homebrew source build
 
@@ -22,7 +22,7 @@ This builds TimeZoner locally from source and ad-hoc signs the app on your Mac.
 
 ```bash
 brew tap nembal/timezoner https://github.com/nembal/Timezoner
-brew install --HEAD timezoner
+brew install timezoner
 timezoner-install-app
 timezoner
 ```
@@ -32,6 +32,8 @@ timezoner
 ```bash
 open ~/Applications/TimeZoner.app
 ```
+
+To build the latest `main` instead of the tagged release, use `brew install --HEAD timezoner`.
 
 ### Source checkout
 

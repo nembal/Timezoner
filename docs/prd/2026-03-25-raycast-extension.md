@@ -106,7 +106,7 @@ TimeZoner/
 │   ├── test-install.sh           # Install/formula packaging checks
 │   └── sync-aliases.sh           # Generate .ts and .swift from shared JSON
 ├── Formula/
-│   └── timezoner.rb              # HEAD-only Homebrew formula
+│   └── timezoner.rb              # Stable Homebrew formula with HEAD fallback
 ├── docs/
 ├── README.md
 ├── CLAUDE.md

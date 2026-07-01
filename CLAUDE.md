@@ -117,7 +117,7 @@ scripts/
   sync-aliases.sh                 # Generate Swift from shared JSON
   generate-swift-aliases.py       # Python codegen
 Formula/
-  timezoner.rb                    # HEAD-only Homebrew source-build formula
+  timezoner.rb                    # Stable Homebrew source-build formula, with HEAD fallback
 docs/
   prd/                            # Product requirements
   RELEASE_READINESS.md            # Remaining release/distribution checklist
@@ -149,7 +149,7 @@ install.sh                        # Source checkout installer
 - **Global hotkey via Carbon** — `RegisterEventHotKey` keeps zero-dep rule and intercepts system-wide. Default `⌘⌥T`.
 - **Settings popover, not a window** — gear button opens a SwiftUI popover with appearance override (System/Light/Dark), launch-at-login, hotkey recorder, and input-format help. `⌘,` also opens it.
 - **Source-built distribution first** — Homebrew and `install.sh` build locally, copy the SwiftPM resource bundle, and ad-hoc sign the result. This avoids requiring an Apple Developer Program account for the primary install path.
-- **Homebrew formula is HEAD-only until the next release** — current packaging resources are not in the last stable tag, so `brew install --HEAD timezoner` is the documented path until a new tag and formula checksum exist.
+- **Homebrew formula builds from tagged source by default** — `brew install timezoner` uses the latest release tarball and builds locally; `brew install --HEAD timezoner` remains available for current `main`.
 - **Deep links are the app integration contract** — Raycast opens `timezoner://open` or `timezoner://set?hour=15&minute=30&zone=America%2FLos_Angeles&label=SF`; the app queues links safely during cold start.
 - **Raycast zones are standalone** — Raycast persists add/remove zone commands in Raycast LocalStorage and does not sync zone lists with the macOS app.
 
@@ -176,7 +176,6 @@ add Hong Kong     remove Europe     12 (bare → active zone)
 
 ## Future Roadmap
 
-- Stable Homebrew formula after the next tagged release
 - Raycast Store submission
 - Flight tracking (AviationStack free tier)
 - macOS widget

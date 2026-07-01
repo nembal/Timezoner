@@ -4,6 +4,8 @@
 class Timezoner < Formula
   desc "Lightweight macOS floating-panel app for instant timezone conversion"
   homepage "https://github.com/nembal/Timezoner"
+  url "https://github.com/nembal/Timezoner/archive/refs/tags/v0.3.0.tar.gz"
+  sha256 "59c129efb6900881f55d6187f372cac6f154321be2de474b6427732febfe357c"
   license "MIT"
   head "https://github.com/nembal/Timezoner.git", branch: "main"
 
@@ -55,7 +57,6 @@ class Timezoner < Formula
   def caveats
     <<~EOS
       TimeZoner is built from source and ad-hoc signed locally. It is not Apple-notarized.
-      This formula is HEAD-only until the next tagged release includes the current app packaging.
 
       Launch the Homebrew app bundle:
         timezoner
