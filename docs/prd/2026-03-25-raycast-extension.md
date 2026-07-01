@@ -1,6 +1,6 @@
 # PRD: Raycast Extension
 
-**Status:** Implemented in source. Public Raycast Store submission is still pending.
+**Status:** Implemented in source. Raycast Store submission PR is open at https://github.com/raycast/extensions/pull/29168; public availability depends on Raycast review/merge.
 
 ## Overview
 
@@ -168,12 +168,14 @@ const timeStr = formatter.format(date); // "3:00 PM"
 
 ## Publishing
 
-The extension is implemented and source-installable from `raycast/`. Store distribution still needs:
+The extension is implemented and source-installable from `raycast/`. Store submission PR: https://github.com/raycast/extensions/pull/29168.
+
+Manual store distribution path:
 
 1. Fork `github.com/raycast/extensions`
 2. Add extension under `extensions/timezoner/`
 3. Submit PR with README, icon, screenshots
-4. Raycast team reviews (3-7 days)
+4. Raycast team reviews
 5. Appears in Raycast Store
 
 ## Out of Scope (v1)

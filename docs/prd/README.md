@@ -4,7 +4,7 @@
 
 | PRD | Status | Description |
 |-----|--------|-------------|
-| [Raycast Extension](2026-03-25-raycast-extension.md) | Implemented, source-installed | Natural language timezone conversion in Raycast search bar. Uses the generated 376-alias TypeScript table, Raycast-local zone persistence, and `timezoner://` app handoff. Store submission remains. |
+| [Raycast Extension](2026-03-25-raycast-extension.md) | Implemented, store PR open | Natural language timezone conversion in Raycast search bar. Uses the generated 376-alias TypeScript table, Raycast-local zone persistence, and `timezoner://` app handoff. Public Store availability depends on Raycast review/merge. |
 | [Timezone Map](2026-03-24-timezone-map.md) | Implemented | Collapsible world timezone map below zone cards. GeoJSON-based, offline, highlights active zones, shows hover offsets, and supports click-to-add. |
 
 ## Monorepo Structure

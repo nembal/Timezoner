@@ -176,7 +176,7 @@ add Hong Kong     remove Europe     12 (bare → active zone)
 
 ## Future Roadmap
 
-- Raycast Store submission
+- Raycast Store review/merge for https://github.com/raycast/extensions/pull/29168
 - Flight tracking (AviationStack free tier)
 - macOS widget
 - Default-cities picker in Settings
