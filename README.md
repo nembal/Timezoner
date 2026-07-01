@@ -135,7 +135,7 @@ The parser handles messy typing. All of these work:
 
 ## ![Raycast](https://img.shields.io/badge/Raycast-Extension-FF6363?logo=raycast&logoColor=white) Raycast Extension
 
-If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. Type `tz 3pm SF` and get conversions across your zones.
+If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. Open **Convert Time** with `tz`, then type `3pm SF` to get conversions across your zones.
 
 | Command | Keyword | What it does |
 |---------|---------|-------------|
@@ -153,7 +153,7 @@ npm install
 npm run dev
 ```
 
-Open Raycast, type `tz 3pm SF`.
+Open Raycast, type `tz` to open **Convert Time**, then enter `3pm SF`.
 
 > You can also import it manually: Raycast → Settings → Extensions → `+` → Import Extension → select the [`raycast/`](https://github.com/nembal/Timezoner/tree/main/raycast) directory.
 
