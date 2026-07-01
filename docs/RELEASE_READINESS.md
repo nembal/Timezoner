@@ -5,7 +5,7 @@
 ## Ready Now
 
 - Source checkout install: `./install.sh --open`, defaulting to `~/Applications/TimeZoner.app`.
-- Homebrew source build: `brew tap nembal/timezoner https://github.com/nembal/Timezoner && brew install timezoner`.
+- Homebrew source build: `brew tap nembal/timezoner https://github.com/nembal/Timezoner && brew trust --formula nembal/timezoner/timezoner && brew install timezoner`.
 - Homebrew HEAD build: `brew install --HEAD timezoner` for current `main`.
 - Homebrew helpers: `timezoner` opens the Cellar app, and `timezoner-install-app [destination]` copies a signed app bundle to `~/Applications` or `/Applications`.
 - Manual DMG fallback: `scripts/create-dmg.sh` builds an ad-hoc signed app, includes the SwiftPM resource bundle, and labels the output as a Manual DMG.
@@ -18,6 +18,7 @@
 - `cd app && swift run TimeZonerTests` with 162 passing tests
 - `cd raycast && npm test && npm run lint && npm run build`
 - Homebrew formula installed and tested through a temporary local tap with `--HEAD`.
+- Homebrew stable formula installed and tested from the real GitHub tap with Homebrew tap trust enabled.
 - Manual DMG mount/resource/codesign checks.
 - `v0.3.0` release tarball SHA256: `59c129efb6900881f55d6187f372cac6f154321be2de474b6427732febfe357c`.
 - `open -a <built app> timezoner://set?...` deep-link smoke test

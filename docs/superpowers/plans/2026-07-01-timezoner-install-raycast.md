@@ -494,6 +494,7 @@ Change the Download/Install section to this order:
 
 ```bash
 brew tap nembal/timezoner https://github.com/nembal/Timezoner
+brew trust --formula nembal/timezoner/timezoner
 brew install timezoner
 timezoner-install-app
 timezoner
@@ -529,6 +530,7 @@ Replace the top explanation with:
 Recommended install for most users:
 
     brew tap nembal/timezoner https://github.com/nembal/Timezoner
+    brew trust --formula nembal/timezoner/timezoner
     brew install timezoner
     timezoner-install-app
 

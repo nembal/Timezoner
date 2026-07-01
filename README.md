@@ -22,6 +22,7 @@ This builds TimeZoner locally from source and ad-hoc signs the app on your Mac.
 
 ```bash
 brew tap nembal/timezoner https://github.com/nembal/Timezoner
+brew trust --formula nembal/timezoner/timezoner
 brew install timezoner
 timezoner-install-app
 timezoner
@@ -33,7 +34,7 @@ timezoner
 open ~/Applications/TimeZoner.app
 ```
 
-To build the latest `main` instead of the tagged release, use `brew install --HEAD timezoner`.
+Homebrew may require the trust step for third-party taps before it will load the formula. To build the latest `main` instead of the tagged release, use `brew install --HEAD timezoner`.
 
 ### Source checkout
 
