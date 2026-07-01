@@ -10,12 +10,38 @@ TimeZoner is a tiny macOS app that floats over everything. Type a time, see it i
 ![TimeZoner floating with world map](docs/images/timezoner-floating-map.png)
 *Floating, with the timezone map open*
 
-## Download
+## Install
+
+Requires macOS 14+ (Sonoma).
+
+### Recommended: Homebrew source build
+
+This builds TimeZoner locally from source and ad-hoc signs the app on your Mac.
+
+```bash
+brew tap nembal/timezoner https://github.com/nembal/Timezoner
+brew install --HEAD timezoner
+timezoner-install-app
+timezoner
+```
+
+### Source checkout
+
+```bash
+git clone https://github.com/nembal/Timezoner.git
+cd Timezoner
+./install.sh --open
+```
+
+By default this installs to `~/Applications/TimeZoner.app`. Use `./install.sh --applications` for `/Applications`, or `./install.sh --destination /path/to/Applications` for another folder.
+
+### Manual DMG install
+
+The DMG is a manual fallback for people who prefer dragging the app into Applications:
 
 **[Download the latest DMG](https://github.com/nembal/Timezoner/releases/latest)** (~620KB, Apple Silicon)
 
-Open the DMG, drag to Applications, right-click → Open on first launch.
-Requires macOS 14+ (Sonoma) on Apple Silicon (M1/M2/M3/M4/M5).
+Open the DMG, drag TimeZoner to Applications, then right-click and choose Open on first launch if macOS asks you to confirm trust. The app is ad-hoc signed but not Apple-notarized.
 
 ## How it works
 

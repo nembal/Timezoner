@@ -1,6 +1,14 @@
 #!/bin/bash
-set -e
-cd "$(dirname "$0")/../app"
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT/app"
+
+developer_dir="$(xcode-select -p 2>/dev/null || true)"
+if [[ "$developer_dir" == *"/Library/Developer/CommandLineTools"* ]]; then
+    bash "$ROOT/app/fix-spm.sh" >/dev/null
+    export SWIFT_EXEC="/tmp/spm-fix/swiftc-wrapper.sh"
+fi
 
 swift build -c release --product TimeZoner
 

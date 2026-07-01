@@ -45,6 +45,7 @@ hdiutil create -volname "${APP_NAME}" \
 rm -rf "${DMG_DIR}"
 
 echo ""
-echo "Created ${DMG_NAME}.dmg ($(du -h "${DMG_NAME}.dmg" | cut -f1))"
+echo "Created Manual DMG ${DMG_NAME}.dmg ($(du -h "${DMG_NAME}.dmg" | cut -f1))"
 echo ""
-echo "To install: Open the DMG, drag TimeZoner to Applications."
+echo "Primary install path: Homebrew source build or ./install.sh"
+echo "Manual DMG fallback: open the DMG and drag TimeZoner to Applications."
