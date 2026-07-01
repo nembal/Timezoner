@@ -32,6 +32,28 @@ require_command() {
     fi
 }
 
+verify_app_bundle() {
+    local app_path="$1"
+    local executable_path="$app_path/Contents/MacOS/TimeZoner"
+    local info_plist_path="$app_path/Contents/Info.plist"
+    local resource_path="$app_path/Contents/Resources/TimeZoner_TimeZonerLib.bundle/timezone-boundaries.json"
+
+    if [[ ! -x "$executable_path" ]]; then
+        echo "error: missing executable: $executable_path" >&2
+        exit 1
+    fi
+
+    if [[ ! -f "$info_plist_path" ]]; then
+        echo "error: missing Info.plist: $info_plist_path" >&2
+        exit 1
+    fi
+
+    if [[ ! -f "$resource_path" ]]; then
+        echo "error: missing resource JSON: $resource_path" >&2
+        exit 1
+    fi
+}
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --destination)
@@ -90,10 +112,10 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
     exit 0
 fi
 
-require_command swift
 require_command codesign
 
 if [[ "$SKIP_BUILD" -eq 0 ]]; then
+    require_command swift
     bash "$ROOT/scripts/build.sh"
 fi
 
@@ -103,10 +125,13 @@ if [[ ! -d "$APP_SOURCE" ]]; then
     exit 1
 fi
 
+verify_app_bundle "$APP_SOURCE"
+
 mkdir -p "$DESTINATION"
 rm -rf "$APP_DESTINATION"
 cp -R "$APP_SOURCE" "$APP_DESTINATION"
 codesign --force --sign - "$APP_DESTINATION"
+codesign --verify "$APP_DESTINATION"
 
 echo "Installed TimeZoner.app to $APP_DESTINATION"
 echo "Launch it with:"

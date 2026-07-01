@@ -9,7 +9,7 @@ class Timezoner < Formula
   license "MIT"
   head "https://github.com/nembal/Timezoner.git", branch: "main"
 
-  depends_on :macos
+  depends_on macos: :sonoma
 
   def install
     developer_dir = Utils.safe_popen_read("xcode-select", "-p").chomp
@@ -20,11 +20,15 @@ class Timezoner < Formula
 
     system "swift", "build", "-c", "release", "--package-path", "app", "--product", "TimeZoner"
 
+    resource_bundle = Dir["app/.build/**/release/TimeZoner_TimeZonerLib.bundle"].first
+    odie "TimeZoner_TimeZonerLib.bundle not found under app/.build" if resource_bundle.blank?
+
     app_bundle = prefix/"TimeZoner.app"
     (app_bundle/"Contents/MacOS").mkpath
     (app_bundle/"Contents/Resources").mkpath
     cp "app/.build/release/TimeZoner", app_bundle/"Contents/MacOS/TimeZoner"
     cp "app/Info.plist", app_bundle/"Contents/Info.plist"
+    cp_r resource_bundle, app_bundle/"Contents/Resources/TimeZoner_TimeZonerLib.bundle"
     system "codesign", "--force", "--sign", "-", app_bundle
 
     (bin/"timezoner").write <<~EOS
@@ -69,7 +73,11 @@ class Timezoner < Formula
   end
 
   test do
-    assert_path_exists prefix/"TimeZoner.app/Contents/MacOS/TimeZoner"
+    resource_json = prefix/"TimeZoner.app/Contents/Resources/TimeZoner_TimeZonerLib.bundle/timezone-boundaries.json"
+
+    assert_predicate prefix/"TimeZoner.app/Contents/MacOS/TimeZoner", :executable?
+    assert_path_exists prefix/"TimeZoner.app/Contents/Info.plist"
+    assert_path_exists resource_json
     system "codesign", "--verify", prefix/"TimeZoner.app"
   end
 end

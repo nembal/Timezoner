@@ -6,6 +6,14 @@ private func expectTrue(_ condition: Bool, _ label: String, line: Int = #line) {
     else { testsFailed += 1; print("  FAIL [line \(line)] \(label)") }
 }
 
+private func makeResourceBundle(at url: URL) throws {
+    try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+    let json = """
+    {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"tzid":"Etc/UTC"},"geometry":{"type":"Polygon","coordinates":[[[0,0],[0,1],[1,1],[1,0],[0,0]]]}}]}
+    """
+    try json.data(using: .utf8)!.write(to: url.appendingPathComponent("timezone-boundaries.json"))
+}
+
 func runTimezoneMapTests() {
     print("Running TimezoneMapTests...")
 
@@ -49,6 +57,65 @@ func runTimezoneMapTests() {
     } else {
         testsFailed += 3
         print("  FAIL: GeoJSONLoader.loadFromBundle() returned nil")
+    }
+
+    do {
+        let tempRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("TimeZonerLoaderTests-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: tempRoot) }
+
+        let bundleName = "TimeZoner_TimeZonerLib.bundle"
+
+        let packagedMainResources = tempRoot.appendingPathComponent("Packaged/MainResources")
+        let packagedAppRoot = tempRoot.appendingPathComponent("Packaged/TimeZoner.app")
+        let packagedModuleBundleURL = tempRoot.appendingPathComponent("Packaged/Module/\(bundleName)")
+        let packagedBundle = packagedMainResources.appendingPathComponent(bundleName)
+        let packagedDirectBundle = packagedAppRoot.appendingPathComponent(bundleName)
+        try makeResourceBundle(at: packagedBundle)
+        try makeResourceBundle(at: packagedDirectBundle)
+        try makeResourceBundle(at: packagedModuleBundleURL)
+
+        let packagedURL = GeoJSONLoader.resourceURL(
+            mainResourceURL: packagedMainResources,
+            mainBundleURL: packagedAppRoot,
+            moduleBundle: Bundle(url: packagedModuleBundleURL)
+        )
+        expectTrue(packagedURL == packagedBundle.appendingPathComponent("timezone-boundaries.json"),
+                   "bundle: packaged Contents/Resources bundle takes priority")
+
+        let directMainResources = tempRoot.appendingPathComponent("Direct/MainResources")
+        let directAppRoot = tempRoot.appendingPathComponent("Direct/TimeZoner.app")
+        let directBundle = directAppRoot.appendingPathComponent(bundleName)
+        let directModuleBundleURL = tempRoot.appendingPathComponent("Direct/Module/\(bundleName)")
+        try FileManager.default.createDirectory(at: directMainResources, withIntermediateDirectories: true)
+        try makeResourceBundle(at: directBundle)
+        try makeResourceBundle(at: directModuleBundleURL)
+
+        let directURL = GeoJSONLoader.resourceURL(
+            mainResourceURL: directMainResources,
+            mainBundleURL: directAppRoot,
+            moduleBundle: Bundle(url: directModuleBundleURL)
+        )
+        expectTrue(directURL == directBundle.appendingPathComponent("timezone-boundaries.json"),
+                   "bundle: direct app-root bundle is fallback")
+
+        let moduleMainResources = tempRoot.appendingPathComponent("ModuleOnly/MainResources")
+        let moduleAppRoot = tempRoot.appendingPathComponent("ModuleOnly/TimeZoner.app")
+        let moduleBundleURL = tempRoot.appendingPathComponent("ModuleOnly/Module/\(bundleName)")
+        try FileManager.default.createDirectory(at: moduleMainResources, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: moduleAppRoot, withIntermediateDirectories: true)
+        try makeResourceBundle(at: moduleBundleURL)
+
+        let moduleURL = GeoJSONLoader.resourceURL(
+            mainResourceURL: moduleMainResources,
+            mainBundleURL: moduleAppRoot,
+            moduleBundle: Bundle(url: moduleBundleURL)
+        )
+        expectTrue(moduleURL == moduleBundleURL.appendingPathComponent("timezone-boundaries.json"),
+                   "bundle: SwiftPM module bundle is fallback")
+    } catch {
+        testsFailed += 3
+        print("  FAIL: GeoJSONLoader resource lookup test threw \(error)")
     }
 
     // ── Projection ───────────────────────────────────────────────────

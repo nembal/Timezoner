@@ -25,6 +25,12 @@ timezoner-install-app
 timezoner
 ```
 
+`timezoner` opens the Homebrew Cellar app bundle. After `timezoner-install-app`, you can launch the copied app from Spotlight/Finder or run:
+
+```bash
+open ~/Applications/TimeZoner.app
+```
+
 ### Source checkout
 
 ```bash
