@@ -1,6 +1,6 @@
 # Release Readiness
 
-**Status as of 2026-07-01:** PR #2 is merged, `v0.3.0` is tagged, the Manual DMG is attached to GitHub Releases, Homebrew can build from the stable release tarball, and the Raycast Store submission PR is open at https://github.com/raycast/extensions/pull/29168. Public Raycast Store distribution still depends on screenshot metadata, Raycast review, and PR merge.
+**Status as of 2026-07-02:** PR #2 is merged, `v0.3.0` is tagged, the Manual DMG is attached to GitHub Releases, Homebrew can build from the stable release tarball, and the Raycast Store submission PR is open at https://github.com/raycast/extensions/pull/29168. Public Raycast Store distribution still depends on screenshot metadata, Raycast review, and PR merge.
 
 ## Ready Now
 
@@ -10,7 +10,7 @@
 - Homebrew helpers: `timezoner` opens the Cellar app, and `timezoner-install-app [destination]` copies a signed app bundle to `~/Applications` or `/Applications`.
 - Manual DMG fallback: `scripts/create-dmg.sh` builds an ad-hoc signed app, includes the SwiftPM resource bundle, and labels the output as a Manual DMG.
 - Native URL scheme: `timezoner://open` and `timezoner://set?hour=15&minute=30&zone=America%2FLos_Angeles&label=SF`.
-- Raycast source extension: `tz` for Convert Time, `wc` for World Clock, Raycast-local add/remove zone commands, live World Clock refresh, and `Cmd+O` into TimeZoner.app.
+- Raycast source extension: one `tz` TimeZoner command for live world clock, same-screen card time editing through the search bar, one-click edit retargeting between cards, static map preview under the timezone cards, time conversion, Raycast-local add/edit/remove zone commands, and `Cmd+O` into TimeZoner.app.
 - Raycast Store submission: https://github.com/raycast/extensions/pull/29168, with initial Greptile review feedback addressed except for real screenshot PNGs.
 
 ## Verified On This Branch
@@ -28,7 +28,7 @@
 ## Remaining Before Fully Ready
 
 1. Capture real Raycast Store screenshots with Raycast Window Capture and save PNGs into `raycast/metadata/`; recommended shots are documented in `raycast/metadata/README.md`.
-2. Copy those PNGs into `extensions/timezoner/metadata/` in the `raycast/extensions` PR branch, commit, and push to https://github.com/raycast/extensions/pull/29168.
+2. Copy those PNGs and `raycast/ATTRIBUTION.md` into `extensions/timezoner/metadata/` and `extensions/timezoner/` in the `raycast/extensions` PR branch, commit, and push to https://github.com/raycast/extensions/pull/29168.
 3. Wait for Raycast review/merge on https://github.com/raycast/extensions/pull/29168. Address reviewer feedback if they request changes.
-4. Run a clean-machine smoke test on a fresh macOS user or VM: Homebrew install, `install.sh`, Manual DMG first launch, Raycast `tz`, Raycast add/remove persistence, and `Cmd+O` deep links.
+4. Run a clean-machine smoke test on a fresh macOS user or VM: Homebrew install, `install.sh`, Manual DMG first launch, Raycast `tz`, same-screen card time editing, one-click card switching while editing, map-under-cards preview, `3pm in SF`, Raycast add/edit/remove persistence, and `Cmd+O` deep links.
 5. Keep the DMG as a Manual DMG fallback unless the project later chooses to buy an Apple Developer Program account. The primary source-built path does not require it.

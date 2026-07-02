@@ -140,16 +140,15 @@ The parser handles messy typing. All of these work:
 
 ## ![Raycast](https://img.shields.io/badge/Raycast-Extension-FF6363?logo=raycast&logoColor=white) Raycast Extension
 
-If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. The extension is implemented in this repo and installs from source for now while the public Store submission is in review. Open **Convert Time** with `tz`, then type `3pm SF` to get conversions across your zones.
+If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. The extension is implemented in this repo and installs from source for now while the public Store submission is in review. Open **TimeZoner** with `tz`, then type `3pm in SF` to see that time across every saved zone.
 
 | Command | Keyword | What it does |
 |---------|---------|-------------|
-| Convert Time | `tz` | Type a time + city, see it in all your zones |
-| World Clock | `wc` | Current time in all your zones |
+| TimeZoner | `tz` | Shows current time across saved zones, converts typed times, and manages zones |
 
 Uses the same 376 timezone aliases as the macOS app.
 
-`Convert Time` also supports `+Tokyo`, `add Hong Kong`, `-SF`, and `remove NYC`. Raycast stores its zone list in Raycast LocalStorage, so both Raycast commands share zones with each other. It does not sync that list with the macOS app. Press **⌘O** from Raycast to open TimeZoner.app through the `timezoner://` URL scheme when the app is installed.
+The Raycast command supports `3pm in SF`, `3pm SF`, `Tokyo`, `+Tokyo`, `add Hong Kong`, `-SF`, and `remove NYC`. Saved zones appear as timezone cards in a row, with the static boundary map underneath. Select any zone card and press **Enter** to switch the search bar into edit mode for that card; type `4:30 PM`, `16:30`, `15`, `430pm`, `noon`, or `midnight`, and every other zone recalculates live from that selected timezone. While editing, selecting another card retargets the search bar to that card in one click. The map is rendered from bundled timezone boundary data, with visible zones, matching UTC-offset regions, exact dots for common city zones, and deterministic offset markers for less common zones. You can also manage zones from the action panel: **⌘N** opens Add Zone, and **⌘E** edits the selected saved zone. Raycast stores its zone list in Raycast LocalStorage. It does not sync that list with the macOS app. Press **⌘O** from Raycast to open TimeZoner.app through the `timezoner://` URL scheme when the app is installed.
 
 ### Install
 
@@ -160,7 +159,7 @@ npm install
 npm run dev
 ```
 
-Open Raycast, type `tz` to open **Convert Time**, then enter `3pm SF`.
+Open Raycast, type `tz` to open **TimeZoner**, then enter `3pm in SF`.
 
 > You can also import it manually: Raycast → Settings → Extensions → `+` → Import Extension → select the [`raycast/`](https://github.com/nembal/Timezoner/tree/main/raycast) directory.
 

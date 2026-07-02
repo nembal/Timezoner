@@ -4,11 +4,11 @@
 
 ## Overview
 
-A Raycast extension that brings TimeZoner's natural language timezone conversion directly into Raycast's search bar. Type `tz 3pm SF` and instantly see the converted time across all your zones without opening the full app.
+A Raycast extension that brings TimeZoner's natural language timezone conversion directly into Raycast. Type `tz 3pm in SF` and instantly see that time across saved zone cards, with a static timezone map underneath, without opening the full app.
 
 ## Problem
 
-Even with TimeZoner.app, you still need to click the menu bar icon or find the floating panel. For quick one-off conversions ("what's 3pm SF in Bangkok?"), the fastest path is typing directly into Raycast — the tool many power users already have open constantly.
+Even with TimeZoner.app, you still need to click the menu bar icon or find the floating panel. For quick one-off conversions ("what's 3pm SF in Bangkok?"), the fastest path is typing directly into Raycast, the tool many power users already have open constantly.
 
 ## Competitive Landscape
 
@@ -22,50 +22,44 @@ Every existing extension requires picking from a dropdown of 400+ IANA identifie
 
 ## Goal
 
-Type a timezone query in Raycast, see instant results. Copy with one keystroke. Optionally open TimeZoner.app for the full card view.
+Type a timezone query in Raycast, see instant card results, edit any card's local time in the search bar, copy with one keystroke, and optionally open TimeZoner.app for the native floating panel.
 
 ## User Stories
 
-1. **As a user**, I type `tz 3pm SF` and instantly see that time in all my saved zones.
+1. **As a user**, I type `tz 3pm in SF` and instantly see that time in all my saved zones.
 2. **As a user**, I type `tz 1130am BKK in SF` and see the conversion highlighted.
-3. **As a user**, I press Enter on a result to copy the time to my clipboard.
-4. **As a user**, I press Cmd+O on a result to open TimeZoner.app with that time set.
+3. **As a user**, I press Enter on a card to edit that card's time in the search bar.
+4. **As a user**, I use the action panel to copy a time or press Cmd+O to open TimeZoner.app with that time set.
 5. **As a user**, I type `tz +Tokyo` to add Tokyo to my Raycast zone list.
 6. **As a user**, I can configure my default zones in Raycast preferences.
 
 ## Design
 
-### Command: `Convert Time`
+### Command: `TimeZoner`
 
 Keyword trigger: `tz` (configurable)
 
 ```
 ┌─────────────────────────────────────────┐
-│ tz 3pm SF                               │
+│ tz 3pm in SF                            │
 ├─────────────────────────────────────────┤
-│ 🟠 SF          3:00 pm   Mon, Mar 24   │  ← source (highlighted)
-│    Bangkok      5:00 am   Tue, Mar 25   │
-│    New York     6:00 pm   Mon, Mar 24   │
-│    London      11:00 pm   Mon, Mar 24   │
+│ [SF card] [Bangkok card] [New York card] │
+│ [static timezone boundary map]           │
 ├─────────────────────────────────────────┤
-│ ↩ Copy  ⌘O Open in TimeZoner  ⌘C Copy All │
+│ ↩ Edit Time  ⌘O Open in TimeZoner        │
 └─────────────────────────────────────────┘
 ```
 
-### Command: `World Clock`
-
-Keyword trigger: `wc` (configurable)
-
-Shows current time in all saved zones. Same list format, no input needed.
-
 ### Behavior
 
-- **As you type**, results update live (debounced)
-- **Enter**: copies the focused zone's time (e.g., "3:00 PM PST")
+- **Empty query**: shows current time across saved zones as cards.
+- **As you type**, results update live.
+- **Enter on a card**: switches the search bar into card-edit mode for that timezone.
+- **Selecting another card while editing**: retargets edit mode to that card in one click and updates the visible Raycast status toast.
 - **Cmd+Shift+C**: copies all zones as a formatted block
 - **Cmd+O**: opens TimeZoner.app (if installed)
-- **Add/remove commands**: `+Tokyo`, `add Hong Kong`, `-SF`, and `remove Europe` update the Raycast-local zone list
-- **Empty query**: shows current time across all zones (like World Clock)
+- **Add/edit/remove actions**: `+Tokyo`, `add Hong Kong`, `-SF`, `remove Europe`, the Add Zone form, and the Edit Zone form update the Raycast-local zone list
+- **Static map preview**: shows bundled timezone boundaries, highlighted saved zones, matching offset regions, exact dots for common city zones, and deterministic offset markers for less common zones.
 
 ### Preferences
 
@@ -86,10 +80,11 @@ TimeZoner/
 │   └── Info.plist
 ├── raycast/                      # Raycast extension (source-installed for now)
 │   ├── src/
-│   │   ├── convert-time.tsx      # Main command
-│   │   ├── world-clock.tsx       # Current time command
+│   │   ├── convert-time.tsx      # Single TimeZoner command
+│   │   ├── map-preview.ts        # SVG card and map rendering
 │   │   ├── data/
-│   │   │   └── timezones.ts      # Generated alias table (376 entries)
+│   │   │   ├── timezones.ts      # Generated alias table (376 entries)
+│   │   │   └── timezone-boundaries.json # Bundled map boundaries
 │   │   ├── parser.ts             # Ported InputParser logic
 │   │   ├── formatter.ts          # Time formatting helpers
 │   │   ├── zones.ts              # Raycast LocalStorage zone persistence
@@ -151,7 +146,7 @@ const timeStr = formatter.format(date); // "3:00 PM"
 
 ### App Communication
 
-1. **Raycast LocalStorage**: Raycast stores add/remove zone changes locally for the extension. The macOS app's `UserDefaults` zone list is separate.
+1. **Raycast LocalStorage**: Raycast stores add/edit/remove zone changes locally for the extension. The macOS app's `UserDefaults` zone list is separate.
 2. **URL scheme**: The app registers `timezoner://` — the extension opens `timezoner://open` or `timezoner://set?hour=15&minute=0&zone=America%2FLos_Angeles&label=SF`.
 3. **Fallback**: If the app isn't installed, the extension works standalone with its own zones and copy actions.
 
@@ -160,11 +155,11 @@ const timeStr = formatter.format(date); // "3:00 PM"
 | Component | Size |
 |-----------|------|
 | timezone-aliases.json | ~15KB |
-| parser.ts | ~150 lines |
-| convert-time.tsx | ~200 lines |
-| world-clock.tsx | ~80 lines |
-| utils.ts | ~50 lines |
-| **Total extension** | ~500 lines, ~20KB |
+| parser.ts | ~260 lines |
+| convert-time.tsx | ~640 lines |
+| map-preview.ts | ~450 lines |
+| timezone-boundaries.json | bundled GeoJSON boundary data; keep ODbL/OpenStreetMap attribution |
+| **Total extension** | one command plus bundled offline data |
 
 ## Publishing
 
@@ -187,11 +182,13 @@ Manual store distribution path:
 
 ## Success Criteria
 
-1. Type `tz 3pm SF` → see results in <100ms
+1. Type `tz 3pm in SF` → see card results quickly
 2. All 376 aliases resolve correctly
-3. Copy-to-clipboard works for quick pasting into Slack/email
-4. Source extension passes tests, lint, and build before store submission
-5. Standalone — works without TimeZoner.app installed
+3. Empty query shows saved-zone clock cards and the map preview
+4. Card edit mode retargets cleanly when selecting another card
+5. Copy-to-clipboard works for quick pasting into Slack/email
+6. Source extension passes tests, lint, and build before store submission
+7. Standalone — works without TimeZoner.app installed
 
 ## Open Questions
 

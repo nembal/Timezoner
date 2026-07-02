@@ -22,14 +22,10 @@ declare type Preferences = ExtensionPreferences
 declare namespace Preferences {
   /** Preferences accessible in the `convert-time` command */
   export type ConvertTime = ExtensionPreferences & {}
-  /** Preferences accessible in the `world-clock` command */
-  export type WorldClock = ExtensionPreferences & {}
 }
 
 declare namespace Arguments {
   /** Arguments passed to the `convert-time` command */
   export type ConvertTime = {}
-  /** Arguments passed to the `world-clock` command */
-  export type WorldClock = {}
 }
 
