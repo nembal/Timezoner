@@ -14,29 +14,11 @@ TimeZoner is a tiny macOS app that floats over everything. Type a time, see it i
 
 Requires macOS 14+ (Sonoma).
 
-The no-Apple-account install path is source-built: TimeZoner is built and ad-hoc signed on your Mac. No Developer ID or notarization is required for the primary Homebrew/source checkout flow.
+TimeZoner does not require a paid Apple Developer account to install locally. The clean install paths build the app from source on your Mac and ad-hoc sign it there.
 
-### Recommended: Homebrew source build
+### Cleanest local install
 
-This builds TimeZoner locally from source and ad-hoc signs the app on your Mac.
-
-```bash
-brew tap nembal/timezoner https://github.com/nembal/Timezoner
-brew trust --formula nembal/timezoner/timezoner
-brew install timezoner
-timezoner-install-app
-timezoner
-```
-
-`timezoner` opens the Homebrew Cellar app bundle. After `timezoner-install-app`, you can launch the copied app from Spotlight/Finder or run:
-
-```bash
-open ~/Applications/TimeZoner.app
-```
-
-Homebrew may require the trust step for third-party taps before it will load the formula. To build the latest `main` instead of the tagged release, use `brew install --HEAD timezoner`.
-
-### Source checkout
+Use this if you want the app in `~/Applications` and do not care about Homebrew.
 
 ```bash
 git clone https://github.com/nembal/Timezoner.git
@@ -44,15 +26,61 @@ cd Timezoner
 ./install.sh --open
 ```
 
-By default this installs to `~/Applications/TimeZoner.app`. Use `./install.sh --applications` for `/Applications`, or `./install.sh --destination /path/to/Applications` for another folder.
+This builds TimeZoner, signs it locally, and installs it to:
+
+```bash
+~/Applications/TimeZoner.app
+```
+
+Use `./install.sh --applications` for `/Applications`, or `./install.sh --destination /path/to/Applications` for another folder.
+
+If your Mac does not have Apple's command line tools yet, install them first:
+
+```bash
+xcode-select --install
+```
+
+### Cleanest Homebrew install
+
+Use this if you want Homebrew to manage the build and updates.
+
+```bash
+brew tap nembal/timezoner https://github.com/nembal/Timezoner
+brew trust --formula nembal/timezoner/timezoner
+brew install timezoner
+timezoner-install-app
+open ~/Applications/TimeZoner.app
+```
+
+`timezoner-install-app` copies the built app bundle to `~/Applications/TimeZoner.app`, so it is available from Finder, Spotlight, and Launchpad. The `timezoner` command also opens the Homebrew Cellar app bundle directly.
+
+Homebrew may require the `brew trust` step for third-party taps before it loads the formula. To build the latest `main` instead of the tagged release:
+
+```bash
+brew install --HEAD nembal/timezoner/timezoner
+timezoner-install-app
+```
 
 ### Manual DMG install
 
-The DMG is a manual fallback for people who prefer dragging the app into Applications:
+The DMG is a fallback for people who prefer dragging the app into Applications:
 
 **[Download the latest release DMG](https://github.com/nembal/Timezoner/releases/latest)**
 
 Open the DMG, drag TimeZoner to Applications, then right-click and choose Open on first launch if macOS asks you to confirm trust. The app is ad-hoc signed but not Apple-notarized.
+
+### Raycast local install
+
+Until the Raycast Store PR is merged, run the extension locally:
+
+```bash
+git clone https://github.com/nembal/Timezoner.git
+cd Timezoner/raycast
+npm install
+npm run dev
+```
+
+Open Raycast and type `tz` to launch **TimeZoner**. The Raycast extension works on its own; installing the native app is only needed for the **Open in TimeZoner** deep link.
 
 ## How it works
 
@@ -140,7 +168,7 @@ The parser handles messy typing. All of these work:
 
 ## ![Raycast](https://img.shields.io/badge/Raycast-Extension-FF6363?logo=raycast&logoColor=white) Raycast Extension
 
-If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. The extension is implemented in this repo and installs from source for now while the public Store submission is in review. Open **TimeZoner** with `tz`, then type `3pm in SF` to see that time across every saved zone.
+If you use [Raycast](https://www.raycast.com/), TimeZoner works there too. The extension is implemented in this repo and installs from source while the public Store submission is in review. Open **TimeZoner** with `tz`, then type `3pm in SF` to see that time across every saved zone.
 
 | Command | Keyword | What it does |
 |---------|---------|-------------|
@@ -150,7 +178,7 @@ Uses the same 376 timezone aliases as the macOS app.
 
 The Raycast command supports `3pm in SF`, `3pm SF`, `Tokyo`, `+Tokyo`, `add Hong Kong`, `-SF`, and `remove NYC`. Saved zones appear as timezone cards in a row, with the static boundary map underneath. Select any zone card and press **Enter** to switch the search bar into edit mode for that card; type `4:30 PM`, `16:30`, `15`, `430pm`, `noon`, or `midnight`, and every other zone recalculates live from that selected timezone. While editing, selecting another card retargets the search bar to that card in one click. The map is rendered from bundled timezone boundary data, with visible zones, matching UTC-offset regions, exact dots for common city zones, and deterministic offset markers for less common zones. You can also manage zones from the action panel: **⌘N** opens Add Zone, and **⌘E** edits the selected saved zone. Raycast stores its zone list in Raycast LocalStorage. It does not sync that list with the macOS app. Press **⌘O** from Raycast to open TimeZoner.app through the `timezoner://` URL scheme when the app is installed.
 
-### Install
+### Local Raycast install
 
 ```bash
 git clone https://github.com/nembal/Timezoner.git
@@ -163,7 +191,7 @@ Open Raycast, type `tz` to open **TimeZoner**, then enter `3pm in SF`.
 
 > You can also import it manually: Raycast → Settings → Extensions → `+` → Import Extension → select the [`raycast/`](https://github.com/nembal/Timezoner/tree/main/raycast) directory.
 
-Raycast Store submission is tracked at [raycast/extensions#29168](https://github.com/raycast/extensions/pull/29168). Before it can be fully ready, the PR needs real Raycast Window Capture screenshots in `raycast/metadata/`.
+Raycast Store submission is tracked at [raycast/extensions#29168](https://github.com/raycast/extensions/pull/29168). The extension code, metadata screenshots, and current CI fixes are in the PR branch; public Store install depends on Raycast review and merge.
 
 ## Build from source
 
