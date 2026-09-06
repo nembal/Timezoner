@@ -17,5 +17,6 @@ raycast/node_modules/
 
 # General
 .DS_Store
+.worktrees/
 /tmp/spm-fix/
 *.xcodeproj/
