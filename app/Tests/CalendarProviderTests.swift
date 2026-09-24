@@ -48,6 +48,66 @@ func runCalendarProviderTests() {
     let color = CalendarColor(red: -0.1, green: 0.25, blue: 1.2, alpha: 1.5)
     expectEqualCalendar(color, CalendarColor(red: 0, green: 0.25, blue: 1, alpha: 1), "calendar color components are normalized")
 
+    // A calendar owner can be an invitee rather than the organizer. The current account's
+    // attendee response must win; a decline from somebody else must never hide the event.
+    let currentAccountDeclined = CalendarCurrentAccountParticipationMapper.status(
+        organizer: CalendarEventParticipantParticipation(
+            isCurrentAccount: false,
+            participationStatus: .accepted
+        ),
+        attendees: [
+            CalendarEventParticipantParticipation(
+                isCurrentAccount: false,
+                participationStatus: .declined
+            ),
+            CalendarEventParticipantParticipation(
+                isCurrentAccount: true,
+                participationStatus: .declined
+            )
+        ]
+    )
+    expectEqualCalendar(
+        currentAccountDeclined,
+        .declined,
+        "current account attendee decline is selected over another attendee's status"
+    )
+
+    let otherAttendeeDeclineStatus = CalendarCurrentAccountParticipationMapper.status(
+        organizer: CalendarEventParticipantParticipation(
+            isCurrentAccount: true,
+            participationStatus: .accepted
+        ),
+        attendees: [
+            CalendarEventParticipantParticipation(
+                isCurrentAccount: false,
+                participationStatus: .declined
+            )
+        ]
+    )
+    expectEqualCalendar(
+        otherAttendeeDeclineStatus,
+        .accepted,
+        "other attendee decline retains the current account owner's participation"
+    )
+
+    let currentAccountTentative = CalendarCurrentAccountParticipationMapper.status(
+        organizer: CalendarEventParticipantParticipation(
+            isCurrentAccount: false,
+            participationStatus: .accepted
+        ),
+        attendees: [
+            CalendarEventParticipantParticipation(
+                isCurrentAccount: true,
+                participationStatus: .tentative
+            )
+        ]
+    )
+    expectEqualCalendar(
+        currentAccountTentative,
+        .tentative,
+        "current account attendee tentative is preserved for reduced-opacity rendering"
+    )
+
     // Missing titles remain useful and occurrence IDs distinguish recurring instances.
     let untitled = CalendarEventSnapshotMapper.snapshot(from: CalendarEventMappingInput(
         calendarItemIdentifier: "recurring-item",
@@ -59,8 +119,7 @@ func runCalendarProviderTests() {
         isAllDay: false,
         attendees: [],
         availability: .busy,
-        organizerIsCurrentUser: false,
-        organizerParticipationStatus: .accepted,
+        currentAccountParticipationStatus: .accepted,
         isCancelled: false
     ))
     expectEqualCalendar(untitled?.title, "Untitled event", "blank event title falls back to Untitled event")
@@ -77,8 +136,7 @@ func runCalendarProviderTests() {
         isAllDay: false,
         attendees: [],
         availability: .busy,
-        organizerIsCurrentUser: true,
-        organizerParticipationStatus: .declined,
+        currentAccountParticipationStatus: .declined,
         isCancelled: false
     ))
     expectNilCalendar(ownerDeclined, "owner-declined event is omitted")
@@ -93,8 +151,7 @@ func runCalendarProviderTests() {
         isAllDay: false,
         attendees: [],
         availability: .busy,
-        organizerIsCurrentUser: false,
-        organizerParticipationStatus: .declined,
+        currentAccountParticipationStatus: .accepted,
         isCancelled: false
     ))
     expectEqualCalendar(otherAttendeeDeclined?.title, "Guest declined", "another attendee declining does not hide the event")
@@ -109,8 +166,7 @@ func runCalendarProviderTests() {
         isAllDay: false,
         attendees: [],
         availability: .busy,
-        organizerIsCurrentUser: false,
-        organizerParticipationStatus: .accepted,
+        currentAccountParticipationStatus: .accepted,
         isCancelled: true
     ))
     expectNilCalendar(cancelled, "cancelled event is omitted")
@@ -130,8 +186,7 @@ func runCalendarProviderTests() {
             CalendarEventAttendee(displayName: "   ", email: nil)
         ],
         availability: .tentative,
-        organizerIsCurrentUser: false,
-        organizerParticipationStatus: .pending,
+        currentAccountParticipationStatus: .pending,
         isCancelled: false
     ))
     expectEqualCalendar(attendees?.attendeeNames, ["Ada Lovelace", "grace@example.com"], "attendee names prefer display name then email fallback")

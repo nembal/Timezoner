@@ -114,6 +114,20 @@ private enum EventKitCalendarMappings {
                 email: attendeeEmail(from: attendee.url)
             )
         }
+        let currentAccountParticipationStatus = CalendarCurrentAccountParticipationMapper.status(
+            organizer: organizer.map {
+                CalendarEventParticipantParticipation(
+                    isCurrentAccount: $0.isCurrentUser,
+                    participationStatus: participationStatus($0.participantStatus)
+                )
+            },
+            attendees: eventAttendees.map {
+                CalendarEventParticipantParticipation(
+                    isCurrentAccount: $0.isCurrentUser,
+                    participationStatus: participationStatus($0.participantStatus)
+                )
+            }
+        )
 
         return CalendarEventSnapshotMapper.snapshot(from: CalendarEventMappingInput(
             calendarItemIdentifier: event.calendarItemIdentifier,
@@ -125,8 +139,7 @@ private enum EventKitCalendarMappings {
             isAllDay: event.isAllDay,
             attendees: attendees,
             availability: availability(event.availability),
-            organizerIsCurrentUser: organizer?.isCurrentUser ?? false,
-            organizerParticipationStatus: participationStatus(organizer?.participantStatus ?? .unknown),
+            currentAccountParticipationStatus: currentAccountParticipationStatus,
             isCancelled: event.status == .canceled
         ))
     }

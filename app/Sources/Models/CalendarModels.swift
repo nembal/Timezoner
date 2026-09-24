@@ -87,6 +87,35 @@ public enum EventParticipationStatus: Equatable, Sendable {
     case inProcess
 }
 
+/// The participation facts copied from one calendar participant at the EventKit boundary.
+/// This keeps the current-account selection rule testable without exposing EventKit types.
+public struct CalendarEventParticipantParticipation: Equatable, Sendable {
+    public let isCurrentAccount: Bool
+    public let participationStatus: EventParticipationStatus
+
+    public init(isCurrentAccount: Bool, participationStatus: EventParticipationStatus) {
+        self.isCurrentAccount = isCurrentAccount
+        self.participationStatus = participationStatus
+    }
+}
+
+/// Selects the signed-in account's response from EventKit-derived values.
+/// An attendee response is authoritative for an invitation; an organizer response is the fallback
+/// for events owned by the current account which have no current-account attendee entry.
+public enum CalendarCurrentAccountParticipationMapper {
+    public static func status(
+        organizer: CalendarEventParticipantParticipation?,
+        attendees: [CalendarEventParticipantParticipation]
+    ) -> EventParticipationStatus {
+        if let attendee = attendees.first(where: \.isCurrentAccount) {
+            return attendee.participationStatus
+        }
+
+        guard let organizer, organizer.isCurrentAccount else { return .unknown }
+        return organizer.participationStatus
+    }
+}
+
 public struct CalendarEventSnapshot: Identifiable, Equatable, Sendable {
     public let id: String
     public let calendarID: String
@@ -146,8 +175,7 @@ public struct CalendarEventMappingInput: Equatable, Sendable {
     public let isAllDay: Bool
     public let attendees: [CalendarEventAttendee]
     public let availability: EventAvailability
-    public let organizerIsCurrentUser: Bool
-    public let organizerParticipationStatus: EventParticipationStatus
+    public let currentAccountParticipationStatus: EventParticipationStatus
     public let isCancelled: Bool
 
     public init(
@@ -160,8 +188,7 @@ public struct CalendarEventMappingInput: Equatable, Sendable {
         isAllDay: Bool,
         attendees: [CalendarEventAttendee],
         availability: EventAvailability,
-        organizerIsCurrentUser: Bool,
-        organizerParticipationStatus: EventParticipationStatus,
+        currentAccountParticipationStatus: EventParticipationStatus,
         isCancelled: Bool
     ) {
         self.calendarItemIdentifier = calendarItemIdentifier
@@ -173,8 +200,7 @@ public struct CalendarEventMappingInput: Equatable, Sendable {
         self.isAllDay = isAllDay
         self.attendees = attendees
         self.availability = availability
-        self.organizerIsCurrentUser = organizerIsCurrentUser
-        self.organizerParticipationStatus = organizerParticipationStatus
+        self.currentAccountParticipationStatus = currentAccountParticipationStatus
         self.isCancelled = isCancelled
     }
 }
@@ -183,7 +209,7 @@ public struct CalendarEventMappingInput: Equatable, Sendable {
 public enum CalendarEventSnapshotMapper {
     public static func snapshot(from input: CalendarEventMappingInput) -> CalendarEventSnapshot? {
         guard !input.isCancelled else { return nil }
-        guard !(input.organizerIsCurrentUser && input.organizerParticipationStatus == .declined) else {
+        guard input.currentAccountParticipationStatus != .declined else {
             return nil
         }
 
@@ -202,7 +228,7 @@ public enum CalendarEventSnapshotMapper {
             isAllDay: input.isAllDay,
             attendeeNames: attendeeNames,
             availability: input.availability,
-            participationStatus: input.organizerParticipationStatus
+            participationStatus: input.currentAccountParticipationStatus
         )
     }
 
