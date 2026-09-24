@@ -119,37 +119,47 @@ public enum CalendarNotificationForegroundPolicy {
 @MainActor
 public final class CalendarNotificationCommandRouter {
     public typealias EventResolver = @MainActor (String, Date) async throws -> CalendarEventSnapshot?
+    public typealias TimeZonerSurfacePreparer = @MainActor () -> Void
     public typealias PairedPanelPresenter = @MainActor () -> Void
     public typealias EventSelector = @MainActor (CalendarEventSnapshot, TimeZone) -> Void
     public typealias FallbackSelector = @MainActor (String, String, Date, TimeZone) -> Void
+    public typealias SelectedContextFocusHandoff = @MainActor () -> Void
 
     private let resolveEvent: EventResolver
+    private let prepareTimeZonerSurface: TimeZonerSurfacePreparer
     private let showPairedPanels: PairedPanelPresenter
     private let selectEvent: EventSelector
     private let selectFallback: FallbackSelector
+    private let focusSelectedEventContext: SelectedContextFocusHandoff
     private let sourceZone: () -> TimeZone
 
     public init(
         resolveEvent: @escaping EventResolver,
+        prepareTimeZonerSurface: @escaping TimeZonerSurfacePreparer = {},
         showPairedPanels: @escaping PairedPanelPresenter,
         selectEvent: @escaping EventSelector,
         selectFallback: @escaping FallbackSelector,
+        focusSelectedEventContext: @escaping SelectedContextFocusHandoff = {},
         sourceZone: @escaping () -> TimeZone = { .current }
     ) {
         self.resolveEvent = resolveEvent
+        self.prepareTimeZonerSurface = prepareTimeZonerSurface
         self.showPairedPanels = showPairedPanels
         self.selectEvent = selectEvent
         self.selectFallback = selectFallback
+        self.focusSelectedEventContext = focusSelectedEventContext
         self.sourceZone = sourceZone
     }
 
     public func route(_ command: PendingCalendarCommand) async {
+        prepareTimeZonerSurface()
         showPairedPanels()
         let zone = sourceZone()
 
         do {
             if let event = try await resolveEvent(command.occurrenceID, command.startDate) {
                 selectEvent(event, zone)
+                focusSelectedEventContext()
                 return
             }
         } catch {
@@ -157,5 +167,6 @@ public final class CalendarNotificationCommandRouter {
         }
 
         selectFallback(command.occurrenceID, command.title, command.startDate, zone)
+        focusSelectedEventContext()
     }
 }

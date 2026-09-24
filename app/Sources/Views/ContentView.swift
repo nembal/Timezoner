@@ -8,6 +8,7 @@ public struct ContentView: View {
     @State private var editingZoneId: UUID? = nil
     @State private var highlightedZoneIds: Set<UUID> = []
     @State private var highlightClearToken = UUID()
+    @AccessibilityFocusState private var selectedEventContextFocused: Bool
     private let settings: SettingsStore
     private let calendarPreferences: CalendarPreferenceStore
     private let calendarAlertLifecycle: CalendarAlertLifecycleCoordinator
@@ -196,6 +197,13 @@ public struct ContentView: View {
         .onChange(of: deepLinkRouter.pendingCommand) {
             consumePendingDeepLink()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .focusSelectedEventContext)) { _ in
+            guard presentation.destination == .timezoner,
+                  referenceMoment.selectedEvent != nil else { return }
+            DispatchQueue.main.async {
+                selectedEventContextFocused = true
+            }
+        }
         .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)
         .animation(.easeInOut(duration: 0.25), value: isTimeAdjusted)
         .onKeyPress(.escape) {
@@ -326,6 +334,9 @@ public struct ContentView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
         .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Selected event \(event.title), \(formattedEventStart(event.startDate))")
+        .accessibilityFocused($selectedEventContextFocused)
     }
 
     private func formattedEventStart(_ date: Date) -> String {
@@ -339,4 +350,5 @@ public struct ContentView: View {
 
 extension Notification.Name {
     public static let focusChatField = Notification.Name("focusChatField")
+    public static let focusSelectedEventContext = Notification.Name("focusSelectedEventContext")
 }

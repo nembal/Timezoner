@@ -379,6 +379,55 @@ func runPendingCalendarCommandTests() async {
         expectPendingCalendarCommand(selectedFallback, command, "a missing event selects the stored occurrence, title, and timestamp")
     }
 
+    do {
+        let suiteName = "PendingCalendarCommandTests.routing-accessibility.fresh.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = CalendarPresentationState(defaults: defaults)
+        presentation.enterCalendar(now: startDate, calendar: .current)
+        let fresh = pendingCalendarCommandEvent(id: "accessible-fresh", title: "Accessible fresh", start: startDate)
+        var operations: [String] = []
+        let router = CalendarNotificationCommandRouter(
+            resolveEvent: { _, _ in fresh },
+            prepareTimeZonerSurface: {
+                operations.append("restore")
+                presentation.returnToTimeZoner()
+            },
+            showPairedPanels: { operations.append("show") },
+            selectEvent: { _, _ in operations.append("fresh") },
+            selectFallback: { _, _, _, _ in operations.append("fallback") },
+            focusSelectedEventContext: { operations.append("focus") }
+        )
+
+        await router.route(command!)
+        expectPendingCalendarCommand(presentation.destination, .timezoner, "fresh alert routing restores TimeZoner before selecting the event")
+        expectPendingCalendarCommand(operations, ["restore", "show", "fresh", "focus"], "fresh alert routing restores, presents, selects, then focuses the selected context")
+    }
+
+    do {
+        let suiteName = "PendingCalendarCommandTests.routing-accessibility.fallback.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = CalendarPresentationState(defaults: defaults)
+        presentation.enterCalendar(now: startDate, calendar: .current)
+        var operations: [String] = []
+        let router = CalendarNotificationCommandRouter(
+            resolveEvent: { _, _ in nil },
+            prepareTimeZonerSurface: {
+                operations.append("restore")
+                presentation.returnToTimeZoner()
+            },
+            showPairedPanels: { operations.append("show") },
+            selectEvent: { _, _ in operations.append("fresh") },
+            selectFallback: { _, _, _, _ in operations.append("fallback") },
+            focusSelectedEventContext: { operations.append("focus") }
+        )
+
+        await router.route(command!)
+        expectPendingCalendarCommand(presentation.destination, .timezoner, "fallback alert routing restores TimeZoner before selecting stored event context")
+        expectPendingCalendarCommand(operations, ["restore", "show", "fallback", "focus"], "fallback alert routing restores, presents, selects, then focuses the selected context")
+    }
+
     expectPendingCalendarCommand(
         CalendarNotificationForegroundPolicy.presentation(
             requestIdentifier: "timezoner.event.planning|1750000000.30",

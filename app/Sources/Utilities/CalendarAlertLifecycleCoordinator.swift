@@ -94,7 +94,6 @@ public final class CalendarAlertLifecycleCoordinator {
         reconciliationPending = true
         guard reconciliationTask == nil else { return }
         reconciliationTask = Task { [weak self] in
-            await Task.yield()
             await self?.drainReconciliations()
         }
     }

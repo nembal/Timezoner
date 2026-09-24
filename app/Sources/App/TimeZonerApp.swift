@@ -100,6 +100,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self else { return nil }
                 return await self.calendarStore.event(matching: occurrenceID, near: startDate)
             },
+            prepareTimeZonerSurface: { [weak self] in
+                self?.restoreTimeZonerSurfaceForNotification()
+            },
             showPairedPanels: { [weak self] in
                 self?.panelCoordinator?.show()
             },
@@ -113,6 +116,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     startDate: startDate,
                     sourceZone: sourceZone
                 )
+            },
+            focusSelectedEventContext: { [weak self] in
+                self?.focusSelectedEventContext()
             }
         )
     }()
@@ -298,6 +304,22 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         NSWorkspace.shared.open(url)
+    }
+
+    /// Notification activation must leave full Calendar mode before its selected-event context
+    /// can be rendered and focused in the TimeZoner surface.
+    private func restoreTimeZonerSurfaceForNotification() {
+        guard presentation.destination == .calendar else { return }
+        presentation.returnToTimeZoner()
+        if presentation.showAgendaWing,
+           calendarStore.authorizationStatus == .fullAccess {
+            calendarStore.refreshPresentationInterval()
+        }
+        panelCoordinator?.returnToTimeZoner()
+    }
+
+    private func focusSelectedEventContext() {
+        NotificationCenter.default.post(name: .focusSelectedEventContext, object: nil)
     }
 
     private func refreshPersistedAgendaIfNeeded() {
