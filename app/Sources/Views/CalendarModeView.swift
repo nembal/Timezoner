@@ -62,10 +62,17 @@ public struct CalendarModeView: View {
                 }
                 .pickerStyle(.segmented)
 
-                Button("Back to TimeZoner", action: onReturnToTimeZoner)
+                Button(action: onReturnToTimeZoner) {
+                    Image(systemName: CalendarNavigationIconControl.backToTimeZoner.systemImageName)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .frame(minWidth: 24, minHeight: 24)
+                        .contentShape(Rectangle())
+                }
                     .buttonStyle(.borderless)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(Theme.accent)
+                    .accessibilityLabel(CalendarNavigationIconControl.backToTimeZoner.accessibilityLabel)
+                    .accessibilityHint(CalendarNavigationIconControl.backToTimeZoner.accessibilityHint)
+                    .help(CalendarNavigationIconControl.backToTimeZoner.helpText)
             }
 
             HStack(spacing: 8) {

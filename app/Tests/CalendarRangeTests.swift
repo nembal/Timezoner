@@ -256,6 +256,26 @@ func runCalendarRangeTests() {
         "3 Days",
         "three-day navigation does not present itself as a week"
     )
+    expectCalendarRangeEqual(
+        [
+            CalendarNavigationIconControl.openWeek.systemImageName,
+            CalendarNavigationIconControl.openWeek.accessibilityLabel,
+            CalendarNavigationIconControl.openWeek.helpText,
+            CalendarNavigationIconControl.openWeek.accessibilityHint
+        ],
+        ["calendar", "Open week", "Open week", "Shows your calendar week."],
+        "the compact Open week control keeps its calendar icon and accessible presentation"
+    )
+    expectCalendarRangeEqual(
+        [
+            CalendarNavigationIconControl.backToTimeZoner.systemImageName,
+            CalendarNavigationIconControl.backToTimeZoner.accessibilityLabel,
+            CalendarNavigationIconControl.backToTimeZoner.helpText,
+            CalendarNavigationIconControl.backToTimeZoner.accessibilityHint
+        ],
+        ["chevron.left", "Back to TimeZoner", "Back to TimeZoner", "Returns to the TimeZoner view."],
+        "the compact return control keeps its chevron icon and accessible presentation"
+    )
 
     let springForwardWeek = CalendarDateIntervalCalculator.interval(
         for: .week,

@@ -11,6 +11,36 @@ public enum CalendarRangeNavigationDirection: Equatable, Sendable {
     case next
 }
 
+/// Shared accessible presentation for compact Calendar navigation controls. Views keep their
+/// actions local while this value contract prevents an icon-only affordance from losing its name.
+public enum CalendarNavigationIconControl: Equatable, Sendable {
+    case openWeek
+    case backToTimeZoner
+
+    public var systemImageName: String {
+        switch self {
+        case .openWeek: "calendar"
+        case .backToTimeZoner: "chevron.left"
+        }
+    }
+
+    public var accessibilityLabel: String {
+        switch self {
+        case .openWeek: "Open week"
+        case .backToTimeZoner: "Back to TimeZoner"
+        }
+    }
+
+    public var helpText: String { accessibilityLabel }
+
+    public var accessibilityHint: String {
+        switch self {
+        case .openWeek: "Shows your calendar week."
+        case .backToTimeZoner: "Returns to the TimeZoner view."
+        }
+    }
+}
+
 public enum CalendarDateIntervalCalculator {
     public static func interval(
         for range: CalendarRangeSelection,

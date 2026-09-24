@@ -303,10 +303,17 @@ public struct AgendaView: View {
                     .foregroundStyle(Theme.textTertiary)
             }
             Spacer()
-            Button("Open week", action: onOpenWeek)
+            Button(action: onOpenWeek) {
+                Image(systemName: CalendarNavigationIconControl.openWeek.systemImageName)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .frame(minWidth: 24, minHeight: 24)
+                    .contentShape(Rectangle())
+            }
                 .buttonStyle(.borderless)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
                 .foregroundStyle(Theme.accent)
+                .accessibilityLabel(CalendarNavigationIconControl.openWeek.accessibilityLabel)
+                .accessibilityHint(CalendarNavigationIconControl.openWeek.accessibilityHint)
+                .help(CalendarNavigationIconControl.openWeek.helpText)
         }
     }
 
