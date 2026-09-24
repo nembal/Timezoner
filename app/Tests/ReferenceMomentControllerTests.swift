@@ -177,7 +177,7 @@ func runReferenceMomentControllerTests() {
         defaults.removePersistentDomain(forName: suiteName)
         defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let presentation = MapExpansionPresentationState(defaults: defaults)
+        let presentation = CalendarPresentationState(defaults: defaults)
         let controller = ReferenceMomentController(timeState: TimeState(), presentation: presentation)
 
         controller.selectEvent(makeReferenceMomentEvent(id: "production-first", title: "Production first", startDate: firstStart), sourceZone: bangkok)
@@ -193,7 +193,7 @@ func runReferenceMomentControllerTests() {
         controller.goLive()
 
         expectReferenceMoment(presentation.isMapExpanded, "production presenter preserves a manual map toggle")
-        let restoredPresentation = MapExpansionPresentationState(defaults: defaults)
+        let restoredPresentation = CalendarPresentationState(defaults: defaults)
         expectReferenceMoment(restoredPresentation.isMapExpanded, "production presenter persists a manual map toggle")
     }
 }

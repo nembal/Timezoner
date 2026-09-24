@@ -33,7 +33,8 @@ func runSettingsStoreTests() {
     let keys = SettingsStore.Keys(
         appearance: "s.appearance",
         launchAtLogin: "s.launchAtLogin",
-        hotkey: "s.hotkey"
+        hotkey: "s.hotkey",
+        showAgendaWing: "s.showAgendaWing"
     )
 
     // ── Test 1: Defaults on empty store ────────────────────────
@@ -42,6 +43,7 @@ func runSettingsStoreTests() {
         expectTrueS(s.appearance == SettingsStore.AppearancePref.system, "default appearance is system")
         expectTrueS(s.launchAtLogin == false, "default launchAtLogin is false")
         expectTrueS(s.hotkey == SettingsStore.defaultHotkey, "default hotkey is ⌘⌥T")
+        expectTrueS(s.showAgendaWing == false, "default agenda wing is hidden")
     }
 
     // ── Test 2: Round-trip through UserDefaults ────────────────
@@ -50,12 +52,14 @@ func runSettingsStoreTests() {
         s.appearance = SettingsStore.AppearancePref.dark
         s.launchAtLogin = true
         s.hotkey = SettingsStore.Shortcut(keyCode: 49, modifiers: 0x0100, display: "⌘Space")
+        s.showAgendaWing = true
 
         let reloaded = SettingsStore(userDefaults: defaults, keys: keys)
         expectTrueS(reloaded.appearance == SettingsStore.AppearancePref.dark, "persisted appearance")
         expectTrueS(reloaded.launchAtLogin == true, "persisted launchAtLogin")
         expectTrueS(reloaded.hotkey?.display == "⌘Space", "persisted hotkey display")
         expectTrueS(reloaded.hotkey?.keyCode == 49, "persisted hotkey keyCode")
+        expectTrueS(reloaded.showAgendaWing, "persisted agenda wing visibility")
     }
 
     // ── Test 3: Nil hotkey persists as nil ─────────────────────

@@ -2,21 +2,30 @@ import SwiftUI
 
 public struct ContentView: View {
     @State private var referenceMoment: ReferenceMomentController
-    @State private var mapPresentation: MapExpansionPresentationState
-    @State private var zoneStore = ZoneStore()
+    @State private var presentation: CalendarPresentationState
+    @State private var zoneStore: ZoneStore
+    @State private var calendarStore: CalendarStore
     @State private var editingZoneId: UUID? = nil
-    @State private var showingSettings = false
-    @State private var isHuggingMenuBar = true
     @State private var highlightedZoneIds: Set<UUID> = []
     @State private var highlightClearToken = UUID()
-    private let settings = SettingsStore.shared
+    private let settings: SettingsStore
+    private let panelController: (any CalendarPanelControlling)?
     private let deepLinkRouter = DeepLinkRouter.shared
 
-    public init() {
-        let timeState = TimeState()
-        let mapPresentation = MapExpansionPresentationState()
-        _referenceMoment = State(initialValue: ReferenceMomentController(timeState: timeState, presentation: mapPresentation))
-        _mapPresentation = State(initialValue: mapPresentation)
+    public init(
+        referenceMoment: ReferenceMomentController,
+        presentation: CalendarPresentationState,
+        zoneStore: ZoneStore,
+        calendarStore: CalendarStore,
+        settings: SettingsStore,
+        panelController: (any CalendarPanelControlling)?
+    ) {
+        _referenceMoment = State(initialValue: referenceMoment)
+        _presentation = State(initialValue: presentation)
+        _zoneStore = State(initialValue: zoneStore)
+        _calendarStore = State(initialValue: calendarStore)
+        self.settings = settings
+        self.panelController = panelController
     }
 
     private var timeState: TimeState {
@@ -36,10 +45,17 @@ public struct ContentView: View {
         !timeState.isLive
     }
 
+    private var settingsPopoverBinding: Binding<Bool> {
+        Binding(
+            get: { presentation.isSettingsPresented },
+            set: setSettingsPresented
+        )
+    }
+
     public var body: some View {
         VStack(spacing: 0) {
             // Drag handle
-            DragHandle(showPill: true, isHugging: isHuggingMenuBar)
+            DragHandle(showPill: true, isHugging: presentation.mainPanelHugsMenuBar)
 
             VStack(spacing: 14) {
                 // Chat field + Now + Help
@@ -65,16 +81,24 @@ public struct ContentView: View {
                         }
                     .buttonStyle(.plain)
 
-                    Button(action: { showingSettings.toggle() }) {
+                    Button(action: activateCalendar) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 14))
+                            .foregroundStyle(presentation.showAgendaWing ? Theme.accent : Theme.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Calendar agenda")
+
+                    Button(action: { setSettingsPresented(!presentation.isSettingsPresented) }) {
                         Image(systemName: "gearshape")
                             .font(.system(size: 15))
-                            .foregroundStyle(showingSettings ? Theme.accent : Theme.textTertiary)
-                            .rotationEffect(.degrees(showingSettings ? 22 : 0))
-                            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: showingSettings)
+                            .foregroundStyle(presentation.isSettingsPresented ? Theme.accent : Theme.textTertiary)
+                            .rotationEffect(.degrees(presentation.isSettingsPresented ? 22 : 0))
+                            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: presentation.isSettingsPresented)
                         }
                     .buttonStyle(.plain)
                     .help("Settings (⌘,)")
-                    .popover(isPresented: $showingSettings, arrowEdge: .bottom) {
+                    .popover(isPresented: settingsPopoverBinding, arrowEdge: .bottom) {
                         SettingsPopover(settings: settings)
                     }
                 }
@@ -97,7 +121,7 @@ public struct ContentView: View {
                     zones: zoneStore.zones,
                     timeState: timeState,
                     highlightedZoneIds: highlightedZoneIds,
-                    mapPresentation: mapPresentation,
+                    mapPresentation: presentation,
                     onManualMapToggle: {
                         referenceMoment.didManuallyToggleMap()
                     },
@@ -120,22 +144,15 @@ public struct ContentView: View {
         }
         .background(Theme.background)
         .clipShape(UnevenRoundedRectangle(
-            topLeadingRadius: isHuggingMenuBar ? 0 : 12,
+            topLeadingRadius: presentation.mainPanelHugsMenuBar ? 0 : 12,
             bottomLeadingRadius: 12,
             bottomTrailingRadius: 12,
-            topTrailingRadius: isHuggingMenuBar ? 0 : 12,
+            topTrailingRadius: presentation.mainPanelHugsMenuBar ? 0 : 12,
             style: .continuous
         ))
         .onAppear {
             ensureDefaultSource()
             consumePendingDeepLink()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .panelHuggingChanged)) { notification in
-            if let hugging = notification.object as? Bool {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isHuggingMenuBar = hugging
-                }
-            }
         }
         .onChange(of: deepLinkRouter.pendingCommand) {
             consumePendingDeepLink()
@@ -143,7 +160,7 @@ public struct ContentView: View {
         .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)
         .animation(.easeInOut(duration: 0.25), value: isTimeAdjusted)
         .onKeyPress(.escape) {
-            NSApp.keyWindow?.orderOut(nil)
+            panelController?.handleEscape()
             return .handled
         }
         .background {
@@ -154,23 +171,13 @@ public struct ContentView: View {
             .hidden()
         }
         .background {
-            Button("") { showingSettings.toggle() }
+            Button("") { setSettingsPresented(!presentation.isSettingsPresented) }
                 .keyboardShortcut(",", modifiers: .command)
                 .hidden()
         }
         .onChange(of: zoneStore.zones.count) {
             DispatchQueue.main.async {
-                if let window = NSApp.keyWindow ?? NSApp.windows.first(where: { $0.isVisible }) {
-                    let frame = window.frame
-                    let newWidth = idealWidth
-                    let newFrame = NSRect(
-                        x: frame.midX - newWidth / 2,
-                        y: frame.origin.y,
-                        width: newWidth,
-                        height: frame.height
-                    )
-                    window.setFrame(newFrame, display: true, animate: true)
-                }
+                panelController?.resizeMain(to: CGSize(width: idealWidth, height: 580))
             }
         }
     }
@@ -180,6 +187,33 @@ public struct ContentView: View {
            !zoneStore.zones.contains(where: { $0.timeZoneId == timeState.sourceZoneId }) {
             referenceMoment.setSourceZone(first.timeZone)
         }
+    }
+
+    private func activateCalendar() {
+        switch calendarStore.authorizationStatus {
+        case .fullAccess:
+            presentation.showAgendaWing.toggle()
+            if presentation.showAgendaWing {
+                calendarStore.refresh(interval: CalendarStore.agendaInterval(
+                    for: calendarStore.currentDate,
+                    calendar: .autoupdatingCurrent
+                ))
+            }
+            panelController?.syncAgendaVisibility()
+        case .notDetermined:
+            presentation.showAgendaWing = true
+            presentation.presentAccessExplanation()
+            panelController?.syncAgendaVisibility()
+        case .denied, .restricted, .writeOnly:
+            presentation.showAgendaWing = true
+            presentation.presentRecovery()
+            panelController?.syncAgendaVisibility()
+        }
+    }
+
+    private func setSettingsPresented(_ isPresented: Bool) {
+        presentation.isSettingsPresented = isPresented
+        panelController?.setOwnedPopoverPresented(presentation.hasOwnedPopover)
     }
 
     private func consumePendingDeepLink() {
@@ -264,5 +298,4 @@ public struct ContentView: View {
 
 extension Notification.Name {
     public static let focusChatField = Notification.Name("focusChatField")
-    public static let panelHuggingChanged = Notification.Name("panelHuggingChanged")
 }

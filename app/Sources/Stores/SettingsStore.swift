@@ -36,6 +36,9 @@ public final class SettingsStore {
     public var hotkey: Shortcut? {
         didSet { persist(); onHotkeyChange?(hotkey) }
     }
+    public var showAgendaWing: Bool {
+        didSet { persist() }
+    }
 
     public var onHotkeyChange: ((Shortcut?) -> Void)?
     public var onLaunchAtLoginChange: ((Bool) -> Void)?
@@ -47,17 +50,20 @@ public final class SettingsStore {
         public let appearance: String
         public let launchAtLogin: String
         public let hotkey: String
+        public let showAgendaWing: String
 
-        public init(appearance: String, launchAtLogin: String, hotkey: String) {
+        public init(appearance: String, launchAtLogin: String, hotkey: String, showAgendaWing: String) {
             self.appearance = appearance
             self.launchAtLogin = launchAtLogin
             self.hotkey = hotkey
+            self.showAgendaWing = showAgendaWing
         }
 
         public static let `default` = Keys(
             appearance: "settings.appearance",
             launchAtLogin: "settings.launchAtLogin",
-            hotkey: "settings.hotkey"
+            hotkey: "settings.hotkey",
+            showAgendaWing: "settings.showAgendaWing"
         )
     }
 
@@ -89,6 +95,12 @@ public final class SettingsStore {
         } else {
             self.hotkey = Self.defaultHotkey
         }
+
+        if userDefaults.object(forKey: keys.showAgendaWing) != nil {
+            self.showAgendaWing = userDefaults.bool(forKey: keys.showAgendaWing)
+        } else {
+            self.showAgendaWing = false
+        }
     }
 
     public func applyAppearance() {
@@ -109,5 +121,6 @@ public final class SettingsStore {
         } else {
             userDefaults.set(Data(), forKey: keys.hotkey)
         }
+        userDefaults.set(showAgendaWing, forKey: keys.showAgendaWing)
     }
 }

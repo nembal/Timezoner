@@ -2,14 +2,32 @@ import AppKit
 import SwiftUI
 import TimeZonerLib
 
+enum FloatingPanelRole {
+    case main
+    case agenda
+}
+
+protocol FloatingPanelInteractionDelegate: AnyObject {
+    func floatingPanelDidResignKey(_ panel: FloatingPanel)
+    func floatingPanelDidPressEscape(_ panel: FloatingPanel)
+    func floatingPanel(_ panel: FloatingPanel, didChangeHugging hugging: Bool)
+}
+
 class FloatingPanel: NSPanel {
     private let positionKey = "panelPosition"
     private let menuBarThreshold: CGFloat = 30
     private var lastHugging: Bool = true
+    private let role: FloatingPanelRole
+    weak var interactionDelegate: FloatingPanelInteractionDelegate?
+    private(set) var isHuggingMenuBar = true
 
-    init(contentView: NSView) {
+    init(contentView: NSView, role: FloatingPanelRole = .main) {
+        self.role = role
+        let initialSize = role == .main
+            ? NSSize(width: 750, height: 580)
+            : NSSize(width: AgendaPlacementCalculator.wingWidth, height: 580)
         super.init(
-            contentRect: NSRect(x: 0, y: 0, width: 750, height: 580),
+            contentRect: NSRect(origin: .zero, size: initialSize),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
@@ -23,11 +41,14 @@ class FloatingPanel: NSPanel {
         self.contentView = contentView
         becomesKeyOnlyIfNeeded = false
 
-        // Restore saved position or dock to menu bar
-        if let savedPosition = restorePosition() {
-            setFrameOrigin(savedPosition)
-        } else {
-            positionAtMenuBar()
+        // Only the main panel owns a persisted origin. The agenda panel is always attached
+        // by CalendarPanelCoordinator and must never overwrite the main position key.
+        if role == .main {
+            if let savedPosition = restorePosition() {
+                setFrameOrigin(savedPosition)
+            } else {
+                positionAtMenuBar()
+            }
         }
 
         // Check initial hugging state
@@ -44,18 +65,21 @@ class FloatingPanel: NSPanel {
 
     override func resignKey() {
         super.resignKey()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-            guard let self = self else { return }
-            if !self.isKeyWindow && NSApp.keyWindow == nil {
-                self.orderOut(nil)
-            }
+        interactionDelegate?.floatingPanelDidResignKey(self)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.keyCode == 53 {
+            interactionDelegate?.floatingPanelDidPressEscape(self)
+            return true
         }
+        return super.performKeyEquivalent(with: event)
     }
 
     // MARK: - Positioning
 
     func positionAtMenuBar() {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = screen ?? NSScreen.main else { return }
         let visibleTop = screen.visibleFrame.maxY
         let x = screen.visibleFrame.midX - frame.width / 2
         let y = visibleTop - frame.height
@@ -65,11 +89,13 @@ class FloatingPanel: NSPanel {
 
     @objc private func windowDidMove(_ notification: Notification) {
         checkIfHuggingMenuBar()
-        savePosition()
+        if role == .main {
+            savePosition()
+        }
     }
 
     private func checkIfHuggingMenuBar() {
-        guard let screen = NSScreen.main else { return }
+        guard let screen = screen ?? NSScreen.screens.first(where: { $0.frame.intersects(frame) }) ?? NSScreen.main else { return }
         let screenTop = screen.visibleFrame.maxY
         let windowTop = frame.origin.y + frame.height
         let hugging = abs(screenTop - windowTop) < menuBarThreshold
@@ -77,9 +103,10 @@ class FloatingPanel: NSPanel {
     }
 
     private func notifyHugging(_ hugging: Bool) {
+        isHuggingMenuBar = hugging
         guard hugging != lastHugging else { return }
         lastHugging = hugging
-        NotificationCenter.default.post(name: .panelHuggingChanged, object: hugging)
+        interactionDelegate?.floatingPanel(self, didChangeHugging: hugging)
     }
 
     // MARK: - Position persistence

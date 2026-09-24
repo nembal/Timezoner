@@ -13,17 +13,63 @@ struct TimeZonerApp {
     }
 }
 
+private final class CalendarPanelControllerProxy: CalendarPanelControlling {
+    weak var target: (any CalendarPanelControlling)?
+
+    func show() { target?.show() }
+    func hide() { target?.hide() }
+    func toggle() { target?.toggle() }
+    func syncAgendaVisibility() { target?.syncAgendaVisibility() }
+    func resizeMain(to size: CGSize) { target?.resizeMain(to: size) }
+    func setOwnedPopoverPresented(_ isPresented: Bool) { target?.setOwnedPopoverPresented(isPresented) }
+    func handleEscape() { target?.handleEscape() }
+}
+
+@MainActor
 class AppDelegate: NSObject, NSApplicationDelegate {
-    private var panel: FloatingPanel?
+    private let settings: SettingsStore
+    private let presentation: CalendarPresentationState
+    private let timeState: TimeState
+    private let referenceMoment: ReferenceMomentController
+    private let calendarPreferences: CalendarPreferenceStore
+    private let calendarClock: CalendarClock
+    private let zoneStore: ZoneStore
+    private lazy var calendarStore: CalendarStore = {
+        CalendarStore(
+            preferenceStore: calendarPreferences,
+            clock: calendarClock,
+            onPermissionLost: { [weak self] in
+                self?.referenceMoment.clearSelectedEvent()
+                self?.presentation.attendeePopoverEventID = nil
+                self?.presentation.presentRecovery()
+            }
+        )
+    }()
+
+    private var panelCoordinator: CalendarPanelCoordinator?
+    private var permissionProbePanel: FloatingPanel?
     private var statusItem: NSStatusItem!
-    private let settings = SettingsStore.shared
+
+    override init() {
+        let settings = SettingsStore.shared
+        let presentation = CalendarPresentationState(settings: settings)
+        let timeState = TimeState()
+
+        self.settings = settings
+        self.presentation = presentation
+        self.timeState = timeState
+        self.referenceMoment = ReferenceMomentController(timeState: timeState, presentation: presentation)
+        self.calendarPreferences = CalendarPreferenceStore()
+        self.calendarClock = CalendarClock()
+        self.zoneStore = ZoneStore()
+        super.init()
+    }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
         settings.applyAppearance()
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Menu bar icon first
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "clock.fill", accessibilityDescription: "TimeZoner")
@@ -34,24 +80,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         if ProcessInfo.processInfo.arguments.contains("--calendar-permission-spike") {
             let contentView = NSHostingView(rootView: CalendarPermissionProbeView())
             contentView.setFrameSize(NSSize(width: 420, height: 300))
-            panel = FloatingPanel(contentView: contentView)
+            permissionProbePanel = FloatingPanel(contentView: contentView, role: .main)
         } else {
-            let contentView = NSHostingView(rootView: ContentView())
-            contentView.setFrameSize(NSSize(width: 750, height: 580))
-            panel = FloatingPanel(contentView: contentView)
+            buildPanels()
+            refreshPersistedAgendaIfNeeded()
         }
 
-        // Reconcile login item (handles external changes in System Settings)
         _ = LaunchAtLogin.reconcile(desired: settings.launchAtLogin)
 
-        // Global hotkey
         HotkeyManager.shared.onTrigger = { [weak self] in self?.togglePanel() }
         HotkeyManager.shared.rebind(settings.hotkey)
         settings.onHotkeyChange = { shortcut in
             HotkeyManager.shared.rebind(shortcut)
         }
 
-        // Show and position
         showPanel()
     }
 
@@ -63,27 +105,117 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc func togglePanel() {
-        guard let panel else {
-            showPanel()
-            return
-        }
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        calendarClock.reopen()
+        showPanel()
+        return true
+    }
 
-        if panel.isVisible {
-            panel.orderOut(nil)
+    @objc func togglePanel() {
+        if let panelCoordinator {
+            panelCoordinator.toggle()
+        } else if let permissionProbePanel {
+            if permissionProbePanel.isVisible {
+                permissionProbePanel.orderOut(nil)
+            } else {
+                showPanel()
+            }
         } else {
             showPanel()
         }
     }
 
-    private func showPanel() {
-        guard let panel else {
-            NSApp.activate(ignoringOtherApps: true)
+    private func buildPanels() {
+        let panelProxy = CalendarPanelControllerProxy()
+
+        let mainView = ContentView(
+            referenceMoment: referenceMoment,
+            presentation: presentation,
+            zoneStore: zoneStore,
+            calendarStore: calendarStore,
+            settings: settings,
+            panelController: panelProxy
+        )
+        let mainHost = NSHostingView(rootView: mainView)
+        mainHost.setFrameSize(NSSize(width: 750, height: 580))
+        let mainPanel = FloatingPanel(contentView: mainHost, role: .main)
+
+        let agendaPanel = FloatingPanel(
+            contentView: NSHostingView(rootView: makeAgendaView(panelProxy: panelProxy)),
+            role: .agenda
+        )
+        let agendaPopover = NSPopover()
+        agendaPopover.behavior = .applicationDefined
+        agendaPopover.contentSize = NSSize(width: AgendaPlacementCalculator.wingWidth, height: 580)
+        agendaPopover.contentViewController = NSHostingController(rootView: makeAgendaView(panelProxy: panelProxy))
+
+        let coordinator = CalendarPanelCoordinator(
+            mainPanel: mainPanel,
+            agendaPanel: agendaPanel,
+            agendaPopover: agendaPopover,
+            presentation: presentation
+        )
+        panelProxy.target = coordinator
+        panelCoordinator = coordinator
+    }
+
+    private func makeAgendaView(panelProxy: CalendarPanelControllerProxy) -> AgendaView {
+        AgendaView(
+            calendarStore: calendarStore,
+            referenceMoment: referenceMoment,
+            presentation: presentation,
+            onRequestAccess: { [weak self] in
+                self?.calendarStore.requestAccess()
+            },
+            onOpenPrivacySettings: { [weak self] in
+                panelProxy.hide()
+                self?.openCalendarPrivacySettings()
+            },
+            onOpenWeek: { [weak self] in
+                self?.openCalendarWeek()
+            },
+            onOwnedPopoverChanged: { isPresented in
+                panelProxy.setOwnedPopoverPresented(isPresented)
+            },
+            onEscape: {
+                panelProxy.handleEscape()
+            }
+        )
+    }
+
+    private func openCalendarPrivacySettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") else {
             return
         }
+        NSWorkspace.shared.open(url)
+    }
 
-        panel.orderFront(nil)
-        panel.makeKey()
-        NSApp.activate(ignoringOtherApps: true)
+    private func refreshPersistedAgendaIfNeeded() {
+        guard presentation.showAgendaWing,
+              calendarStore.authorizationStatus == .fullAccess else {
+            return
+        }
+        calendarStore.refresh(interval: CalendarStore.agendaInterval(
+            for: calendarStore.currentDate,
+            calendar: .autoupdatingCurrent
+        ))
+    }
+
+    private func openCalendarWeek() {
+        let timestamp = Int(calendarStore.currentDate.timeIntervalSince1970)
+        guard let url = URL(string: "calshow:\(timestamp)") else { return }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func showPanel() {
+        if let panelCoordinator {
+            panelCoordinator.show()
+        } else if let permissionProbePanel {
+            permissionProbePanel.orderFront(nil)
+            permissionProbePanel.makeKey()
+            NSApp.activate(ignoringOtherApps: true)
+        } else {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 }

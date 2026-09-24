@@ -12,7 +12,7 @@ public struct TimezoneMapView: View {
     public let zones: [ZoneInfo]
     public let timeState: TimeState
     public let highlightedZoneIds: Set<UUID>
-    public let mapPresentation: MapExpansionPresentationState
+    public let mapPresentation: CalendarPresentationState
     public var onManualMapToggle: () -> Void
     public var onAddZone: ((String, String) -> Void)?
 
@@ -23,7 +23,7 @@ public struct TimezoneMapView: View {
     @State private var cachedPaths: [(tzid: String, paths: [CGPath])] = []
 
     public init(zones: [ZoneInfo], timeState: TimeState, highlightedZoneIds: Set<UUID>,
-                mapPresentation: MapExpansionPresentationState,
+                mapPresentation: CalendarPresentationState,
                 onManualMapToggle: @escaping () -> Void = {},
                 onAddZone: ((String, String) -> Void)? = nil) {
         self.zones = zones
@@ -123,8 +123,6 @@ public struct TimezoneMapView: View {
                             guard let featureOffset = offsetLookup[tzid] else { return false }
                             return featureOffset == hOffset
                         }()
-                        let isHoveredPolygon = (tzid == hoveredTzid)
-
                         let fill: Color
                         let border: Color
                         let borderWidth: CGFloat
