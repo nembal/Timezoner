@@ -67,6 +67,7 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     private var observerTokens: [NSObjectProtocol] = []
     private var isUpdatingAttachment = false
     private var savedNormalFrame: CGRect?
+    private var savedNormalScreenIdentifier: NSNumber?
 
     init(
         mainPanel: FloatingPanel,
@@ -149,6 +150,7 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     func enterCalendarMode() {
         guard savedNormalFrame == nil else { return }
         savedNormalFrame = mainPanel.frame
+        savedNormalScreenIdentifier = screenIdentifier(for: mainPanel.screen)
         updateAttachment {
             pair.syncAgendaVisibility(showAgenda: false)
             mainPanel.setFrame(
@@ -165,15 +167,18 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     func returnToTimeZoner() {
         guard let savedNormalFrame else { return }
         updateAttachment {
+            let screenDidChange = savedNormalScreenIdentifier != screenIdentifier(for: mainPanel.screen)
             mainPanel.setFrame(
                 CalendarPanelFrameCalculator.restoredNormalFrame(
                     savedNormalFrame,
-                    visibleFrame: visibleFrame()
+                    visibleFrame: visibleFrame(),
+                    screenDidChange: screenDidChange
                 ),
                 display: true,
                 animate: false
             )
             self.savedNormalFrame = nil
+            self.savedNormalScreenIdentifier = nil
             pair.syncAgendaVisibility(showAgenda: presentation.showAgendaWing)
         }
     }
@@ -218,6 +223,10 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
             ?? NSScreen.screens.first(where: { $0.frame.intersects(mainPanel.frame) })?.visibleFrame
             ?? NSScreen.main?.visibleFrame
             ?? .zero
+    }
+
+    private func screenIdentifier(for screen: NSScreen?) -> NSNumber? {
+        screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
     }
 }
 

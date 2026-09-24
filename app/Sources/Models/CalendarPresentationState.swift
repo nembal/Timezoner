@@ -135,7 +135,7 @@ public enum CalendarPanelFrameCalculator {
     public static let calendarTargetSize = CGSize(width: 760, height: 560)
 
     public static func calendarFrame(normalFrame: CGRect, visibleFrame: CGRect) -> CGRect {
-        clampedFrame(
+        return clampedFrame(
             centeredAt: normalFrame.center,
             requestedSize: calendarTargetSize,
             visibleFrame: visibleFrame
@@ -143,7 +143,18 @@ public enum CalendarPanelFrameCalculator {
     }
 
     public static func restoredNormalFrame(_ normalFrame: CGRect, visibleFrame: CGRect) -> CGRect {
-        clampedFrame(
+        return restoredNormalFrame(normalFrame, visibleFrame: visibleFrame, screenDidChange: false)
+    }
+
+    /// A same-screen return must preserve the user-captured normal frame exactly. Only a real
+    /// display transition justifies reclamping that saved frame to a new visible area.
+    public static func restoredNormalFrame(
+        _ normalFrame: CGRect,
+        visibleFrame: CGRect,
+        screenDidChange: Bool
+    ) -> CGRect {
+        guard screenDidChange else { return normalFrame }
+        return clampedFrame(
             centeredAt: normalFrame.center,
             requestedSize: normalFrame.size,
             visibleFrame: visibleFrame

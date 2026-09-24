@@ -205,10 +205,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
               calendarStore.authorizationStatus == .fullAccess else {
             return
         }
-        calendarStore.refresh(interval: CalendarStore.agendaInterval(
-            for: calendarStore.currentDate,
-            calendar: .autoupdatingCurrent
-        ))
+        calendarStore.refreshPresentationInterval()
     }
 
     private func openCalendarMode(panelProxy: CalendarPanelControllerProxy) {

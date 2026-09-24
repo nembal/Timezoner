@@ -165,6 +165,27 @@ func runCalendarPresentationStateTests() {
         "returning to TimeZoner restores an in-bounds normal frame exactly"
     )
 
+    let offscreenNormalFrame = CGRect(x: -160, y: 760, width: 520, height: 410)
+    expectCalendarPresentation(
+        CalendarPanelFrameCalculator.restoredNormalFrame(
+            offscreenNormalFrame,
+            visibleFrame: visibleFrame,
+            screenDidChange: false
+        ),
+        offscreenNormalFrame,
+        "same-screen return restores the saved normal frame exactly without recentering"
+    )
+    let changedVisibleFrame = CGRect(x: 100, y: 100, width: 600, height: 400)
+    let changedScreenFrame = CalendarPanelFrameCalculator.restoredNormalFrame(
+        offscreenNormalFrame,
+        visibleFrame: changedVisibleFrame,
+        screenDidChange: true
+    )
+    expectCalendarPresentationTrue(
+        changedVisibleFrame.contains(changedScreenFrame),
+        "changed-screen return reclamps an out-of-bounds saved normal frame"
+    )
+
     let crampedVisibleFrame = CGRect(x: 100, y: 100, width: 600, height: 400)
     let clampedCalendarFrame = CalendarPanelFrameCalculator.calendarFrame(
         normalFrame: normalFrame,
@@ -213,6 +234,17 @@ func runCalendarPresentationStateTests() {
         ),
         1_440,
         "a segment ending at the next local midnight reaches the bottom of the ruler"
+    )
+    let posixLocale = Locale(identifier: "en_US_POSIX")
+    expectCalendarPresentation(
+        [1, 2, 3].map { CalendarGridMetrics.rulerHourLabel(for: $0, locale: posixLocale) },
+        ["1 AM", "2 AM", "3 AM"],
+        "spring-forward ruler keeps the logical missing 2 AM label between its neighbors"
+    )
+    expectCalendarPresentation(
+        [0, 1, 2, 3].map { CalendarGridMetrics.rulerHourLabel(for: $0, locale: posixLocale) },
+        ["12 AM", "1 AM", "2 AM", "3 AM"],
+        "fall-back ruler labels each logical hour once without formatting repeated dates"
     )
 
     let firstGridDay = calendarPresentationDate(calendar, year: 2024, month: 5, day: 15)

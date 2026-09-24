@@ -473,6 +473,42 @@ func runCalendarStoreTests() async {
         let provider = CalendarStoreProviderFake()
         let signals = CalendarStoreClockSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
+        let suiteName = "CalendarStoreTests.presentation-refresh.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = CalendarPresentationState(defaults: defaults)
+        let intervalBuilder: CalendarStore.IntervalBuilder = { now, calendar in
+            presentation.destination == .calendar
+                ? presentation.activeInterval(calendar: calendar)
+                : CalendarStore.agendaInterval(for: now, calendar: calendar)
+        }
+        let store = CalendarStore(provider: provider, clock: clock, intervalBuilder: intervalBuilder)
+
+        presentation.enterCalendar(now: morning, calendar: utcCalendar)
+        presentation.move(.next, calendar: utcCalendar)
+        let selectedWeek = presentation.activeInterval(calendar: utcCalendar)
+        store.refreshPresentationInterval()
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 1 }, "presentation refresh begins for an open calendar range")
+        expectCalendarStore(provider.eventRequests[0].start, selectedWeek.start, "presentation refresh retains the selected Week start")
+        expectCalendarStore(provider.eventRequests[0].end, selectedWeek.end, "presentation refresh retains the selected Week end")
+        provider.completeEventRequest(0, with: .success([]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "calendar presentation refresh completes")
+
+        presentation.returnToTimeZoner()
+        store.refreshPresentationInterval()
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 2 }, "presentation refresh starts after returning to TimeZoner")
+        let expectedAgenda = CalendarStore.agendaInterval(for: morning, calendar: utcCalendar)
+        expectCalendarStore(provider.eventRequests[1].start, expectedAgenda.start, "returning to TimeZoner refreshes the normal agenda interval")
+        expectCalendarStore(provider.eventRequests[1].end, expectedAgenda.end, "normal agenda refresh uses the three-day interval end")
+        provider.completeEventRequest(1, with: .success([]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "normal agenda presentation refresh completes")
+    }
+
+    do {
+        let provider = CalendarStoreProviderFake()
+        let signals = CalendarStoreClockSignals()
+        let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
 
         store.refresh(interval: initialInterval)

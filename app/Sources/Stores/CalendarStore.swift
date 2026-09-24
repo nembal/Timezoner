@@ -52,6 +52,12 @@ public final class CalendarStore {
         snapshotInterval == interval
     }
 
+    /// Rebuilds from the injected presentation interval builder. Callers use this instead of
+    /// assuming the agenda range, because calendar mode owns a different active interval.
+    public func refreshPresentationInterval() {
+        refresh(interval: defaultInterval())
+    }
+
     /// Refreshes a specific presentation range. Starting a new request invalidates every older one.
     public func refresh(interval: DateInterval) {
         activeInterval = interval

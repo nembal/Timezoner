@@ -108,6 +108,28 @@ public enum CalendarGridMetrics {
         return starts
     }
 
+    /// Formats the ruler's logical hour index using a fixed non-DST date. The rendered label
+    /// therefore never normalizes a missing spring-forward time or duplicates a fall-back hour.
+    public static func rulerHourLabel(for hour: Int, locale: Locale = .current) -> String {
+        let logicalHour = ((hour % 24) + 24) % 24
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let date = calendar.date(from: DateComponents(
+            calendar: calendar,
+            timeZone: calendar.timeZone,
+            year: 2001,
+            month: 1,
+            day: 1,
+            hour: logicalHour
+        ))!
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = locale
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = "h a"
+        return formatter.string(from: date)
+    }
+
     /// Uses local wall-clock components. Repeated fall-back 01:xx times intentionally overlay:
     /// keeping the spring-forward missing hour aligned with the ruler is the chosen trade-off.
     public static func wallMinute(
@@ -361,7 +383,7 @@ public struct CalendarTimeGrid: View {
 
     private func hourRule(hour: Int, totalWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
-            Text(hour == 24 ? "" : hourFormatter.string(from: hourDate(hour)))
+            Text(hour == 24 ? "" : CalendarGridMetrics.rulerHourLabel(for: hour))
                 .font(.system(size: 10, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
                 .frame(width: CalendarGridMetrics.timeRulerWidth, alignment: .trailing)
@@ -459,10 +481,6 @@ public struct CalendarTimeGrid: View {
         }
     }
 
-    private func hourDate(_ hour: Int) -> Date {
-        calendar.date(bySettingHour: hour % 24, minute: 0, second: 0, of: interval.start) ?? interval.start
-    }
-
     private var dayFormatter: DateFormatter {
         let formatter = DateFormatter()
         formatter.calendar = calendar
@@ -478,15 +496,6 @@ public struct CalendarTimeGrid: View {
         formatter.locale = .current
         formatter.timeZone = calendar.timeZone
         formatter.dateFormat = "MMM d"
-        return formatter
-    }
-
-    private var hourFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.locale = .current
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "h a"
         return formatter
     }
 

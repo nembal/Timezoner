@@ -229,6 +229,10 @@ public struct ContentView: View {
 
     private func returnFromCalendarMode() {
         presentation.returnToTimeZoner()
+        if presentation.showAgendaWing,
+           calendarStore.authorizationStatus == .fullAccess {
+            calendarStore.refreshPresentationInterval()
+        }
         panelController?.returnToTimeZoner()
     }
 
