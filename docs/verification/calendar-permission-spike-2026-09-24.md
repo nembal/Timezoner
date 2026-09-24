@@ -2,7 +2,7 @@
 
 ## Scope and privacy boundary
 
-This packaged probe verifies only macOS Calendar authorization behavior for the source-built, ad-hoc-signed `TimeZoner.app`. It reads calendar descriptors and a seven-day event count only after full access has been granted. It has no calendar write operation, network request, account sign-in, or persistence of event or attendee data.
+This packaged probe verifies only macOS Calendar authorization behavior for the source-built, ad-hoc-signed `TimeZoner.app`. It reads calendar descriptors and a seven-day event count only after full access has been granted. The probe itself has no calendar write operation, network request, account sign-in, or app-owned event/attendee persistence.
 
 The normal application launch does not construct the probe or request Calendar access. The probe is selected only with `--calendar-permission-spike`.
 
@@ -52,9 +52,49 @@ This follow-up is code- and package-verified; it was not clicked after the final
 
 **DONE_WITH_CONCERNS.** The human observations establish successful grant, a real successful fetch, changed-rebuild persistence without a new prompt, denial, and recovery. The exact real calendar/event count values were not captured, so this document does not claim them. The privacy-settings visibility follow-up is package-tested but awaits an optional visual confirmation on a future manual use.
 
-## Notification authorization
+## Current-branch automated and scope evidence
 
-**NEEDS_CONTEXT — not performed.** This Task 9 code changes local-notification scheduling and response routing, but no notification permission, System Settings action, application launch, or packaged-app reinstall was automated. No notification authorization persistence or recovery result is claimed here.
+The following checks ran on 2026-09-24 against code SHA `0542b8b` before the documentation-only commit that updates this record. They establish deterministic/code and package evidence only; they do not substitute for a native privacy, panel, or notification observation.
+
+| ID | Command or audit | Result | Boundary |
+| --- | --- | --- | --- |
+| A1 | `cd app && swift run TimeZonerTests` | **535 passed, 0 failed**. | Fakes cover calendar mapping, preferences, presentation, lifecycle, scheduling, and routing; they do not operate macOS permissions or real Calendar data. |
+| A2–A4 | `./scripts/build.sh`; `codesign --verify --deep --strict app/TimeZoner.app`; packaged PlistBuddy usage-string check | Passed; the build is ad-hoc signed and the usage string exactly matches the source declaration. | Build/signature/plist proof does not establish prompt timing or authorization persistence. |
+| A5 | `bash scripts/test-install.sh` | Passed; temporary install, resource-layout, and signature checks completed. | Installer regression coverage only. |
+| A6 | `git diff --check` | Passed with no output before the documentation commit. | Whitespace hygiene only. |
+| A7 | `rg -n 'EKEventStore|UNUserNotificationCenter' app/Sources` plus allowlist review | `EKEventStore` appears only in `EventKitCalendarProvider`; UserNotifications appears in the adapter, retained delegate, and intentional AppDelegate installation. | A textual boundary audit, not proof of read-only behavior or runtime delivery. |
+| A8 | `rg -n 'eventTitle|attendee|startDate|endDate' app/Sources/Stores app/Sources/Models | rg 'UserDefaults|set\\('` | No match; the final `rg` returned its normal no-match exit `1`. | Narrow negative signal only; it does not search every persistence mechanism or field name. |
+| A9 | Review `rg -n 'UserDefaults|FileManager|Keychain|CoreData|SQLite|URLSession|NWConnection' app/Sources` | Only normal `UserDefaults` stores were found; no direct network calendar client was found. | The macOS local-notification queue is a separate intentional system-owned boundary described below. |
+
+## Calendar Companion privacy boundary
+
+The agenda and grid use calendar snapshots in memory; TimeZoner does not keep an app-owned event or attendee database. It persists normal settings plus calendar identifier-keyed Show/Alerts preferences and notification lead-time values. Attendee UI uses EventKit-supplied display names; if a provider does not supply a display name, the current mapper can use an address-derived label locally. This record deliberately does not include any actual account, attendee, event-title, or calendar-content values.
+
+Optional alerts are different. When a user enables TimeZoner alerts, macOS retains each eligible occurrence's event title, notification body, occurrence identifier, and start timestamp in its local `UNUserNotificationCenter` queue for the next seven-day scheduling horizon. That is necessary for local delivery and click routing, but it means the unqualified claim that no event data is persisted would be inaccurate. The queue is macOS-owned rather than a TimeZoner event database.
+
+## Calendar Companion end-to-end acceptance — pending
+
+All rows below are **Pending — not performed in this run**. A deterministic test or the narrow Calendar permission probe is not a manual pass. Record only the installed path, final SHA, macOS version, setup, observed behavior, and Pass/Fail/Pending when a human performs a row; do not record account credentials or calendar content.
+
+| ID | Manual check | Status |
+| --- | --- | --- |
+| M1 | Discover and identify calendars from two separately configured Google accounts in macOS Calendar. | Pending — not performed in this run. |
+| M2 | Verify independent Show and Alerts preferences, including a hidden-but-alert-enabled calendar. | Pending — not performed in this run. |
+| M3 | Edit a timed event in Apple Calendar while TimeZoner is open and verify refresh/no stale cancelled or owner-declined content. | Pending — not performed in this run. |
+| M4 | Select a timed event across all active city cards, clear it through a normal TimeZoner mutation, and verify an all-day event leaves the reference moment unchanged. | Pending — not performed in this run. |
+| M5 | Exercise Today, 3 Days, Week, navigation, Today reset, dense overlap/cross-midnight cases, VoiceOver/keyboard operation, and the return to the normal panel. | Pending — not performed in this run. |
+| M6 | Verify right-edge, left-edge, narrow-screen popover wing placement and same-display normal-frame restoration. | Pending — not performed in this run. |
+| M7 | Revoke and re-enable Calendar access with visible/selected content; verify clearing, notification cleanup, recovery, and refetch. | Pending — not performed in this run. The probe's denial/recovery result does not certify companion flow. |
+| M8 | Exercise reopen/activation, wake, a local-day boundary where practical, and a current-timezone change. | Pending — not performed in this run. |
+| M9 | Enable global alerts, grant permission, then deny/revoke in a separate pass; verify the recovery state and default lead times. | Pending — not performed in this run. |
+| M10 | Use eligible near-future events to verify future-only 30- and 10-minute banner/sound delivery while hidden, plus muted/ended/all-day exclusions. | Pending — not performed in this run. |
+| M11 | Click distinct TimeZoner alerts while running, hidden, and cold-started; verify fresh-event selection or the absolute-time fallback exactly once. | Pending — not performed in this run. |
+| M12 | After notification grant, perform a harmless compiled-marker rebuild/reinstall at the same path; then deny/revoke and recover once. | Pending — not performed in this run. |
+| M13 | Exercise focus, Escape, global hotkey, activation/deactivation, agenda popover, and both panel surfaces. | Pending — not performed in this run. |
+
+## Notification permission and delivery gate
+
+**NEEDS_CONTEXT — not performed.** The current branch contains notification scheduling, lifecycle reconciliation, a retained delegate, and response routing, but no notification permission, System Settings action, application launch, or packaged-app reinstall was automated. No notification authorization, delivery, click-routing, persistence, denial, or recovery result is claimed here. The Calendar permission observations above do not establish notification authorization behavior.
 
 Human verification still required:
 

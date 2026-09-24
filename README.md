@@ -143,9 +143,17 @@ Click the ⚙ in the panel (or press **⌘,**) to open Settings:
 - **Launch at login** — opens automatically when you sign in
 - **Input formats** — quick reference for the chat parser
 
+### Calendar companion
+
+TimeZoner can show a read-only agenda from the event calendars macOS Calendar already makes available. There is no Google sign-in, Google Calendar API, TimeZoner account, or direct network calendar client: macOS Calendar remains the account and sync source. Enabling the agenda asks macOS for **Full Access** so TimeZoner can read events; TimeZoner never creates, edits, deletes, accepts, or declines calendar events.
+
+Use the quiet calendar glyph or **Show agenda** in Settings to open the attached agenda. It supports Today, 3 Days, and Week read-only views, per-calendar **Show** controls, and selecting a timed event to show that instant across every saved city. The agenda can show local attendee labels; if macOS Calendar has no display name for an attendee, TimeZoner may use that attendee's address-derived label locally.
+
+TimeZoner does not keep an app-owned event or attendee database. It keeps ordinary settings and per-calendar preference flags. Optional Calendar alerts are off by default and use configurable 30- and 10-minute lead times. When alerts are enabled, macOS retains the event title, occurrence identifier, and start time in its local notification queue for the next seven-day scheduling horizon so a notification can be delivered and opened. There is no background agent: changes made after TimeZoner quits are not reconciled until it runs again, and it cannot extend the horizon while it remains quit. The native notification authorization, delivery, click-routing, and changed-rebuild checks are still recorded as pending manual verification in [the Calendar verification record](docs/verification/calendar-permission-spike-2026-09-24.md).
+
 ### Works offline
 
-376 built-in timezone aliases — cities, abbreviations (SF, NYC, HK, BKK), airport codes (SFO, JFK, LHR), country names. No network, no API keys, no accounts.
+376 built-in timezone aliases — cities, abbreviations (SF, NYC, HK, BKK), airport codes (SFO, JFK, LHR), country names. Timezone conversion needs no network, API key, or account. Calendar Companion reads the locally available macOS Calendar database; macOS manages syncing for any accounts configured there. TimeZoner itself has no account, API key, Google OAuth flow, or network calendar client.
 
 ## Forgiving input
 
