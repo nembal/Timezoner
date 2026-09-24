@@ -150,7 +150,12 @@ func runCalendarRangeTests() {
         calendar: isoLikeCalendar
     )
     expectCalendarRangeEqual(
-        CalendarRangeHeaderPresentation.title(for: .week, interval: yearBoundaryWeek, calendar: isoLikeCalendar),
+        CalendarRangeHeaderPresentation.title(
+            for: .week,
+            interval: yearBoundaryWeek,
+            currentDate: yearBoundaryAnchor,
+            calendar: isoLikeCalendar
+        ),
         "Week 53",
         "week headers use the injected calendar week number at a calendar-year boundary"
     )
@@ -164,7 +169,12 @@ func runCalendarRangeTests() {
         calendar: sundayFirstCalendar
     )
     expectCalendarRangeEqual(
-        CalendarRangeHeaderPresentation.title(for: .week, interval: sundayFirstWeek, calendar: sundayFirstCalendar),
+        CalendarRangeHeaderPresentation.title(
+            for: .week,
+            interval: sundayFirstWeek,
+            currentDate: yearBoundaryAnchor,
+            calendar: sundayFirstCalendar
+        ),
         "Week 2",
         "week headers honor a Sunday-first injected calendar instead of hard-coded ISO weeks"
     )
@@ -192,12 +202,57 @@ func runCalendarRangeTests() {
         "a single visible day formats once rather than repeating its endpoint"
     )
     expectCalendarRangeEqual(
-        CalendarRangeHeaderPresentation.title(for: .today, interval: threeDayInterval, calendar: utcCalendar),
+        CalendarRangeHeaderPresentation.title(
+            for: .today,
+            interval: CalendarDateIntervalCalculator.interval(
+                for: .today,
+                anchor: threeDayAnchor,
+                calendar: utcCalendar
+            ),
+            currentDate: threeDayAnchor,
+            calendar: utcCalendar,
+            locale: Locale(identifier: "en_US_POSIX")
+        ),
         "Today",
-        "today navigation does not present itself as a week"
+        "the current single-day interval identifies itself as Today"
     )
     expectCalendarRangeEqual(
-        CalendarRangeHeaderPresentation.title(for: .threeDays, interval: threeDayInterval, calendar: utcCalendar),
+        CalendarRangeHeaderPresentation.title(
+            for: .today,
+            interval: CalendarDateIntervalCalculator.interval(
+                for: .today,
+                anchor: calendarRangeDate(utcCalendar, year: 2024, month: 5, day: 14, hour: 16),
+                calendar: utcCalendar
+            ),
+            currentDate: threeDayAnchor,
+            calendar: utcCalendar,
+            locale: Locale(identifier: "en_US_POSIX")
+        ),
+        "May 14",
+        "the previous single-day interval identifies its displayed local date instead of Today"
+    )
+    expectCalendarRangeEqual(
+        CalendarRangeHeaderPresentation.title(
+            for: .today,
+            interval: CalendarDateIntervalCalculator.interval(
+                for: .today,
+                anchor: calendarRangeDate(utcCalendar, year: 2024, month: 5, day: 16, hour: 16),
+                calendar: utcCalendar
+            ),
+            currentDate: threeDayAnchor,
+            calendar: utcCalendar,
+            locale: Locale(identifier: "en_US_POSIX")
+        ),
+        "May 16",
+        "the next single-day interval identifies its displayed local date instead of Today"
+    )
+    expectCalendarRangeEqual(
+        CalendarRangeHeaderPresentation.title(
+            for: .threeDays,
+            interval: threeDayInterval,
+            currentDate: threeDayAnchor,
+            calendar: utcCalendar
+        ),
         "3 Days",
         "three-day navigation does not present itself as a week"
     )

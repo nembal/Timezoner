@@ -198,6 +198,7 @@ public struct CalendarModeView: View {
         CalendarRangeHeaderPresentation.title(
             for: presentation.range,
             interval: activeInterval,
+            currentDate: calendarStore.currentDate,
             calendar: calendar
         )
     }

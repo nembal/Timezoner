@@ -63,11 +63,16 @@ public enum CalendarRangeHeaderPresentation {
     public static func title(
         for range: CalendarRangeSelection,
         interval: DateInterval,
-        calendar: Calendar
+        currentDate: Date,
+        calendar: Calendar,
+        locale: Locale = .current
     ) -> String {
         switch range {
         case .today:
-            return "Today"
+            if calendar.isDate(interval.start, inSameDayAs: currentDate) {
+                return "Today"
+            }
+            return formatted(interval.start, format: "MMM d", calendar: calendar, locale: locale)
         case .threeDays:
             return "3 Days"
         case .week:
