@@ -35,13 +35,20 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
         let calendarIDs: Set<String>
     }
 
+    private struct RequestCountWaiter {
+        let minimumCount: Int
+        let continuation: CheckedContinuation<Bool, Never>
+    }
+
+    private static let requestWaitTimeoutNanoseconds: UInt64 = 2_000_000_000
+
     var authorizationStatus: CalendarAuthorizationStatus = .fullAccess
     var descriptors: [CalendarDescriptor] = []
     var snapshots: [CalendarEventSnapshot] = []
     var failure: Error?
     private let requestLock = NSLock()
     private var recordedRequests: [Request] = []
-    private var requestCountWaiters: [(minimumCount: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    private var requestCountWaiters: [UUID: RequestCountWaiter] = [:]
     let changes: AsyncStream<Void>
     private let changesContinuation: AsyncStream<Void>.Continuation
 
@@ -51,7 +58,14 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
         changesContinuation = stream.continuation
     }
 
-    deinit { changesContinuation.finish() }
+    deinit {
+        changesContinuation.finish()
+        requestLock.lock()
+        let pendingWaiters = requestCountWaiters.values.map(\.continuation)
+        requestCountWaiters.removeAll()
+        requestLock.unlock()
+        pendingWaiters.forEach { $0.resume(returning: false) }
+    }
 
     var requests: [Request] {
         requestLock.lock()
@@ -68,7 +82,7 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
     ) async throws -> [CalendarEventSnapshot] {
         let request = Request(start: start, end: end, calendarIDs: calendarIDs)
         let waiters = record(request)
-        waiters.forEach { $0.resume() }
+        waiters.forEach { $0.resume(returning: true) }
         if let failure { throw failure }
         return snapshots.filter { calendarIDs.contains($0.calendarID) }
     }
@@ -79,28 +93,59 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
         requestLock.unlock()
     }
 
-    func waitForRequestCount(_ minimumCount: Int) async {
-        await withCheckedContinuation { continuation in
-            requestLock.lock()
-            if recordedRequests.count >= minimumCount {
+    /// Returns false if the expected fan-out does not arrive before the bounded timeout or is cancelled.
+    func waitForRequestCount(
+        _ minimumCount: Int,
+        timeoutNanoseconds: UInt64 = PendingCalendarCommandReaderFake.requestWaitTimeoutNanoseconds
+    ) async -> Bool {
+        let id = UUID()
+        return await withTaskCancellationHandler(operation: {
+            await withCheckedContinuation { continuation in
+                requestLock.lock()
+                if recordedRequests.count >= minimumCount {
+                    requestLock.unlock()
+                    continuation.resume(returning: true)
+                    return
+                }
+                if Task.isCancelled {
+                    requestLock.unlock()
+                    continuation.resume(returning: false)
+                    return
+                }
+                requestCountWaiters[id] = RequestCountWaiter(
+                    minimumCount: minimumCount,
+                    continuation: continuation
+                )
                 requestLock.unlock()
-                continuation.resume()
-            } else {
-                requestCountWaiters.append((minimumCount, continuation))
-                requestLock.unlock()
+
+                Task { [weak self] in
+                    try? await Task.sleep(nanoseconds: timeoutNanoseconds)
+                    self?.resolveRequestCountWaiter(id, with: false)
+                }
             }
-        }
+        }, onCancel: {
+            self.resolveRequestCountWaiter(id, with: false)
+        })
     }
 
-    private func record(_ request: Request) -> [CheckedContinuation<Void, Never>] {
+    private func resolveRequestCountWaiter(_ id: UUID, with result: Bool) {
+        requestLock.lock()
+        let continuation = requestCountWaiters.removeValue(forKey: id)?.continuation
+        requestLock.unlock()
+        continuation?.resume(returning: result)
+    }
+
+    private func record(_ request: Request) -> [CheckedContinuation<Bool, Never>] {
         requestLock.lock()
         recordedRequests.append(request)
-        let waiters = requestCountWaiters
-            .filter { recordedRequests.count >= $0.minimumCount }
-            .map(\.continuation)
-        requestCountWaiters.removeAll { recordedRequests.count >= $0.minimumCount }
+        let completedIDs = requestCountWaiters.compactMap { id, waiter in
+            recordedRequests.count >= waiter.minimumCount ? id : nil
+        }
+        let continuations = completedIDs.compactMap {
+            requestCountWaiters.removeValue(forKey: $0)?.continuation
+        }
         requestLock.unlock()
-        return waiters
+        return continuations
     }
 
     func emitChange() { changesContinuation.yield(()) }
@@ -312,6 +357,25 @@ func runPendingCalendarCommandTests() async {
         !UserDefaults.standard.dictionaryRepresentation().keys.contains(where: { $0.contains("PendingCalendarCommand") }),
         "commands have no persistence surface"
     )
+
+    do {
+        let reader = PendingCalendarCommandReaderFake()
+        expectPendingCalendarCommand(
+            await reader.waitForRequestCount(1, timeoutNanoseconds: 1_000_000),
+            false,
+            "a missing request makes the completion gate fail within its timeout"
+        )
+
+        let cancellation = Task {
+            await reader.waitForRequestCount(1, timeoutNanoseconds: 60_000_000_000)
+        }
+        cancellation.cancel()
+        expectPendingCalendarCommand(
+            await cancellation.value,
+            false,
+            "cancelling the completion gate resolves it without leaving a waiter"
+        )
+    }
 
     do {
         var firstRouteCanFinish = false
@@ -807,11 +871,20 @@ func runPendingCalendarCommandTests() async {
 
         provider.clearRequests()
         provider.emitChange()
-        await provider.waitForRequestCount(2)
+        let providerChangeCompleted = await provider.waitForRequestCount(2)
+        expectPendingCalendarCommandTrue(
+            providerChangeCompleted,
+            "provider-change fan-out records both required fetches within the completion timeout"
+        )
         expectPendingCalendarCommand(
             providerForwards,
             1,
             "one CalendarStore provider observer forwards one alert reconciliation"
+        )
+        expectPendingCalendarCommand(
+            provider.requests.count,
+            2,
+            "one provider change records exactly one presentation and one alert fetch"
         )
         expectPendingCalendarCommand(
             Set(provider.requests.map { $0.end.timeIntervalSince($0.start) }),
@@ -821,7 +894,11 @@ func runPendingCalendarCommandTests() async {
 
         provider.clearRequests()
         signals.emitHourTick()
-        await provider.waitForRequestCount(1)
+        let hourTickCompleted = await provider.waitForRequestCount(1)
+        expectPendingCalendarCommandTrue(
+            hourTickCompleted,
+            "hourly fan-out records its alert fetch within the completion timeout"
+        )
         expectPendingCalendarCommand(
             hourForwards,
             1,
@@ -835,11 +912,20 @@ func runPendingCalendarCommandTests() async {
 
         provider.clearRequests()
         signals.emitTimeZoneChange()
-        await provider.waitForRequestCount(2)
+        let timeZoneChangeCompleted = await provider.waitForRequestCount(2)
+        expectPendingCalendarCommandTrue(
+            timeZoneChangeCompleted,
+            "timezone fan-out records both required fetches within the completion timeout"
+        )
         expectPendingCalendarCommand(
             timeZoneForwards,
             1,
             "one CalendarStore timezone observer forwards alerts exactly once"
+        )
+        expectPendingCalendarCommand(
+            provider.requests.count,
+            2,
+            "one timezone change records exactly one presentation and one alert fetch"
         )
         expectPendingCalendarCommand(
             Set(provider.requests.map { $0.end.timeIntervalSince($0.start) }),
