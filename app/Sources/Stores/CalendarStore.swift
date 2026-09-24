@@ -6,6 +6,7 @@ import Foundation
 @Observable
 public final class CalendarStore {
     public typealias IntervalBuilder = @MainActor (Date, Calendar) -> DateInterval
+    public typealias LifecycleTrigger = @MainActor () -> Void
 
     public private(set) var authorizationStatus: CalendarAuthorizationStatus
     public private(set) var descriptors: [CalendarDescriptor] = []
@@ -25,6 +26,9 @@ public final class CalendarStore {
     private let intervalBuilder: IntervalBuilder
     private let onPermissionLost: () -> Void
     private let onRemoveCalendarNotifications: () -> Void
+    private let onCalendarProviderChange: LifecycleTrigger
+    private let onHourTick: LifecycleTrigger
+    private let onTimeZoneChange: LifecycleTrigger
     private var requestGeneration = 0
     private var observationTasks: [Task<Void, Never>] = []
 
@@ -34,7 +38,10 @@ public final class CalendarStore {
         clock: CalendarClock = CalendarClock(),
         intervalBuilder: @escaping IntervalBuilder = CalendarStore.agendaInterval,
         onPermissionLost: @escaping () -> Void = {},
-        onRemoveCalendarNotifications: @escaping () -> Void = {}
+        onRemoveCalendarNotifications: @escaping () -> Void = {},
+        onCalendarProviderChange: @escaping LifecycleTrigger = {},
+        onHourTick: @escaping LifecycleTrigger = {},
+        onTimeZoneChange: @escaping LifecycleTrigger = {}
     ) {
         self.provider = provider
         self.preferenceStore = preferenceStore
@@ -42,6 +49,9 @@ public final class CalendarStore {
         self.intervalBuilder = intervalBuilder
         self.onPermissionLost = onPermissionLost
         self.onRemoveCalendarNotifications = onRemoveCalendarNotifications
+        self.onCalendarProviderChange = onCalendarProviderChange
+        self.onHourTick = onHourTick
+        self.onTimeZoneChange = onTimeZoneChange
         authorizationStatus = provider.authorizationStatus
         currentDate = clock.now()
         observeClockAndProvider()
@@ -262,6 +272,7 @@ public final class CalendarStore {
                 for await _ in provider.changes {
                     guard !Task.isCancelled else { return }
                     self?.refreshCurrentInterval()
+                    self?.onCalendarProviderChange()
                 }
             },
             Task { [weak self, clock] in
@@ -274,6 +285,7 @@ public final class CalendarStore {
                 for await _ in clock.hourTicks {
                     guard !Task.isCancelled else { return }
                     self?.currentDate = clock.now()
+                    self?.onHourTick()
                 }
             },
             Task { [weak self, clock] in
@@ -286,6 +298,7 @@ public final class CalendarStore {
                 for await _ in clock.timeZoneChanges {
                     guard !Task.isCancelled else { return }
                     self?.refreshForWallClockRangeChange()
+                    self?.onTimeZoneChange()
                 }
             },
             Task { [weak self, clock] in

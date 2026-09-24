@@ -359,6 +359,26 @@ func runPendingCalendarCommandTests() async {
         expectPendingCalendarCommand(selectedFallback, command, "missing or unreadable calendar events use the stored absolute timestamp fallback")
     }
 
+    do {
+        let sourceZone = TimeZone(identifier: "Asia/Bangkok")!
+        var freshSelectionCount = 0
+        var selectedFallback: PendingCalendarCommand?
+        let router = CalendarNotificationCommandRouter(
+            resolveEvent: { _, _ in nil },
+            showPairedPanels: {},
+            selectEvent: { _, _ in freshSelectionCount += 1 },
+            selectFallback: { occurrenceID, title, start, zone in
+                selectedFallback = PendingCalendarCommand(occurrenceID: occurrenceID, title: title, startDate: start)
+                expectPendingCalendarCommand(zone.identifier, sourceZone.identifier, "missing event fallback preserves the router source zone")
+            },
+            sourceZone: { sourceZone }
+        )
+
+        await router.route(command!)
+        expectPendingCalendarCommand(freshSelectionCount, 0, "a missing event cannot select a stale fresh snapshot")
+        expectPendingCalendarCommand(selectedFallback, command, "a missing event selects the stored occurrence, title, and timestamp")
+    }
+
     expectPendingCalendarCommand(
         CalendarNotificationForegroundPolicy.presentation(
             requestIdentifier: "timezoner.event.planning|1750000000.30",
@@ -405,7 +425,6 @@ func runPendingCalendarCommandTests() async {
         let lifecycle = CalendarAlertLifecycleCoordinator(
             settings: settings,
             preferenceStore: preferences,
-            calendarProvider: provider,
             calendarClock: clock,
             scheduler: scheduler,
             notificationCenter: center
@@ -424,29 +443,10 @@ func runPendingCalendarCommandTests() async {
             await waitForPendingCalendarCommand { provider.requests.count == 1 },
             "per-calendar alert changes trigger one reconciliation"
         )
-        provider.clearRequests()
-        signals.emitHourTick()
-        signals.emitHourTick()
-        expectPendingCalendarCommandTrue(
-            await waitForPendingCalendarCommand { provider.requests.count == 1 },
-            "coalesced hourly lifecycle ticks trigger one reconciliation"
-        )
-        provider.clearRequests()
-        signals.emitTimeZoneChange()
-        expectPendingCalendarCommandTrue(
-            await waitForPendingCalendarCommand { provider.requests.count == 1 },
-            "timezone changes trigger reconciliation through the injected clock")
-        provider.clearRequests()
         settings.setNotificationLeadMinutes([15, 5])
         expectPendingCalendarCommandTrue(
             await waitForPendingCalendarCommand { provider.requests.count == 1 },
             "lead-time preference changes trigger reconciliation"
-        )
-        provider.clearRequests()
-        provider.emitChange()
-        expectPendingCalendarCommandTrue(
-            await waitForPendingCalendarCommand { provider.requests.count == 1 },
-            "EventKit changes from the shared provider trigger reconciliation"
         )
         expectPendingCalendarCommandTrue(afterEnableCount > 0, "authorization path performed the initial scheduler read")
     }
@@ -479,7 +479,6 @@ func runPendingCalendarCommandTests() async {
         let lifecycle = CalendarAlertLifecycleCoordinator(
             settings: settings,
             preferenceStore: preferences,
-            calendarProvider: provider,
             calendarClock: CalendarClock(now: { startDate }),
             scheduler: CalendarNotificationScheduler(eventReader: provider, preferenceStore: preferences, notificationCenter: center),
             notificationCenter: center
@@ -519,6 +518,233 @@ func runPendingCalendarCommandTests() async {
         expectPendingCalendarCommandTrue(
             center.removedIdentifiers.allSatisfy { $0.hasPrefix("timezoner.event.") },
             "Calendar permission loss removes only TimeZoner-owned requests"
+        )
+    }
+
+    do {
+        let suiteName = "PendingCalendarCommandTests.lifecycle.launch-authorized.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = SettingsStore(userDefaults: defaults, keys: .default)
+        settings.alertsEnabled = true
+        let preferences = CalendarPreferenceStore(userDefaults: defaults, storageKey: "calendar.preferences")
+        let provider = PendingCalendarCommandReaderFake()
+        provider.descriptors = [pendingCalendarCommandDescriptor("work")]
+        provider.snapshots = [pendingCalendarCommandEvent(
+            id: "launch-authorized",
+            title: "Launch authorized",
+            start: startDate.addingTimeInterval(60 * 60)
+        )]
+        let center = PendingCalendarAlertCenterFake()
+        let lifecycle = CalendarAlertLifecycleCoordinator(
+            settings: settings,
+            preferenceStore: preferences,
+            calendarClock: CalendarClock(now: { startDate }),
+            scheduler: CalendarNotificationScheduler(eventReader: provider, preferenceStore: preferences, notificationCenter: center),
+            notificationCenter: center
+        )
+
+        await lifecycle.resolveLaunchAuthorization()
+        expectPendingCalendarCommand(settings.alertsEnabled, true, "authorized persisted alerts remain enabled after launch resolution")
+        expectPendingCalendarCommandTrue(!lifecycle.showsNotificationSettingsRecovery, "authorized persisted alerts hide recovery")
+        expectPendingCalendarCommand(center.authorizationRequestCount, 0, "launch authorization resolution never prompts")
+        expectPendingCalendarCommandTrue(provider.requests.count == 1 && !center.added.isEmpty, "authorized persisted alerts reconcile the seven-day scheduler on launch")
+    }
+
+    do {
+        let first = CalendarNotificationRequest(
+            identifier: "timezoner.event.first.30",
+            title: "First",
+            body: "First",
+            fireDate: startDate,
+            userInfo: CalendarNotificationUserInfo(occurrenceID: "first", title: "First", startTimestamp: startDate.timeIntervalSince1970)
+        )
+        let second = CalendarNotificationRequest(
+            identifier: "timezoner.event.second.10",
+            title: "Second",
+            body: "Second",
+            fireDate: startDate,
+            userInfo: CalendarNotificationUserInfo(occurrenceID: "second", title: "Second", startTimestamp: startDate.timeIntervalSince1970)
+        )
+        let foreign = CalendarNotificationRequest(
+            identifier: "com.example.foreign",
+            title: "Foreign",
+            body: "Foreign",
+            fireDate: startDate,
+            userInfo: CalendarNotificationUserInfo(occurrenceID: "foreign", title: "Foreign", startTimestamp: startDate.timeIntervalSince1970)
+        )
+        let suiteName = "PendingCalendarCommandTests.lifecycle.scoped-removal.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = SettingsStore(userDefaults: defaults, keys: .default)
+        let preferences = CalendarPreferenceStore(userDefaults: defaults, storageKey: "calendar.preferences")
+        let provider = PendingCalendarCommandReaderFake()
+        let center = PendingCalendarAlertCenterFake(pending: [first, second, foreign])
+        let lifecycle = CalendarAlertLifecycleCoordinator(
+            settings: settings,
+            preferenceStore: preferences,
+            calendarClock: CalendarClock(now: { startDate }),
+            scheduler: CalendarNotificationScheduler(eventReader: provider, preferenceStore: preferences, notificationCenter: center),
+            notificationCenter: center
+        )
+
+        await lifecycle.setGlobalAlertsEnabled(false)
+        expectPendingCalendarCommand(Set(center.removedIdentifiers), Set([first.identifier, second.identifier]), "ordinary global disable removes every TimeZoner request")
+        expectPendingCalendarCommandTrue(
+            await center.pendingRequests().map(\.identifier) == [foreign.identifier],
+            "ordinary global disable preserves foreign requests"
+        )
+
+        let revocationCenter = PendingCalendarAlertCenterFake(pending: [first, second, foreign])
+        let revocationLifecycle = CalendarAlertLifecycleCoordinator(
+            settings: settings,
+            preferenceStore: preferences,
+            calendarClock: CalendarClock(now: { startDate }),
+            scheduler: CalendarNotificationScheduler(eventReader: provider, preferenceStore: preferences, notificationCenter: revocationCenter),
+            notificationCenter: revocationCenter
+        )
+        await revocationLifecycle.calendarPermissionDidBecomeUnavailable()
+        expectPendingCalendarCommand(Set(revocationCenter.removedIdentifiers), Set([first.identifier, second.identifier]), "Calendar permission loss removes every TimeZoner request")
+        expectPendingCalendarCommandTrue(
+            await revocationCenter.pendingRequests().map(\.identifier) == [foreign.identifier],
+            "Calendar permission loss preserves foreign requests"
+        )
+    }
+
+    do {
+        let suiteName = "PendingCalendarCommandTests.lifecycle.revocation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = SettingsStore(userDefaults: defaults, keys: .default)
+        let preferences = CalendarPreferenceStore(userDefaults: defaults, storageKey: "calendar.preferences")
+        let provider = PendingCalendarCommandReaderFake()
+        provider.descriptors = [pendingCalendarCommandDescriptor("work")]
+        provider.snapshots = [pendingCalendarCommandEvent(
+            id: "revocation",
+            title: "Revocation",
+            start: startDate.addingTimeInterval(60 * 60)
+        )]
+        let center = PendingCalendarAlertCenterFake()
+        let lifecycle = CalendarAlertLifecycleCoordinator(
+            settings: settings,
+            preferenceStore: preferences,
+            calendarClock: CalendarClock(now: { startDate }),
+            scheduler: CalendarNotificationScheduler(eventReader: provider, preferenceStore: preferences, notificationCenter: center),
+            notificationCenter: center
+        )
+        await lifecycle.setGlobalAlertsEnabled(true)
+        let otherApp = CalendarNotificationRequest(
+            identifier: "com.example.keep-after-revocation",
+            title: "Keep",
+            body: "Keep",
+            fireDate: startDate,
+            userInfo: CalendarNotificationUserInfo(occurrenceID: "keep", title: "Keep", startTimestamp: startDate.timeIntervalSince1970)
+        )
+        try? await center.addOrReplace(otherApp)
+        center.authorizationStatus = .denied
+
+        lifecycle.requestReconciliation()
+        expectPendingCalendarCommandTrue(
+            await waitForPendingCalendarCommand {
+                !settings.alertsEnabled
+                    && lifecycle.showsNotificationSettingsRecovery
+                    && center.removedIdentifiers.contains(where: { $0.hasPrefix("timezoner.event.") })
+            },
+            "post-launch notification revocation resets alerts and exposes settings recovery"
+        )
+        expectPendingCalendarCommandTrue(
+            center.removedIdentifiers.contains(where: { $0.hasPrefix("timezoner.event.") }),
+            "post-launch notification revocation removes stale TimeZoner requests"
+        )
+        expectPendingCalendarCommand(provider.authorizationStatus, .fullAccess, "post-launch notification revocation leaves calendar display authorization active")
+        expectPendingCalendarCommandTrue(
+            await center.pendingRequests().contains(where: { $0.identifier == "com.example.keep-after-revocation" }),
+            "post-launch notification revocation preserves other apps' pending requests"
+        )
+    }
+
+    do {
+        let suiteName = "PendingCalendarCommandTests.lifecycle.composition.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = SettingsStore(userDefaults: defaults, keys: .default)
+        let preferences = CalendarPreferenceStore(userDefaults: defaults, storageKey: "calendar.preferences")
+        let provider = PendingCalendarCommandReaderFake()
+        provider.descriptors = [pendingCalendarCommandDescriptor("work")]
+        provider.snapshots = [pendingCalendarCommandEvent(
+            id: "composition",
+            title: "Composition",
+            start: startDate.addingTimeInterval(60 * 60)
+        )]
+        let center = PendingCalendarAlertCenterFake()
+        let signals = PendingCalendarAlertSignals()
+        let clock = CalendarClock(
+            now: { startDate },
+            hourTicks: signals.hourTicks,
+            timeZoneChanges: signals.timeZoneChanges
+        )
+        let scheduler = CalendarNotificationScheduler(
+            eventReader: provider,
+            preferenceStore: preferences,
+            notificationCenter: center
+        )
+        var lifecycle: CalendarAlertLifecycleCoordinator?
+        var providerForwards = 0
+        var hourForwards = 0
+        var timeZoneForwards = 0
+        let calendarStore = CalendarStore(
+            provider: provider,
+            preferenceStore: preferences,
+            clock: clock,
+            onCalendarProviderChange: {
+                providerForwards += 1
+                lifecycle?.requestReconciliation()
+            },
+            onHourTick: {
+                hourForwards += 1
+                lifecycle?.requestReconciliation()
+            },
+            onTimeZoneChange: {
+                timeZoneForwards += 1
+                lifecycle?.requestReconciliation()
+            }
+        )
+        lifecycle = CalendarAlertLifecycleCoordinator(
+            settings: settings,
+            preferenceStore: preferences,
+            calendarClock: clock,
+            scheduler: scheduler,
+            notificationCenter: center
+        )
+        await lifecycle?.setGlobalAlertsEnabled(true)
+        calendarStore.refresh(interval: DateInterval(start: startDate, duration: 60 * 60))
+        _ = await waitForPendingCalendarCommand { !calendarStore.isLoading }
+
+        provider.clearRequests()
+        provider.emitChange()
+        expectPendingCalendarCommandTrue(
+            await waitForPendingCalendarCommand {
+                providerForwards == 1 && !calendarStore.isLoading && provider.requests.count == 2
+            },
+            "one CalendarStore provider observer refreshes presentation and forwards one alert reconciliation"
+        )
+
+        provider.clearRequests()
+        signals.emitHourTick()
+        expectPendingCalendarCommandTrue(
+            await waitForPendingCalendarCommand {
+                hourForwards == 1 && provider.requests.count == 1
+            },
+            "one CalendarStore hourly observer forwards the alert lifecycle without a competing iterator"
+        )
+
+        provider.clearRequests()
+        signals.emitTimeZoneChange()
+        expectPendingCalendarCommandTrue(
+            await waitForPendingCalendarCommand {
+                timeZoneForwards == 1 && !calendarStore.isLoading && provider.requests.count == 2
+            },
+            "one CalendarStore timezone observer refreshes presentation and forwards alerts exactly once"
         )
     }
 }

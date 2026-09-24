@@ -8,11 +8,9 @@ public final class CalendarAlertLifecycleCoordinator {
 
     private let settings: SettingsStore
     private let preferenceStore: CalendarPreferenceStore
-    private let calendarProvider: any CalendarEventReading
     private let calendarClock: CalendarClock
     private let scheduler: CalendarNotificationScheduler
     private let notificationCenter: any CalendarNotificationCenter
-    private var observationTasks: [Task<Void, Never>] = []
     private var reconciliationTask: Task<Void, Never>?
     private var reconciliationPending = false
     private var isApplyingAlertSetting = false
@@ -20,14 +18,12 @@ public final class CalendarAlertLifecycleCoordinator {
     public init(
         settings: SettingsStore,
         preferenceStore: CalendarPreferenceStore,
-        calendarProvider: any CalendarEventReading,
         calendarClock: CalendarClock,
         scheduler: CalendarNotificationScheduler,
         notificationCenter: any CalendarNotificationCenter
     ) {
         self.settings = settings
         self.preferenceStore = preferenceStore
-        self.calendarProvider = calendarProvider
         self.calendarClock = calendarClock
         self.scheduler = scheduler
         self.notificationCenter = notificationCenter
@@ -35,7 +31,6 @@ public final class CalendarAlertLifecycleCoordinator {
     }
 
     isolated deinit {
-        observationTasks.forEach { $0.cancel() }
         reconciliationTask?.cancel()
     }
 
@@ -122,26 +117,6 @@ public final class CalendarAlertLifecycleCoordinator {
             self?.requestReconciliation()
         }
 
-        observationTasks = [
-            Task { [weak self, calendarProvider] in
-                for await _ in calendarProvider.changes {
-                    guard !Task.isCancelled else { return }
-                    self?.requestReconciliation()
-                }
-            },
-            Task { [weak self, calendarClock] in
-                for await _ in calendarClock.hourTicks {
-                    guard !Task.isCancelled else { return }
-                    self?.requestReconciliation()
-                }
-            },
-            Task { [weak self, calendarClock] in
-                for await _ in calendarClock.timeZoneChanges {
-                    guard !Task.isCancelled else { return }
-                    self?.requestReconciliation()
-                }
-            },
-        ]
     }
 
     private func drainReconciliations() async {
@@ -153,8 +128,14 @@ public final class CalendarAlertLifecycleCoordinator {
     }
 
     private func reconcileIfEligible() async {
-        guard settings.alertsEnabled,
-              await notificationCenter.currentAuthorizationStatus().permitsAlerts else {
+        guard settings.alertsEnabled else {
+            return
+        }
+
+        guard await notificationCenter.currentAuthorizationStatus().permitsAlerts else {
+            applyStoredAlertsEnabled(false)
+            showsNotificationSettingsRecovery = true
+            await removeTimeZonerRequests()
             return
         }
 

@@ -51,7 +51,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         CalendarAlertLifecycleCoordinator(
             settings: settings,
             preferenceStore: calendarPreferences,
-            calendarProvider: calendarProvider,
             calendarClock: calendarClock,
             scheduler: notificationScheduler,
             notificationCenter: notificationCenter
@@ -82,6 +81,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 Task { @MainActor [weak self] in
                     await self?.calendarAlertLifecycle.calendarPermissionDidBecomeUnavailable()
                 }
+            },
+            onCalendarProviderChange: { [weak self] in
+                self?.calendarAlertLifecycle.requestReconciliation()
+            },
+            onHourTick: { [weak self] in
+                self?.calendarAlertLifecycle.requestReconciliation()
+            },
+            onTimeZoneChange: { [weak self] in
+                self?.calendarAlertLifecycle.requestReconciliation()
             }
         )
     }()
