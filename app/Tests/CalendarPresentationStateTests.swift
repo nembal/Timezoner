@@ -330,6 +330,23 @@ func runCalendarPresentationStateTests() {
     let firstGridDay = calendarPresentationDate(calendar, year: 2024, month: 5, day: 15)
     let secondGridDay = calendarPresentationDate(calendar, year: 2024, month: 5, day: 16)
     let thirdGridDay = calendarPresentationDate(calendar, year: 2024, month: 5, day: 17)
+    let singleDayHorizontalLayout = CalendarGridHorizontalLayout(totalWidth: 244, dayCount: 1)
+    let headerTodayFrame = singleDayHorizontalLayout.dayFrame(at: 0)
+    let allDayTodayFrame = singleDayHorizontalLayout.dayFrame(at: 0)
+    let timedTodayFrame = singleDayHorizontalLayout.dayFrame(at: 0)
+    expectCalendarPresentation(headerTodayFrame.x, 48, "header Today begins after the shared ruler")
+    expectCalendarPresentation(allDayTodayFrame.x, 48, "all-day Today shares the header x origin")
+    expectCalendarPresentation(timedTodayFrame.x, 48, "timed Today shares the header x origin")
+    expectCalendarPresentation(headerTodayFrame.width, 196, "header Today uses the shared one-day width")
+    expectCalendarPresentation(allDayTodayFrame.width, 196, "all-day Today uses the shared one-day width")
+    expectCalendarPresentation(timedTodayFrame.width, 196, "timed Today uses the shared one-day width")
+
+    let weekHorizontalLayout = CalendarGridHorizontalLayout(totalWidth: 748, dayCount: 7)
+    expectCalendarPresentation(weekHorizontalLayout.rulerWidth, 48, "week layout retains the shared ruler width")
+    expectCalendarPresentation(weekHorizontalLayout.dayWidth, 100, "week layout divides the remaining width across seven days")
+    expectCalendarPresentation(weekHorizontalLayout.dayFrame(at: 0).x, 48, "the first week day begins immediately after the ruler")
+    expectCalendarPresentation(weekHorizontalLayout.dayFrame(at: 6).x, 648, "the final week day uses the shared accumulated origin")
+    expectCalendarPresentation(weekHorizontalLayout.dayFrame(at: 6).width, 100, "the final week day retains the common width")
     let gridEvent = calendarPresentationEvent(
         id: "overlap",
         start: calendarPresentationDate(calendar, year: 2024, month: 5, day: 15, hour: 9),
@@ -348,7 +365,7 @@ func runCalendarPresentationStateTests() {
     let timedFrame = CalendarGridMetrics.timedFrame(
         for: segment,
         dayStarts: [firstGridDay, secondGridDay],
-        totalWidth: 248,
+        horizontalLayout: CalendarGridHorizontalLayout(totalWidth: 248, dayCount: 2),
         calendar: calendar
     )
     expectCalendarPresentation(timedFrame?.x, 98, "overlap lanes split the usable day column width")

@@ -117,6 +117,54 @@ public enum CalendarGridColor {
 /// Calendar-aware geometry helpers shared by the read-only grid and its tests.
 /// Day iteration deliberately asks the injected Calendar for each next boundary so DST days
 /// never rely on a fixed elapsed 24-hour duration.
+public struct CalendarGridHorizontalFrame: Equatable, Sendable {
+    public let x: CGFloat
+    public let width: CGFloat
+
+    public init(x: CGFloat, width: CGFloat) {
+        self.x = x
+        self.width = width
+    }
+}
+
+/// The one horizontal coordinate system shared by every Calendar grid strip. Keeping the ruler
+/// and day frames here prevents the header, all-day area, and timed scroll document from deriving
+/// subtly different origins from their own container proposals.
+public struct CalendarGridHorizontalLayout: Equatable, Sendable {
+    public let totalWidth: CGFloat
+    public let rulerWidth: CGFloat
+    public let dayCount: Int
+    public let dayWidth: CGFloat
+
+    public init(
+        totalWidth: CGFloat,
+        dayCount: Int,
+        rulerWidth: CGFloat = CalendarGridMetrics.timeRulerWidth
+    ) {
+        self.totalWidth = max(totalWidth, 0)
+        self.rulerWidth = rulerWidth
+        self.dayCount = max(dayCount, 0)
+        self.dayWidth = dayCount > 0
+            ? max((totalWidth - rulerWidth) / CGFloat(dayCount), 0)
+            : 0
+    }
+
+    public func dayFrame(at index: Int) -> CalendarGridHorizontalFrame {
+        CalendarGridHorizontalFrame(
+            x: rulerWidth + CGFloat(index) * dayWidth,
+            width: dayWidth
+        )
+    }
+
+    public func daySpanFrame(startingAt index: Int, dayCount: Int) -> CalendarGridHorizontalFrame {
+        let start = dayFrame(at: index)
+        return CalendarGridHorizontalFrame(
+            x: start.x,
+            width: max(CGFloat(dayCount), 0) * dayWidth
+        )
+    }
+}
+
 public enum CalendarGridMetrics {
     public static let timeRulerWidth: CGFloat = 48
     public static let hourHeight: CGFloat = 52
@@ -151,11 +199,25 @@ public enum CalendarGridMetrics {
         totalWidth: CGFloat,
         calendar: Calendar
     ) -> CalendarGridTimedFrame? {
+        overlapSummaryFrame(
+            for: group,
+            dayStarts: dayStarts,
+            horizontalLayout: CalendarGridHorizontalLayout(totalWidth: totalWidth, dayCount: dayStarts.count),
+            calendar: calendar
+        )
+    }
+
+    public static func overlapSummaryFrame(
+        for group: CalendarGridTimedGroup,
+        dayStarts: [Date],
+        horizontalLayout: CalendarGridHorizontalLayout,
+        calendar: Calendar
+    ) -> CalendarGridTimedFrame? {
         guard let dayIndex = dayStarts.firstIndex(of: group.dayStart), !dayStarts.isEmpty else {
             return nil
         }
-        let dayWidth = max((totalWidth - timeRulerWidth) / CGFloat(dayStarts.count), 0)
-        let x = timeRulerWidth + CGFloat(dayIndex) * dayWidth + horizontalInset
+        let dayFrame = horizontalLayout.dayFrame(at: dayIndex)
+        let x = dayFrame.x + horizontalInset
         let y = wallMinute(for: group.startDate, on: group.dayStart, calendar: calendar) / 60 * hourHeight
         let endY = wallMinute(
             for: group.endDate,
@@ -166,7 +228,7 @@ public enum CalendarGridMetrics {
         return CalendarGridTimedFrame(
             x: x,
             y: y,
-            width: max(dayWidth - 2 * horizontalInset, minimumInteractiveEventWidth),
+            width: max(dayFrame.width - 2 * horizontalInset, minimumInteractiveEventWidth),
             height: max(endY - y, minimumInteractiveEventHeight)
         )
     }
@@ -234,16 +296,29 @@ public enum CalendarGridMetrics {
         totalWidth: CGFloat,
         calendar: Calendar
     ) -> CalendarGridTimedFrame? {
+        timedFrame(
+            for: segment,
+            dayStarts: dayStarts,
+            horizontalLayout: CalendarGridHorizontalLayout(totalWidth: totalWidth, dayCount: dayStarts.count),
+            calendar: calendar
+        )
+    }
+
+    public static func timedFrame(
+        for segment: CalendarTimedSegment,
+        dayStarts: [Date],
+        horizontalLayout: CalendarGridHorizontalLayout,
+        calendar: Calendar
+    ) -> CalendarGridTimedFrame? {
         guard let dayIndex = dayStarts.firstIndex(of: segment.dayStart), !dayStarts.isEmpty else {
             return nil
         }
 
-        let dayWidth = max((totalWidth - timeRulerWidth) / CGFloat(dayStarts.count), 0)
-        let usableWidth = max(dayWidth - 2 * horizontalInset, 0)
+        let dayFrame = horizontalLayout.dayFrame(at: dayIndex)
+        let usableWidth = max(dayFrame.width - 2 * horizontalInset, 0)
         let laneCount = max(segment.laneCount, 1)
         let laneWidth = usableWidth / CGFloat(laneCount)
-        let x = timeRulerWidth
-            + CGFloat(dayIndex) * dayWidth
+        let x = dayFrame.x
             + horizontalInset
             + CGFloat(segment.laneIndex) * laneWidth
         let y = wallMinute(for: segment.startDate, on: segment.dayStart, calendar: calendar) / 60 * hourHeight
@@ -365,43 +440,52 @@ public struct CalendarTimeGrid: View {
 
     public var body: some View {
         GeometryReader { geometry in
-            let gridWidth = geometry.size.width
             let starts = dayStarts
+            let horizontalLayout = CalendarGridHorizontalLayout(
+                totalWidth: geometry.size.width,
+                dayCount: starts.count
+            )
             VStack(spacing: 0) {
-                dayHeader(dayStarts: starts, totalWidth: gridWidth)
-                allDayArea(dayStarts: starts, totalWidth: gridWidth)
+                dayHeader(dayStarts: starts, horizontalLayout: horizontalLayout)
+                allDayArea(dayStarts: starts, horizontalLayout: horizontalLayout)
                 Divider()
+                    .frame(width: horizontalLayout.totalWidth)
                 ScrollViewReader { proxy in
-                    ScrollView(.vertical) {
-                        timedArea(dayStarts: starts, totalWidth: gridWidth)
+                    ScrollView(.vertical, showsIndicators: false) {
+                        timedArea(dayStarts: starts, horizontalLayout: horizontalLayout)
                     }
+                    .frame(width: horizontalLayout.totalWidth, alignment: .leading)
                     .onAppear {
                         scrollToInitialHour(proxy: proxy, dayStarts: starts)
                     }
                 }
             }
+            .frame(width: horizontalLayout.totalWidth, alignment: .leading)
         }
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Calendar time grid")
     }
 
-    private func dayHeader(dayStarts: [Date], totalWidth: CGFloat) -> some View {
-        let dayWidth = dayColumnWidth(totalWidth: totalWidth, dayCount: dayStarts.count)
+    private func dayHeader(
+        dayStarts: [Date],
+        horizontalLayout: CalendarGridHorizontalLayout
+    ) -> some View {
         return HStack(spacing: 0) {
             Text("Local \(calendar.timeZone.abbreviation(for: currentDate) ?? "time")")
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
-                .frame(width: CalendarGridMetrics.timeRulerWidth - 6, alignment: .trailing)
+                .frame(width: horizontalLayout.rulerWidth - 6, alignment: .trailing)
                 .padding(.trailing, 6)
-                .frame(width: CalendarGridMetrics.timeRulerWidth, alignment: .trailing)
+                .frame(width: horizontalLayout.rulerWidth, alignment: .trailing)
             ForEach(Array(dayStarts.enumerated()), id: \.element) { index, day in
+                let dayFrame = horizontalLayout.dayFrame(at: index)
                 ZStack {
                     if CalendarGridMetrics.todayColumnIndex(
                         now: currentDate,
                         dayStarts: dayStarts,
                         calendar: calendar
                     ) == index {
-                        todayColumnFill(width: dayWidth, height: 44)
+                        todayColumnFill(width: dayFrame.width, height: 44)
                     }
                     VStack(spacing: 2) {
                         Text(dayFormatter.string(from: day))
@@ -411,59 +495,67 @@ public struct CalendarTimeGrid: View {
                             .foregroundStyle(Theme.textTertiary)
                     }
                 }
-                .frame(width: dayWidth)
+                .frame(width: dayFrame.width)
             }
         }
-        .frame(height: 44)
+        .frame(width: horizontalLayout.totalWidth, height: 44, alignment: .leading)
         .accessibilityElement(children: .combine)
     }
 
-    private func allDayArea(dayStarts: [Date], totalWidth: CGFloat) -> some View {
-        let dayWidth = dayColumnWidth(totalWidth: totalWidth, dayCount: dayStarts.count)
+    private func allDayArea(
+        dayStarts: [Date],
+        horizontalLayout: CalendarGridHorizontalLayout
+    ) -> some View {
         let height = CGFloat(allDayRowCount) * 22
         return ZStack(alignment: .topLeading) {
-            todayColumnFill(dayStarts: dayStarts, dayWidth: dayWidth, height: height)
+            todayColumnFill(dayStarts: dayStarts, horizontalLayout: horizontalLayout, height: height)
 
             Text("All-day")
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
-                .frame(width: CalendarGridMetrics.timeRulerWidth - 6, alignment: .trailing)
+                .frame(width: horizontalLayout.rulerWidth - 6, alignment: .trailing)
                 .padding(.trailing, 6)
-                .frame(width: CalendarGridMetrics.timeRulerWidth, alignment: .trailing)
+                .frame(width: horizontalLayout.rulerWidth, alignment: .trailing)
                 .frame(height: 22, alignment: .top)
 
             ForEach(Array(allDayPlacements.enumerated()), id: \.offset) { _, placement in
                 if let startIndex = dayStarts.firstIndex(of: placement.span.startDay) {
-                    let width = CGFloat(placement.span.dayCount) * dayWidth
+                    let spanFrame = horizontalLayout.daySpanFrame(
+                        startingAt: startIndex,
+                        dayCount: placement.span.dayCount
+                    )
                     allDayLabel(for: placement.span.event)
-                        .frame(width: max(width - 4, 0), height: 20, alignment: .leading)
+                        .frame(width: max(spanFrame.width - 4, 0), height: 20, alignment: .leading)
                         .offset(
-                            x: CalendarGridMetrics.timeRulerWidth + CGFloat(startIndex) * dayWidth + 2,
+                            x: spanFrame.x + 2,
                             y: CGFloat(placement.row) * 22
                         )
                 }
             }
         }
-        .frame(width: totalWidth, height: height, alignment: .topLeading)
+        .frame(width: horizontalLayout.totalWidth, height: height, alignment: .topLeading)
     }
 
-    private func timedArea(dayStarts: [Date], totalWidth: CGFloat) -> some View {
+    private func timedArea(
+        dayStarts: [Date],
+        horizontalLayout: CalendarGridHorizontalLayout
+    ) -> some View {
         let contentHeight = 24 * CalendarGridMetrics.hourHeight
-        let dayWidth = dayColumnWidth(totalWidth: totalWidth, dayCount: dayStarts.count)
         return ZStack(alignment: .topLeading) {
-            todayColumnFill(dayStarts: dayStarts, dayWidth: dayWidth, height: contentHeight)
+            todayColumnFill(dayStarts: dayStarts, horizontalLayout: horizontalLayout, height: contentHeight)
 
             ForEach(0 ... 24, id: \.self) { hour in
-                hourRule(hour: hour, totalWidth: totalWidth)
+                hourRule(hour: hour, horizontalLayout: horizontalLayout)
                     .id("calendar-hour-\(hour)")
                     .offset(y: CGFloat(hour) * CalendarGridMetrics.hourHeight)
             }
 
             ForEach(1 ..< dayStarts.count, id: \.self) { dayIndex in
+                let dayFrame = horizontalLayout.dayFrame(at: dayIndex)
                 Rectangle()
                     .fill(Theme.border.opacity(0.55))
                     .frame(width: 1, height: contentHeight)
-                    .offset(x: CalendarGridMetrics.timeRulerWidth + CGFloat(dayIndex) * dayWidth)
+                    .offset(x: dayFrame.x)
                     .accessibilityHidden(true)
             }
 
@@ -472,11 +564,12 @@ public struct CalendarTimeGrid: View {
                 dayStarts: dayStarts,
                 calendar: calendar
             ) {
+                let dayFrame = horizontalLayout.dayFrame(at: position.dayIndex)
                 Rectangle()
                     .fill(Theme.accent)
-                    .frame(width: dayWidth, height: 1)
+                    .frame(width: dayFrame.width, height: 1)
                     .offset(
-                        x: CalendarGridMetrics.timeRulerWidth + CGFloat(position.dayIndex) * dayWidth,
+                        x: dayFrame.x,
                         y: position.y
                     )
                     .accessibilityHidden(true)
@@ -487,7 +580,7 @@ public struct CalendarTimeGrid: View {
                     if let frame = CalendarGridMetrics.overlapSummaryFrame(
                         for: group,
                         dayStarts: dayStarts,
-                        totalWidth: totalWidth,
+                        horizontalLayout: horizontalLayout,
                         calendar: calendar
                     ) {
                         overlapMenu(group: group, frame: frame)
@@ -498,7 +591,7 @@ public struct CalendarTimeGrid: View {
                         if let frame = CalendarGridMetrics.timedFrame(
                             for: segment,
                             dayStarts: dayStarts,
-                            totalWidth: totalWidth,
+                            horizontalLayout: horizontalLayout,
                             calendar: calendar
                         ) {
                             timedEventButton(segment: segment, frame: frame)
@@ -508,22 +601,22 @@ public struct CalendarTimeGrid: View {
                 }
             }
         }
-        .frame(width: totalWidth, height: contentHeight, alignment: .topLeading)
+        .frame(width: horizontalLayout.totalWidth, height: contentHeight, alignment: .topLeading)
     }
 
-    private func hourRule(hour: Int, totalWidth: CGFloat) -> some View {
+    private func hourRule(hour: Int, horizontalLayout: CalendarGridHorizontalLayout) -> some View {
         HStack(spacing: 0) {
             Text(hour == 24 ? "" : CalendarGridMetrics.rulerHourLabel(for: hour))
                 .font(.system(size: 10, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
-                .frame(width: CalendarGridMetrics.timeRulerWidth - 6, alignment: .trailing)
+                .frame(width: horizontalLayout.rulerWidth - 6, alignment: .trailing)
                 .padding(.trailing, 6)
-                .frame(width: CalendarGridMetrics.timeRulerWidth, alignment: .trailing)
+                .frame(width: horizontalLayout.rulerWidth, alignment: .trailing)
             Rectangle()
                 .fill(Theme.border.opacity(0.65))
                 .frame(height: 1)
         }
-        .frame(width: totalWidth, height: 1, alignment: .topLeading)
+        .frame(width: horizontalLayout.totalWidth, height: 1, alignment: .topLeading)
         .accessibilityHidden(true)
     }
 
@@ -628,20 +721,20 @@ public struct CalendarTimeGrid: View {
         .accessibilityHint("Opens a menu of calendar events to set TimeZoner to an event start")
     }
 
-    private func dayColumnWidth(totalWidth: CGFloat, dayCount: Int) -> CGFloat {
-        guard dayCount > 0 else { return 0 }
-        return max((totalWidth - CalendarGridMetrics.timeRulerWidth) / CGFloat(dayCount), 0)
-    }
-
     @ViewBuilder
-    private func todayColumnFill(dayStarts: [Date], dayWidth: CGFloat, height: CGFloat) -> some View {
+    private func todayColumnFill(
+        dayStarts: [Date],
+        horizontalLayout: CalendarGridHorizontalLayout,
+        height: CGFloat
+    ) -> some View {
         if let dayIndex = CalendarGridMetrics.todayColumnIndex(
             now: currentDate,
             dayStarts: dayStarts,
             calendar: calendar
         ) {
-            todayColumnFill(width: dayWidth, height: height)
-                .offset(x: CalendarGridMetrics.timeRulerWidth + CGFloat(dayIndex) * dayWidth)
+            let dayFrame = horizontalLayout.dayFrame(at: dayIndex)
+            todayColumnFill(width: dayFrame.width, height: height)
+                .offset(x: dayFrame.x)
         }
     }
 
