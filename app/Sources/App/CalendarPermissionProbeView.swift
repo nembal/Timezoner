@@ -3,7 +3,8 @@ import Observation
 import SwiftUI
 import TimeZonerLib
 
-private let calendarPermissionProbeMarker = "calendar-permission-probe"
+private let calendarPermissionProbeMarker = "calendar-probe-b"
+private let calendarPermissionProbeSurface = CalendarPermissionProbeSurfaceStyle.standard
 
 struct CalendarPermissionProbeView: View {
     @State private var model = CalendarPermissionProbeModel()
@@ -56,6 +57,27 @@ struct CalendarPermissionProbeView: View {
         }
         .padding(24)
         .frame(width: 420, height: 300, alignment: .topLeading)
+        .background(
+            RoundedRectangle(
+                cornerRadius: CGFloat(calendarPermissionProbeSurface.cornerRadius),
+                style: .continuous
+            )
+            .fill(Theme.background.opacity(calendarPermissionProbeSurface.fillOpacity))
+            .overlay(
+                RoundedRectangle(
+                    cornerRadius: CGFloat(calendarPermissionProbeSurface.cornerRadius),
+                    style: .continuous
+                )
+                .strokeBorder(Theme.border, lineWidth: 1)
+            )
+        )
+        .clipShape(
+            RoundedRectangle(
+                cornerRadius: CGFloat(calendarPermissionProbeSurface.cornerRadius),
+                style: .continuous
+            )
+        )
+        .shadow(color: Theme.shadow, radius: 12, y: 4)
         .task {
             model.loadCountsIfAuthorized()
         }

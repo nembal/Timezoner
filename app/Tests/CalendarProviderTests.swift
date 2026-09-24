@@ -19,11 +19,25 @@ private func expectNilCalendar<T>(_ value: T?, _ label: String, line: Int = #lin
     }
 }
 
+private func expectTrueCalendar(_ condition: Bool, _ label: String, line: Int = #line) {
+    if condition {
+        testsPassed += 1
+    } else {
+        testsFailed += 1
+        print("  FAIL [line \(line)] \(label): expected true, got false")
+    }
+}
+
 func runCalendarProviderTests() {
     print("Running CalendarProviderTests...")
 
     let start = Date(timeIntervalSince1970: 1_726_000_123.25)
     let end = Date(timeIntervalSince1970: 1_726_003_723.25)
+
+    // The transparent floating panel requires every probe view to provide its own readable surface.
+    let probeSurface = CalendarPermissionProbeSurfaceStyle.standard
+    expectEqualCalendar(probeSurface.fillOpacity, 1, "calendar permission probe surface is opaque")
+    expectTrueCalendar(probeSurface.cornerRadius > 0, "calendar permission probe surface is rounded")
 
     // Normalization prevents unusual source color-space components from leaking to views.
     let color = CalendarColor(red: -0.1, green: 0.25, blue: 1.2, alpha: 1.5)

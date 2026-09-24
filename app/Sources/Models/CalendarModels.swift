@@ -8,6 +8,22 @@ public enum CalendarAuthorizationStatus: Equatable, Sendable {
     case writeOnly
 }
 
+/// The visible surface required by the transparent floating panel used for the packaged permission probe.
+public struct CalendarPermissionProbeSurfaceStyle: Equatable, Sendable {
+    public let cornerRadius: Double
+    public let fillOpacity: Double
+
+    public init(cornerRadius: Double, fillOpacity: Double) {
+        self.cornerRadius = cornerRadius
+        self.fillOpacity = fillOpacity
+    }
+
+    public static let standard = CalendarPermissionProbeSurfaceStyle(
+        cornerRadius: 16,
+        fillOpacity: 1
+    )
+}
+
 public struct CalendarColor: Equatable, Sendable {
     public let red: Double
     public let green: Double
