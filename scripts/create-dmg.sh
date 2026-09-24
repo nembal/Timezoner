@@ -9,7 +9,7 @@ VERSION="${1:-0.1.0}"
 APP_NAME="TimeZoner"
 DMG_NAME="${APP_NAME}-${VERSION}-arm64"
 RESOURCE_BUNDLE_NAME="TimeZoner_TimeZonerLib.bundle"
-RESOURCE_JSON="${APP_NAME}.app/Contents/Resources/${RESOURCE_BUNDLE_NAME}/timezone-boundaries.json"
+RESOURCE_JSON="${APP_NAME}.app/Contents/Resources/${RESOURCE_BUNDLE_NAME}/Contents/Resources/timezone-boundaries.json"
 
 echo "Building ${APP_NAME} v${VERSION}..."
 
@@ -22,9 +22,15 @@ fi
 # Build release
 swift build -c release --product TimeZoner
 
-resource_bundle="$(find .build -path "*release/${RESOURCE_BUNDLE_NAME}" -type d -print -quit)"
-if [[ -z "$resource_bundle" ]]; then
-    echo "error: ${RESOURCE_BUNDLE_NAME} not found under .build" >&2
+release_products_dir="$(swift build -c release --show-bin-path)"
+resource_bundle="$release_products_dir/$RESOURCE_BUNDLE_NAME"
+executable_path="$release_products_dir/TimeZoner"
+if [[ ! -d "$resource_bundle" ]]; then
+    echo "error: ${RESOURCE_BUNDLE_NAME} not found in $release_products_dir" >&2
+    exit 1
+fi
+if [[ ! -x "$executable_path" ]]; then
+    echo "error: TimeZoner executable not found in $release_products_dir" >&2
     exit 1
 fi
 
@@ -32,7 +38,7 @@ fi
 rm -rf "${APP_NAME}.app"
 mkdir -p "${APP_NAME}.app/Contents/MacOS"
 mkdir -p "${APP_NAME}.app/Contents/Resources"
-cp .build/release/TimeZoner "${APP_NAME}.app/Contents/MacOS/"
+cp "$executable_path" "${APP_NAME}.app/Contents/MacOS/"
 cp Info.plist "${APP_NAME}.app/Contents/"
 cp -R "$resource_bundle" "${APP_NAME}.app/Contents/Resources/${RESOURCE_BUNDLE_NAME}"
 

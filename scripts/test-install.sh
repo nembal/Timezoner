@@ -32,6 +32,12 @@ grep -F -- 'url "https://github.com/nembal/Timezoner/archive/refs/tags/v0.3.0.ta
 grep -F -- 'sha256 "59c129efb6900881f55d6187f372cac6f154321be2de474b6427732febfe357c"' Formula/timezoner.rb >/dev/null
 grep -F -- 'head "https://github.com/nembal/Timezoner.git", branch: "main"' Formula/timezoner.rb >/dev/null
 grep -F -- '"--disable-sandbox"' Formula/timezoner.rb >/dev/null
+# shellcheck disable=SC2016 # Intentional literal packaging-script assertion.
+grep -F -- 'release_products_dir="$(swift build -c release --show-bin-path)"' scripts/create-dmg.sh >/dev/null
+# shellcheck disable=SC2016 # Intentional literal packaging-script assertion.
+grep -F -- 'RESOURCE_JSON="${APP_NAME}.app/Contents/Resources/${RESOURCE_BUNDLE_NAME}/Contents/Resources/timezone-boundaries.json"' scripts/create-dmg.sh >/dev/null
+grep -F -- 'release_products_dir = Utils.safe_popen_read("swift", "build", "--disable-sandbox", "-c", "release", "--package-path", "app", "--show-bin-path").chomp' Formula/timezoner.rb >/dev/null
+grep -F -- 'resource_json = prefix/"TimeZoner.app/Contents/Resources/TimeZoner_TimeZonerLib.bundle/Contents/Resources/timezone-boundaries.json"' Formula/timezoner.rb >/dev/null
 grep -F -- "brew trust --formula nembal/timezoner/timezoner" README.md >/dev/null
 grep -F -- "brew trust --formula nembal/timezoner/timezoner" scripts/dmg-readme.txt >/dev/null
 

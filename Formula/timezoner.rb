@@ -20,13 +20,16 @@ class Timezoner < Formula
 
     system "swift", "build", "--disable-sandbox", "-c", "release", "--package-path", "app", "--product", "TimeZoner"
 
-    resource_bundle = Dir["app/.build/**/release/TimeZoner_TimeZonerLib.bundle"].first
-    odie "TimeZoner_TimeZonerLib.bundle not found under app/.build" if resource_bundle.blank?
+    release_products_dir = Utils.safe_popen_read("swift", "build", "--disable-sandbox", "-c", "release", "--package-path", "app", "--show-bin-path").chomp
+    resource_bundle = Pathname.new(release_products_dir)/"TimeZoner_TimeZonerLib.bundle"
+    resource_json = resource_bundle/"Contents/Resources/timezone-boundaries.json"
+    odie "TimeZoner_TimeZonerLib.bundle not found in #{release_products_dir}" unless resource_bundle.directory?
+    odie "timezone-boundaries.json not found in #{resource_bundle}" unless resource_json.file?
 
     app_bundle = prefix/"TimeZoner.app"
     (app_bundle/"Contents/MacOS").mkpath
     (app_bundle/"Contents/Resources").mkpath
-    cp "app/.build/release/TimeZoner", app_bundle/"Contents/MacOS/TimeZoner"
+    cp Pathname.new(release_products_dir)/"TimeZoner", app_bundle/"Contents/MacOS/TimeZoner"
     cp "app/Info.plist", app_bundle/"Contents/Info.plist"
     cp_r resource_bundle, app_bundle/"Contents/Resources/TimeZoner_TimeZonerLib.bundle"
     system "codesign", "--force", "--sign", "-", app_bundle
@@ -73,7 +76,7 @@ class Timezoner < Formula
   end
 
   test do
-    resource_json = prefix/"TimeZoner.app/Contents/Resources/TimeZoner_TimeZonerLib.bundle/timezone-boundaries.json"
+    resource_json = prefix/"TimeZoner.app/Contents/Resources/TimeZoner_TimeZonerLib.bundle/Contents/Resources/timezone-boundaries.json"
 
     assert_predicate prefix/"TimeZoner.app/Contents/MacOS/TimeZoner", :executable?
     assert_path_exists prefix/"TimeZoner.app/Contents/Info.plist"
