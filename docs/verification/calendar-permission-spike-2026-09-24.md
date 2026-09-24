@@ -54,14 +54,14 @@ This follow-up is code- and package-verified; it was not clicked after the final
 
 ## Current-branch automated and scope evidence
 
-The following checks ran on 2026-09-25 against final code SHA `508760e` immediately before this evidence-refresh documentation-only commit. They establish deterministic/code and package evidence only; they do not substitute for a native privacy, panel, or notification observation.
+The following checks ran on 2026-09-25 against final code SHA `08eae90` immediately before this evidence-refresh documentation-only commit. They establish deterministic/code and package evidence only; they do not substitute for a native privacy, panel, or notification observation.
 
 | ID | Command or audit | Result | Boundary |
 | --- | --- | --- | --- |
-| A1 | `cd app && swift run TimeZonerTests` | **648 passed, 0 failed**. | Fakes cover calendar mapping, preferences, presentation, interval-aware agenda groups, read-only all-day details, lifecycle, scheduling, routing, first-use access, alert-intent races, and independent lead disabling; they do not operate macOS permissions or real Calendar data. |
-| A1b | Final bounded full-suite stress: 20 consecutive `swift run TimeZonerTests` executions, each with a 10-second deadline | **20/20 passed**. | It demonstrates deterministic test stability after the final Calendar and alert repairs; it does not operate macOS permissions, Calendar accounts, native panels, or notification delivery. |
+| A1 | `cd app && swift run TimeZonerTests` | **659 passed, 0 failed**. | Fakes cover calendar mapping, preferences, presentation, interval-aware agenda groups, read-only all-day details, lifecycle, scheduling, routing, first-use access, alert-intent races, independent lead disabling, and shared grid-strip geometry; they do not operate macOS permissions or real Calendar data. |
+| A1b | Final bounded full-suite stress: 20 consecutive `swift run TimeZonerTests` executions, each with a 10-second deadline | **20/20 passed**. | It demonstrates deterministic test stability after the final Calendar, alert, and shared-horizontal-grid repairs; it does not operate macOS permissions, Calendar accounts, native panels, visual alignment, or notification delivery. |
 | A2–A4 | `./scripts/build.sh`; `codesign --verify --deep --strict app/TimeZoner.app`; packaged PlistBuddy usage-string check | Passed; the build is ad-hoc signed and the usage string exactly matches the source declaration. | Build/signature/plist proof does not establish prompt timing or authorization persistence. |
-| A5 | `bash scripts/test-install.sh` | Passed; temporary install, resource-layout, and signature checks completed. | Installer regression coverage only. |
+| A5 | Prior current-branch `bash scripts/test-install.sh` package check | Passed; temporary install, resource-layout, and signature checks completed before the final alignment-only source change. | Installer regression coverage only; A2–A4 are the fresh final-revision build/signature evidence. |
 | A6 | `git diff --check` | Passed with no output before the documentation commit. | Whitespace hygiene only. |
 | A7 | `rg -n 'EKEventStore|UNUserNotificationCenter' app/Sources` plus allowlist review | `EKEventStore` appears only in `EventKitCalendarProvider`; UserNotifications appears in the adapter, retained delegate, and intentional AppDelegate installation. | A textual boundary audit, not proof of read-only behavior or runtime delivery. |
 | A8 | `rg -n 'eventTitle|attendee|startDate|endDate' app/Sources/Stores app/Sources/Models | rg 'UserDefaults|set\\('` | No match; the final `rg` returned its normal no-match exit `1`. | Narrow negative signal only; it does not search every persistence mechanism or field name. |
@@ -83,7 +83,7 @@ All rows below are **Pending — not performed in this run**. A deterministic te
 | M2 | Verify independent Show and Alerts preferences, including a hidden-but-alert-enabled calendar. | Pending — not performed in this run. |
 | M3 | Edit a timed event in Apple Calendar while TimeZoner is open and verify refresh/no stale cancelled or owner-declined content. | Pending — not performed in this run. |
 | M4 | Select a timed event across all active city cards, clear it through a normal TimeZoner mutation, and verify an all-day event leaves the reference moment unchanged. | Pending — not performed in this run. |
-| M5 | Exercise Today, 3 Days, Week, navigation, Today reset, navigated-day labels, current-day tint, all-day details, dense overlap/cross-midnight cases, VoiceOver/keyboard operation, and the return to the normal panel. | Pending — not performed in this run. |
+| M5 | Exercise Today, 3 Days, Week, navigation, Today reset, navigated-day labels, current-day tint, shared header/all-day/timed-strip alignment, all-day details, dense overlap/cross-midnight cases, VoiceOver/keyboard operation, and the return to the normal panel. | Pending — not performed in this run. |
 | M6 | Verify right-edge, left-edge, narrow-screen popover wing placement and same-display normal-frame restoration. | Pending — not performed in this run. |
 | M7 | Revoke and re-enable Calendar access with visible/selected content; verify clearing, notification cleanup, recovery, and refetch. | Pending — not performed in this run. The probe's denial/recovery result does not certify companion flow. |
 | M8 | Exercise reopen/activation, wake, a local-day boundary where practical, and a current-timezone change. | Pending — not performed in this run. |

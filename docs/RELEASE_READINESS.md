@@ -31,18 +31,18 @@ Calendar Companion is implemented on the current branch but is not part of the d
 
 The agenda and grid keep event data in memory for presentation. TimeZoner persists normal app settings plus per-calendar identifier-keyed Show/Alerts preferences and alert lead-time settings, not an app-owned event or attendee database. Attendee labels are displayed locally from EventKit values; where a display name is unavailable, the current mapper may use an address-derived label. The two alert leads default to 30 and 10 minutes; a completed empty field disables that one lead without changing its sibling. Optional alerts are a deliberate exception to the in-memory presentation boundary: when enabled, macOS's local notification queue retains the event title, occurrence identifier, and start timestamp for eligible occurrences in the next seven days. The queue supports delivery and response routing; it is not a TimeZoner-owned database. Alert reconciliation and owned-request cleanup are serialized, so a later disable or Calendar-permission loss invalidates stale in-flight work before its owned requests are removed.
 
-The final Calendar UI code presents interval-aware Today and Tomorrow agenda groups, so an unfetched day is loading or unavailable rather than reported as empty. Timed events remain the conversion action; all-day events open read-only details and never change the TimeZoner reference moment. Calendar mode gives the local current day a quiet, non-interactive column tint, and its single-day title follows navigation rather than calling a previous or next day “Today.” Native tint contrast, popover anchoring, and VoiceOver traversal remain manual acceptance work.
+The final Calendar UI code presents interval-aware Today and Tomorrow agenda groups, so an unfetched day is loading or unavailable rather than reported as empty. Timed events remain the conversion action; all-day events open read-only details and never change the TimeZoner reference moment. Calendar mode gives the local current day a quiet, non-interactive column tint, and its single-day title follows navigation rather than calling a previous or next day “Today.” The header, all-day area, and timed grid share one code-owned ruler/day-frame coordinate system and common total width; deterministic tests assert their common origins and widths for one-day and week layouts. This is code/test evidence, not a native visual-alignment observation. Native tint contrast, grid alignment, popover anchoring, and VoiceOver traversal remain manual acceptance work.
 
 ### Current-branch automated and package evidence
 
-Completed on 2026-09-25 against final code SHA `508760e` immediately before this evidence-refresh documentation-only change:
+Completed on 2026-09-25 against final code SHA `08eae90` immediately before this evidence-refresh documentation-only change:
 
-- `cd app && swift run TimeZonerTests` — **648 passed, 0 failed**.
+- `cd app && swift run TimeZonerTests` — **659 passed, 0 failed**.
 - Final bounded full-suite repeat — **20/20 consecutive passes**, each with a 10-second deadline. This establishes deterministic test stability, not a native macOS notification result.
 - `./scripts/build.sh` — passed and produced an ad-hoc-signed `app/TimeZoner.app`.
 - `codesign --verify --deep --strict app/TimeZoner.app` — passed.
 - The packaged `NSCalendarsFullAccessUsageDescription` is exactly: `TimeZoner reads your calendars to show upcoming events across your saved time zones.`
-- `bash scripts/test-install.sh` — passed; it built, signed, installed to a temporary destination, and checked the resource/signature layout.
+- The prior current-branch `bash scripts/test-install.sh` package check passed; it built, signed, installed to a temporary destination, and checked the resource/signature layout. The final `08eae90` build/signature checks above are the fresh package evidence for this source revision.
 - Source audits found `EKEventStore` only in `EventKitCalendarProvider`; UserNotifications are limited to the notification adapter, retained delegate, and intentional AppDelegate installation. The targeted event/attendee-to-`UserDefaults` scan had no match. A review of persistence/network references found normal `UserDefaults` stores only and no direct network calendar client.
 
 These are deterministic/code and package checks. They do not prove macOS permission UX, real account data, panel behavior, notification delivery, or notification response routing.
