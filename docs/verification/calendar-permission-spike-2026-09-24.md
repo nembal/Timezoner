@@ -54,11 +54,12 @@ This follow-up is code- and package-verified; it was not clicked after the final
 
 ## Current-branch automated and scope evidence
 
-The following checks ran on 2026-09-24 against final code SHA `51c96bb` immediately before this evidence-refresh documentation-only commit. They establish deterministic/code and package evidence only; they do not substitute for a native privacy, panel, or notification observation.
+The following checks ran on 2026-09-24 against final code SHA `528e353` immediately before this evidence-refresh documentation-only commit. They establish deterministic/code and package evidence only; they do not substitute for a native privacy, panel, or notification observation.
 
 | ID | Command or audit | Result | Boundary |
 | --- | --- | --- | --- |
-| A1 | `cd app && swift run TimeZonerTests` | **548 passed, 0 failed**. | Fakes cover calendar mapping, preferences, presentation, lifecycle, scheduling, and routing; they do not operate macOS permissions or real Calendar data. |
+| A1 | `cd app && swift run TimeZonerTests` | **558 passed, 0 failed**. | Fakes cover calendar mapping, preferences, presentation, lifecycle, scheduling, and routing; they do not operate macOS permissions or real Calendar data. |
+| A1b | Task 9 bounded full-suite stress: 100 consecutive `swift run TimeZonerTests` executions, each bounded to five seconds | **100/100 passed**. | It demonstrates deterministic test stability after the fan-out test repair; it does not operate macOS permissions, Calendar accounts, native panels, or notification delivery. |
 | A2–A4 | `./scripts/build.sh`; `codesign --verify --deep --strict app/TimeZoner.app`; packaged PlistBuddy usage-string check | Passed; the build is ad-hoc signed and the usage string exactly matches the source declaration. | Build/signature/plist proof does not establish prompt timing or authorization persistence. |
 | A5 | `bash scripts/test-install.sh` | Passed; temporary install, resource-layout, and signature checks completed. | Installer regression coverage only. |
 | A6 | `git diff --check` | Passed with no output before the documentation commit. | Whitespace hygiene only. |
