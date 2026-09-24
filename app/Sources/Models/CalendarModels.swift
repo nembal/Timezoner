@@ -24,6 +24,19 @@ public struct CalendarPermissionProbeSurfaceStyle: Equatable, Sendable {
     )
 }
 
+public enum CalendarPermissionRecoveryAction: Equatable, Sendable {
+    case hideProbe
+    case openCalendarPrivacySettings
+}
+
+/// The recovery sequence keeps the always-on-top probe from obscuring System Settings.
+public enum CalendarPermissionRecoveryPlan {
+    public static let actions: [CalendarPermissionRecoveryAction] = [
+        .hideProbe,
+        .openCalendarPrivacySettings
+    ]
+}
+
 public struct CalendarColor: Equatable, Sendable {
     public let red: Double
     public let green: Double

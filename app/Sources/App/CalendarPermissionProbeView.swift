@@ -3,7 +3,7 @@ import Observation
 import SwiftUI
 import TimeZonerLib
 
-private let calendarPermissionProbeMarker = "calendar-probe-b"
+private let calendarPermissionProbeMarker = "calendar-permission-probe"
 private let calendarPermissionProbeSurface = CalendarPermissionProbeSurfaceStyle.standard
 
 struct CalendarPermissionProbeView: View {
@@ -159,7 +159,18 @@ final class CalendarPermissionProbeModel {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") else {
             return
         }
-        NSWorkspace.shared.open(url)
+
+        for action in CalendarPermissionRecoveryPlan.actions {
+            switch action {
+            case .hideProbe:
+                NSApp.windows
+                    .compactMap { $0 as? FloatingPanel }
+                    .first(where: { $0.isVisible })?
+                    .orderOut(nil)
+            case .openCalendarPrivacySettings:
+                NSWorkspace.shared.open(url)
+            }
+        }
     }
 }
 

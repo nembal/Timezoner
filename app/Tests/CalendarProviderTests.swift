@@ -38,6 +38,11 @@ func runCalendarProviderTests() {
     let probeSurface = CalendarPermissionProbeSurfaceStyle.standard
     expectEqualCalendar(probeSurface.fillOpacity, 1, "calendar permission probe surface is opaque")
     expectTrueCalendar(probeSurface.cornerRadius > 0, "calendar permission probe surface is rounded")
+    expectEqualCalendar(
+        CalendarPermissionRecoveryPlan.actions,
+        [.hideProbe, .openCalendarPrivacySettings],
+        "calendar recovery hides the floating probe before opening privacy settings"
+    )
 
     // Normalization prevents unusual source color-space components from leaking to views.
     let color = CalendarColor(red: -0.1, green: 0.25, blue: 1.2, alpha: 1.5)
