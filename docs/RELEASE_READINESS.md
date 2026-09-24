@@ -31,12 +31,14 @@ Calendar Companion is implemented on the current branch but is not part of the d
 
 The agenda and grid keep event data in memory for presentation. TimeZoner persists normal app settings plus per-calendar identifier-keyed Show/Alerts preferences and alert lead-time settings, not an app-owned event or attendee database. Attendee labels are displayed locally from EventKit values; where a display name is unavailable, the current mapper may use an address-derived label. The two alert leads default to 30 and 10 minutes; a completed empty field disables that one lead without changing its sibling. Optional alerts are a deliberate exception to the in-memory presentation boundary: when enabled, macOS's local notification queue retains the event title, occurrence identifier, and start timestamp for eligible occurrences in the next seven days. The queue supports delivery and response routing; it is not a TimeZoner-owned database. Alert reconciliation and owned-request cleanup are serialized, so a later disable or Calendar-permission loss invalidates stale in-flight work before its owned requests are removed.
 
+The final Calendar UI code presents interval-aware Today and Tomorrow agenda groups, so an unfetched day is loading or unavailable rather than reported as empty. Timed events remain the conversion action; all-day events open read-only details and never change the TimeZoner reference moment. Calendar mode gives the local current day a quiet, non-interactive column tint, and its single-day title follows navigation rather than calling a previous or next day “Today.” Native tint contrast, popover anchoring, and VoiceOver traversal remain manual acceptance work.
+
 ### Current-branch automated and package evidence
 
-Completed on 2026-09-24 against final code SHA `96bfe0d` immediately before this evidence-refresh documentation-only change:
+Completed on 2026-09-25 against final code SHA `508760e` immediately before this evidence-refresh documentation-only change:
 
-- `cd app && swift run TimeZonerTests` — **616 passed, 0 failed**.
-- Final bounded full-suite repeat — **20/20 consecutive passes**. This establishes deterministic test stability, not a native macOS notification result.
+- `cd app && swift run TimeZonerTests` — **648 passed, 0 failed**.
+- Final bounded full-suite repeat — **20/20 consecutive passes**, each with a 10-second deadline. This establishes deterministic test stability, not a native macOS notification result.
 - `./scripts/build.sh` — passed and produced an ad-hoc-signed `app/TimeZoner.app`.
 - `codesign --verify --deep --strict app/TimeZoner.app` — passed.
 - The packaged `NSCalendarsFullAccessUsageDescription` is exactly: `TimeZoner reads your calendars to show upcoming events across your saved time zones.`
