@@ -52,7 +52,7 @@ Add `runCalendarProviderTests()` with deterministic pure-mapping assertions for 
 
 - [ ] **Step 2: Run the tests and verify failure**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 Expected: compilation fails because the calendar model and mapper types do not exist.
 
@@ -99,7 +99,7 @@ When `ProcessInfo.processInfo.arguments.contains("--calendar-permission-spike")`
 
 - [ ] **Step 5: Verify automated tests and package**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 Expected: all tests pass and no permission dialog appears.
 
@@ -140,7 +140,7 @@ Cover a DST spring-forward Today interval, anchored 3 Days, locale week honoring
 
 - [ ] **Step 2: Run tests and confirm missing-type failures**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 - [ ] **Step 3: Implement minimal pure calendar algorithms**
 
@@ -152,7 +152,7 @@ Encode `[String: CalendarPreference]` as JSON data in `UserDefaults`. Missing ID
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 ```bash
 git add app/Sources/Models/CalendarRange.swift app/Sources/Models/CalendarLayout.swift app/Sources/Stores/CalendarPreferenceStore.swift app/Tests/CalendarRangeTests.swift app/Tests/CalendarLayoutTests.swift app/Tests/CalendarPreferenceStoreTests.swift app/Tests/TimeZonerTests.swift
@@ -182,7 +182,7 @@ Assert timed selection updates date/source/live/context; all-day selection is ig
 
 - [ ] **Step 2: Run tests and confirm failure**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 - [ ] **Step 3: Implement controller and route every mutation**
 
@@ -198,7 +198,7 @@ Run: `rg -n "timeState\.(setTime|goLive)" app/Sources --glob '!Models/ReferenceM
 
 Expected: no matches.
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 ```bash
 git add app/Sources/Models/ReferenceMomentController.swift app/Sources/Views/ChatField.swift app/Sources/Views/ZoneCard.swift app/Sources/Views/ZoneCardRow.swift app/Sources/Views/ContentView.swift app/Tests/ReferenceMomentControllerTests.swift app/Tests/TimeZonerDeepLinkTests.swift app/Tests/TimeZonerTests.swift
@@ -225,7 +225,7 @@ Cover successful empty vs thrown failure, last-snapshot retention on fetch failu
 
 - [ ] **Step 2: Run tests and confirm failure**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 - [ ] **Step 3: Implement the main-actor store**
 
@@ -237,7 +237,7 @@ Use `NSCalendarDayChanged`, `NSSystemTimeZoneDidChange`, `NSWorkspace.didWakeNot
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 ```bash
 git add app/Sources/Stores/CalendarStore.swift app/Sources/Utilities/CalendarClock.swift app/Tests/CalendarStoreTests.swift app/Tests/CalendarClockTests.swift app/Tests/TimeZonerTests.swift
@@ -268,7 +268,7 @@ Test right placement with 230+ free points, left fallback, popover fallback when
 
 - [ ] **Step 2: Run tests and confirm failure**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 - [ ] **Step 3: Lift shared state and implement coordinator**
 
@@ -284,7 +284,7 @@ The quiet calendar glyph beside Settings starts the explanation when status is `
 
 - [ ] **Step 6: Run tests, build, and commit**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 Run: `./scripts/build.sh`
 
@@ -316,7 +316,7 @@ Assert expand enters `.calendar` with `.week`, later entry remembers the session
 
 - [ ] **Step 2: Run tests and confirm failure**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 - [ ] **Step 3: Implement calendar-mode navigation and sizing**
 
@@ -328,7 +328,7 @@ Render a local-time day header, all-day row, 24-hour vertical scroll, current-ti
 
 - [ ] **Step 5: Verify and commit**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 Run: `./scripts/build.sh`
 
@@ -359,7 +359,7 @@ Test defaults, round-trip, independent Show/Alerts controls, lead validation (`n
 
 - [ ] **Step 2: Run tests and confirm failure**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 - [ ] **Step 3: Implement settings and map-state binding**
 
@@ -371,7 +371,7 @@ Place it after Appearance. Show muted dot, title, source title, Show checkbox, A
 
 - [ ] **Step 5: Wire permission-loss cleanup and commit**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 ```bash
 git add app/Sources/Stores/SettingsStore.swift app/Sources/Views/SettingsPopover.swift app/Sources/Views/TimezoneMapView.swift app/Sources/Models/CalendarPresentationState.swift app/Sources/Stores/CalendarStore.swift app/Tests/SettingsStoreTests.swift app/Tests/CalendarStoreTests.swift
@@ -398,7 +398,7 @@ Cover default 30/10 requests, body `Starts in 30 min · 10:00 BKK`, future-only 
 
 - [ ] **Step 2: Run tests and confirm failure**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 - [ ] **Step 3: Implement desired-request generation**
 
@@ -410,7 +410,7 @@ Wrap `UNUserNotificationCenter` without exposing its request/content types. Requ
 
 - [ ] **Step 5: Run tests and commit**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 ```bash
 git add app/Sources/Models/CalendarNotification.swift app/Sources/Utilities/CalendarNotificationScheduling.swift app/Sources/Utilities/UserNotificationCenterAdapter.swift app/Tests/CalendarNotificationTests.swift app/Tests/TimeZonerTests.swift
@@ -441,7 +441,7 @@ Cover response queued before readiness, exactly-once consumption after readiness
 
 - [ ] **Step 2: Run tests and confirm failure**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 - [ ] **Step 3: Implement delegate and cold-start queue**
 
@@ -457,7 +457,7 @@ Install, grant notifications, schedule a near-future test event through the real
 
 - [ ] **Step 6: Run tests, build, and commit**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 Run: `./scripts/build.sh`
 
@@ -482,7 +482,7 @@ State that TimeZoner uses accounts configured in macOS Calendar, has no Google s
 
 - [ ] **Step 2: Run the complete automated suite**
 
-Run: `cd app && bash fix-spm.sh >/dev/null && SWIFT_EXEC=/tmp/spm-fix/swiftc-wrapper.sh swift run TimeZonerTests`
+Run: `cd app && swift run TimeZonerTests`
 
 Expected: zero failures.
 
