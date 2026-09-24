@@ -42,6 +42,7 @@ private final class CalendarPanelSurfaceFake: CalendarPanelSurface {
 
 private final class CalendarPanelPopoverFake: CalendarPanelPopoverSurface {
     private(set) var isPresented = false
+    var isFocused = false
     private(set) var showCount = 0
     private(set) var dismissCount = 0
 
@@ -171,6 +172,34 @@ func runCalendarPanelCoordinatorTests() {
 
         coordinator.show(showAgenda: true)
         expectCalendarPanel(main.isVisible && !agenda.isVisible && popover.isPresented, "popover fallback keeps the agenda panel out")
+    }
+
+    do {
+        let scheduler = CalendarPanelDeferredSchedulerFake()
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 200, y: 100, width: 600, height: 500))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let coordinator = CalendarPanelPairController(
+            main: main,
+            agenda: agenda,
+            agendaPopover: popover,
+            visibleFrame: { visible },
+            scheduleDeferredDismissal: scheduler.schedule
+        )
+
+        coordinator.show(showAgenda: true)
+        main.isKey = false
+        popover.isFocused = true
+        coordinator.panelDidResignKey()
+        scheduler.runAll()
+        expectCalendarPanel(main.isVisible && popover.isPresented, "a focused fallback popover keeps the pair visible")
+
+        popover.isFocused = false
+        coordinator.panelDidResignKey()
+        scheduler.runAll()
+
+        expectCalendarPanel(!popover.isPresented, "an unfocused fallback popover closes after panel resignation")
+        expectCalendarPanel(!main.isVisible && !agenda.isVisible, "an unfocused fallback popover does not keep the pair visible")
     }
 
     do {

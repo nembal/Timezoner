@@ -101,9 +101,15 @@ public struct AgendaView: View {
         let allDayEvents = events.filter(\.isAllDay)
         let earlierEvents = events.filter { !$0.isAllDay && $0.endDate <= calendarStore.currentDate }
         let remainingEvents = events.filter { !$0.isAllDay && $0.endDate > calendarStore.currentDate }
+        let contentState = AgendaContentState.resolve(
+            events: events,
+            isLoading: calendarStore.isLoading,
+            errorMessage: calendarStore.errorMessage
+        )
 
         return VStack(alignment: .leading, spacing: 10) {
-            if calendarStore.isLoading && events.isEmpty {
+            switch contentState {
+            case .loading:
                 HStack(spacing: 8) {
                     ProgressView().controlSize(.small)
                     Text("Loading calendar…")
@@ -112,7 +118,9 @@ public struct AgendaView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 12)
-            } else {
+            case .errorWithoutEvents(let error):
+                failedEmptyState(error)
+            case .agenda:
                 ForEach(allDayEvents) { event in
                     eventRow(event, selectable: false)
                 }
@@ -139,19 +147,33 @@ public struct AgendaView: View {
                 }
             }
 
-            if calendarStore.isStale {
+            if calendarStore.isStale && !events.isEmpty {
                 Label("Showing the last available calendar snapshot.", systemImage: "arrow.clockwise")
                     .font(.system(size: 11, design: .rounded))
                     .foregroundStyle(Theme.textTertiary)
             }
 
-            if let error = calendarStore.errorMessage {
+            if case .agenda = contentState, let error = calendarStore.errorMessage {
                 Text(error)
                     .font(.system(size: 11, design: .rounded))
                     .foregroundStyle(.red)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
+    }
+
+    private func failedEmptyState(_ error: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Calendar unavailable")
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(Theme.textSecondary)
+            Text(error)
+                .font(.system(size: 11, design: .rounded))
+                .foregroundStyle(.red)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.vertical, 12)
     }
 
     @ViewBuilder

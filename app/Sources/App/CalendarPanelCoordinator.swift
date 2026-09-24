@@ -40,6 +40,9 @@ private final class AgendaPopoverSurfaceAdapter: NSObject, CalendarPanelPopoverS
     }
 
     var isPresented: Bool { popover.isShown }
+    var isFocused: Bool {
+        popover.contentViewController?.view.window?.isKeyWindow == true
+    }
 
     func show() {
         guard !popover.isShown,
@@ -177,6 +180,11 @@ extension CalendarPanelCoordinator: FloatingPanelInteractionDelegate {
         handleEscape()
     }
 
+    func floatingPanelDidChangeOrdering(_ panel: FloatingPanel) {
+        guard panel === mainPanel else { return }
+        syncAgendaVisibility()
+    }
+
     func floatingPanel(_ panel: FloatingPanel, didChangeHugging hugging: Bool) {
         if panel === mainPanel {
             presentation.mainPanelHugsMenuBar = hugging
@@ -187,12 +195,7 @@ extension CalendarPanelCoordinator: FloatingPanelInteractionDelegate {
 }
 
 extension CalendarPanelCoordinator: NSPopoverDelegate {
-    func popoverDidShow(_ notification: Notification) {
-        pair.setOwnedPopoverPresented(true)
-    }
-
     func popoverDidClose(_ notification: Notification) {
         pair.setOwnedPopoverPresented(presentation.hasOwnedPopover)
-        pair.panelDidResignKey()
     }
 }

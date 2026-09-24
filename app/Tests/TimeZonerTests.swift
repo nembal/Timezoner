@@ -14,6 +14,7 @@ struct TestRunner {
         runCalendarProviderTests()
         runCalendarRangeTests()
         runCalendarLayoutTests()
+        runAgendaPresentationTests()
         runCalendarPanelCoordinatorTests()
         runCalendarPreferenceStoreTests()
         runReferenceMomentControllerTests()

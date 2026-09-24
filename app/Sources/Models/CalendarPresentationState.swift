@@ -83,6 +83,28 @@ public final class CalendarPresentationState: EventSelectionPresenting {
     }
 }
 
+/// Distinguishes a confirmed empty agenda from an empty snapshot caused by a failed fetch.
+/// The view uses this before presenting any "clear" language.
+public enum AgendaContentState: Equatable {
+    case loading
+    case errorWithoutEvents(String)
+    case agenda
+
+    public static func resolve(
+        events: [CalendarEventSnapshot],
+        isLoading: Bool,
+        errorMessage: String?
+    ) -> AgendaContentState {
+        if events.isEmpty, let errorMessage {
+            return .errorWithoutEvents(errorMessage)
+        }
+        if events.isEmpty, isLoading {
+            return .loading
+        }
+        return .agenda
+    }
+}
+
 public enum AgendaPlacement: Equatable, Sendable {
     case right
     case left
@@ -165,6 +187,7 @@ public protocol CalendarPanelSurface: AnyObject {
 
 public protocol CalendarPanelPopoverSurface: AnyObject {
     var isPresented: Bool { get }
+    var isFocused: Bool { get }
     func show()
     func dismiss()
 }
@@ -286,8 +309,11 @@ public final class CalendarPanelPairController {
             guard self.main.isVisible else { return }
             guard !self.main.isKey,
                   !self.agenda.isKey,
-                  !self.agendaPopover.isPresented,
+                  !self.agendaPopover.isFocused,
                   !self.ownedPopoverPresented else { return }
+            if self.agendaPopover.isPresented {
+                self.agendaPopover.dismiss()
+            }
             self.hide()
         }
     }

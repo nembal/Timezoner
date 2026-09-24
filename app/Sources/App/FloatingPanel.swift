@@ -10,6 +10,7 @@ enum FloatingPanelRole {
 protocol FloatingPanelInteractionDelegate: AnyObject {
     func floatingPanelDidResignKey(_ panel: FloatingPanel)
     func floatingPanelDidPressEscape(_ panel: FloatingPanel)
+    func floatingPanelDidChangeOrdering(_ panel: FloatingPanel)
     func floatingPanel(_ panel: FloatingPanel, didChangeHugging hugging: Bool)
 }
 
@@ -74,6 +75,16 @@ class FloatingPanel: NSPanel {
             return true
         }
         return super.performKeyEquivalent(with: event)
+    }
+
+    override func orderFront(_ sender: Any?) {
+        super.orderFront(sender)
+        interactionDelegate?.floatingPanelDidChangeOrdering(self)
+    }
+
+    override func orderOut(_ sender: Any?) {
+        super.orderOut(sender)
+        interactionDelegate?.floatingPanelDidChangeOrdering(self)
     }
 
     // MARK: - Positioning
