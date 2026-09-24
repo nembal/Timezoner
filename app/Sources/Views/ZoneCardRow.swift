@@ -2,7 +2,7 @@ import SwiftUI
 
 public struct ZoneCardRow: View {
     public let zones: [ZoneInfo]
-    @Bindable public var timeState: TimeState
+    public let referenceMoment: ReferenceMomentController
     @Binding public var editingZoneId: UUID?
     public let highlightedZoneIds: Set<UUID>
     public let onRemove: (UUID) -> Void
@@ -12,12 +12,16 @@ public struct ZoneCardRow: View {
     @State private var dragOffset: CGFloat = 0
     @State private var cardWidth: CGFloat = 150  // measured dynamically
 
-    public init(zones: [ZoneInfo], timeState: TimeState, editingZoneId: Binding<UUID?>,
+    private var timeState: TimeState {
+        referenceMoment.timeState
+    }
+
+    public init(zones: [ZoneInfo], referenceMoment: ReferenceMomentController, editingZoneId: Binding<UUID?>,
                 highlightedZoneIds: Set<UUID> = [],
                 onRemove: @escaping (UUID) -> Void,
                 onMove: @escaping (IndexSet, Int) -> Void = { _, _ in }) {
         self.zones = zones
-        self.timeState = timeState
+        self.referenceMoment = referenceMoment
         self._editingZoneId = editingZoneId
         self.highlightedZoneIds = highlightedZoneIds
         self.onRemove = onRemove
@@ -34,7 +38,7 @@ public struct ZoneCardRow: View {
 
                 ZoneCard(
                     zone: zone,
-                    timeState: timeState,
+                    referenceMoment: referenceMoment,
                     isSource: timeState.sourceZoneId == zone.timeZoneId,
                     isHighlighted: highlightedZoneIds.contains(zone.id),
                     editingZoneId: $editingZoneId,

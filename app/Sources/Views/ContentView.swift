@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct ContentView: View {
-    @State private var timeState = TimeState()
+    @State private var referenceMoment: ReferenceMomentController
     @State private var zoneStore = ZoneStore()
     @State private var editingZoneId: UUID? = nil
     @State private var showingSettings = false
@@ -11,7 +11,14 @@ public struct ContentView: View {
     private let settings = SettingsStore.shared
     private let deepLinkRouter = DeepLinkRouter.shared
 
-    public init() {}
+    public init() {
+        let timeState = TimeState()
+        _referenceMoment = State(initialValue: ReferenceMomentController(timeState: timeState))
+    }
+
+    private var timeState: TimeState {
+        referenceMoment.timeState
+    }
 
     private var idealWidth: CGFloat {
         let cardWidth: CGFloat = 155
@@ -34,11 +41,11 @@ public struct ContentView: View {
             VStack(spacing: 14) {
                 // Chat field + Now + Help
                 HStack(spacing: 8) {
-                    ChatField(timeState: timeState, zoneStore: zoneStore, editingZoneId: $editingZoneId, highlightedZoneIds: $highlightedZoneIds)
+                    ChatField(referenceMoment: referenceMoment, zoneStore: zoneStore, editingZoneId: $editingZoneId, highlightedZoneIds: $highlightedZoneIds)
 
                     Button(action: {
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            timeState.goLive()
+                            referenceMoment.goLive()
                             editingZoneId = nil
                         }
                     }) {
@@ -69,8 +76,12 @@ public struct ContentView: View {
                     }
                 }
 
+                if let selectedEvent = referenceMoment.selectedEvent {
+                    selectedEventContextRow(selectedEvent)
+                }
+
                 // Zone cards with time difference annotations
-                ZoneCardRow(zones: zoneStore.zones, timeState: timeState, editingZoneId: $editingZoneId, highlightedZoneIds: highlightedZoneIds, onRemove: { id in
+                ZoneCardRow(zones: zoneStore.zones, referenceMoment: referenceMoment, editingZoneId: $editingZoneId, highlightedZoneIds: highlightedZoneIds, onRemove: { id in
                     withAnimation(.easeInOut(duration: 0.3)) {
                         zoneStore.remove(id: id)
                     }
@@ -179,7 +190,7 @@ public struct ContentView: View {
         case .setTime(let hour, let minute, let zoneID, let label):
             guard let timeZone = TimeZone(identifier: zoneID) else { return }
             ensureZoneExists(zoneID: zoneID, label: label)
-            timeState.setTime(hour: hour, minute: minute, in: timeZone)
+            referenceMoment.setTime(hour: hour, minute: minute, in: timeZone)
             highlightZones(matchingZoneID: zoneID)
             focusChatField()
         }
@@ -210,6 +221,37 @@ public struct ContentView: View {
 
     private func focusChatField() {
         NotificationCenter.default.post(name: .focusChatField, object: nil)
+    }
+
+    private func selectedEventContextRow(_ event: SelectedEventContext) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "calendar")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(Theme.accent)
+
+            Text(event.title)
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+
+            Spacer(minLength: 8)
+
+            Text(formattedEventStart(event.startDate))
+                .font(.system(size: 11, design: .rounded))
+                .foregroundStyle(Theme.textTertiary)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
+        .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func formattedEventStart(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = .current
+        formatter.timeZone = .current
+        formatter.dateFormat = "MMM d · h:mm a z"
+        return formatter.string(from: date)
     }
 }
 

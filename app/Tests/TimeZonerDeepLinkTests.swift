@@ -78,4 +78,32 @@ func runTimeZonerDeepLinkTests() {
 
     router.pendingCommand = nil
     expectDeepLinkNil(router.pendingCommand, "router clears pending command")
+
+    let controller = ReferenceMomentController(timeState: TimeState())
+    let selectedEvent = CalendarEventSnapshot(
+        id: "deep-link-event",
+        calendarID: "work",
+        calendarTitle: "Work",
+        title: "Deep link context",
+        startDate: Date(timeIntervalSince1970: 1_750_000_000),
+        endDate: Date(timeIntervalSince1970: 1_750_003_600),
+        isAllDay: false,
+        attendeeNames: [],
+        availability: .busy,
+        participationStatus: .accepted
+    )
+    let losAngeles = TimeZone(identifier: "America/Los_Angeles")!
+    controller.selectEvent(selectedEvent, sourceZone: losAngeles)
+
+    if case .setTime(let hour, let minute, let zoneID, _) = setLink,
+       let zone = TimeZone(identifier: zoneID) {
+        controller.setTime(hour: hour, minute: minute, in: zone)
+    }
+
+    if controller.selectedEvent == nil {
+        testsPassed += 1
+    } else {
+        testsFailed += 1
+        print("  FAIL: set deep link must clear selected event context through the reference controller")
+    }
 }

@@ -15,6 +15,7 @@ struct TestRunner {
         runCalendarRangeTests()
         runCalendarLayoutTests()
         runCalendarPreferenceStoreTests()
+        runReferenceMomentControllerTests()
 
         print("\nResults: \(testsPassed) passed, \(testsFailed) failed out of \(testsPassed + testsFailed) tests")
         if testsFailed > 0 {

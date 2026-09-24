@@ -2,7 +2,7 @@ import SwiftUI
 
 public struct ZoneCard: View {
     public let zone: ZoneInfo
-    @Bindable public var timeState: TimeState
+    public let referenceMoment: ReferenceMomentController
     public let isSource: Bool
     public let isHighlighted: Bool
     @Binding public var editingZoneId: UUID?
@@ -15,6 +15,10 @@ public struct ZoneCard: View {
     @State private var isHovering = false
     @FocusState private var editFieldFocused: Bool
 
+    private var timeState: TimeState {
+        referenceMoment.timeState
+    }
+
     private var isEditing: Bool {
         editingZoneId == zone.id
     }
@@ -23,14 +27,14 @@ public struct ZoneCard: View {
         isEditing || isHighlighted
     }
 
-    public init(zone: ZoneInfo, timeState: TimeState, isSource: Bool, isHighlighted: Bool = false,
+    public init(zone: ZoneInfo, referenceMoment: ReferenceMomentController, isSource: Bool, isHighlighted: Bool = false,
                 editingZoneId: Binding<UUID?>,
                 isDragging: Bool = false,
                 onRemove: @escaping () -> Void,
                 onDragChanged: @escaping (CGFloat) -> Void = { _ in },
                 onDragEnded: @escaping () -> Void = {}) {
         self.zone = zone
-        self.timeState = timeState
+        self.referenceMoment = referenceMoment
         self.isSource = isSource
         self.isHighlighted = isHighlighted
         self._editingZoneId = editingZoneId
@@ -153,7 +157,7 @@ public struct ZoneCard: View {
 
     private func liveUpdate(_ text: String) {
         guard let (hour, minute) = InputParser.parseBareTime(text) else { return }
-        timeState.setTime(hour: hour, minute: minute, in: zone.timeZone)
+        referenceMoment.setTime(hour: hour, minute: minute, in: zone.timeZone)
     }
 }
 

@@ -1,7 +1,7 @@
 import SwiftUI
 
 public struct ChatField: View {
-    public let timeState: TimeState
+    public let referenceMoment: ReferenceMomentController
     public let zoneStore: ZoneStore
     @Binding public var editingZoneId: UUID?
     @Binding public var highlightedZoneIds: Set<UUID>
@@ -10,8 +10,12 @@ public struct ChatField: View {
     @State private var shakeOffset: CGFloat = 0
     @FocusState private var isFocused: Bool
 
-    public init(timeState: TimeState, zoneStore: ZoneStore, editingZoneId: Binding<UUID?>, highlightedZoneIds: Binding<Set<UUID>>) {
-        self.timeState = timeState
+    private var timeState: TimeState {
+        referenceMoment.timeState
+    }
+
+    public init(referenceMoment: ReferenceMomentController, zoneStore: ZoneStore, editingZoneId: Binding<UUID?>, highlightedZoneIds: Binding<Set<UUID>>) {
+        self.referenceMoment = referenceMoment
         self.zoneStore = zoneStore
         self._editingZoneId = editingZoneId
         self._highlightedZoneIds = highlightedZoneIds
@@ -77,7 +81,7 @@ public struct ChatField: View {
             switch result {
             case .timeConversion(let hour, let minute, let zone):
                 ensureZoneExists(zone, label: nil)
-                timeState.setTime(hour: hour, minute: minute, in: zone)
+                referenceMoment.setTime(hour: hour, minute: minute, in: zone)
                 highlightZones(matching: [zone])
                 inputText = ""
                 return
@@ -85,7 +89,7 @@ public struct ChatField: View {
             case .timeInContext(let hour, let minute, let sourceZone, let sourceLabel, let targetZone, let targetLabel):
                 ensureZoneExists(sourceZone, label: sourceLabel)
                 ensureZoneExists(targetZone, label: targetLabel)
-                timeState.setTime(hour: hour, minute: minute, in: sourceZone)
+                referenceMoment.setTime(hour: hour, minute: minute, in: sourceZone)
                 highlightZones(matching: [sourceZone, targetZone])
                 inputText = ""
                 return
@@ -119,7 +123,7 @@ public struct ChatField: View {
 
         // If full parser failed, try as bare time → apply to active zone
         if let zone = activeZone, let (hour, minute) = InputParser.parseBareTime(text) {
-            timeState.setTime(hour: hour, minute: minute, in: zone.timeZone)
+            referenceMoment.setTime(hour: hour, minute: minute, in: zone.timeZone)
             highlightZones(matching: [zone.timeZone])
             inputText = ""
             return
