@@ -105,6 +105,11 @@ func runAgendaPresentationTests() {
     )
 
     let now = agendaPresentationDate(newYork, year: 2024, month: 5, day: 15, hour: 12)
+    let agendaSnapshot = CalendarDateIntervalCalculator.interval(
+        for: .threeDays,
+        anchor: now,
+        calendar: newYork
+    )
     let allDayToday = agendaPresentationEvent(
         id: "all-day-today",
         start: agendaPresentationDate(newYork, year: 2024, month: 5, day: 15),
@@ -129,7 +134,9 @@ func runAgendaPresentationTests() {
     let sections = AgendaDayPresentation.sections(
         events: [tomorrowMorning, laterToday, allDayToday, earlierToday],
         now: now,
-        calendar: newYork
+        calendar: newYork,
+        snapshotInterval: agendaSnapshot,
+        isLoading: false
     )
     let todaySection = sections.first { $0.day == .today }
     let tomorrowSection = sections.first { $0.day == .tomorrow }
@@ -149,7 +156,9 @@ func runAgendaPresentationTests() {
     let tomorrowOnlySections = AgendaDayPresentation.sections(
         events: [tomorrowMorning],
         now: now,
-        calendar: newYork
+        calendar: newYork,
+        snapshotInterval: agendaSnapshot,
+        isLoading: false
     )
     expectAgendaPresentation(
         tomorrowOnlySections.first { $0.day == .today }?.isEmpty == true
@@ -160,10 +169,51 @@ func runAgendaPresentationTests() {
         tomorrowOnlySections.first { $0.day == .tomorrow }?.isEmpty == false,
         "a populated Tomorrow section remains visible when Today is empty"
     )
-    let bothEmptySections = AgendaDayPresentation.sections(events: [], now: now, calendar: newYork)
+    let bothEmptySections = AgendaDayPresentation.sections(
+        events: [],
+        now: now,
+        calendar: newYork,
+        snapshotInterval: agendaSnapshot,
+        isLoading: false
+    )
     expectAgendaPresentation(
         bothEmptySections.map(\.emptyMessage) == ["Nothing scheduled today", "Nothing scheduled tomorrow"],
         "each agenda day owns an explicit empty state"
+    )
+    expectAgendaPresentation(
+        bothEmptySections.allSatisfy { $0.coverage == .covered && $0.isEmpty },
+        "covered empty agenda days retain their intentional clear-day state"
+    )
+
+    let todayOnlySnapshot = CalendarDateIntervalCalculator.interval(
+        for: .today,
+        anchor: now,
+        calendar: newYork
+    )
+    let transitioningSections = AgendaDayPresentation.sections(
+        events: [laterToday],
+        now: now,
+        calendar: newYork,
+        snapshotInterval: todayOnlySnapshot,
+        isLoading: true
+    )
+    expectAgendaPresentation(
+        transitioningSections.first { $0.day == .today }?.coverage == .covered
+            && transitioningSections.first { $0.day == .tomorrow }?.coverage == .loading
+            && transitioningSections.first { $0.day == .tomorrow }?.isEmpty == false,
+        "a retained Today-only snapshot keeps Tomorrow loading instead of claiming it is empty"
+    )
+    let failedWiderRefreshSections = AgendaDayPresentation.sections(
+        events: [laterToday],
+        now: now,
+        calendar: newYork,
+        snapshotInterval: todayOnlySnapshot,
+        isLoading: false
+    )
+    expectAgendaPresentation(
+        failedWiderRefreshSections.first { $0.day == .tomorrow }?.coverage == .unavailable
+            && failedWiderRefreshSections.first { $0.day == .tomorrow }?.isEmpty == false,
+        "a failed wider refresh keeps an uncovered Tomorrow unavailable instead of empty"
     )
 
     expectAgendaPresentation(
@@ -173,6 +223,39 @@ func runAgendaPresentationTests() {
     expectAgendaPresentation(
         AgendaParticipantPresentation.summary(for: []) == nil,
         "events without participants do not render an empty participant line"
+    )
+    expectAgendaPresentation(
+        AgendaParticipantPresentation.accessibilityLabel(for: ["Ada", "Grace", "Lin"])
+            == "Participants: Ada, Grace, Lin",
+        "the timed participant detail control exposes every attendee to VoiceOver"
+    )
+    expectAgendaPresentation(
+        AgendaParticipantPresentation.accessibilityLabel(for: []) == nil,
+        "events without participants do not expose an empty participant detail control"
+    )
+
+    let multiDayAllDay = agendaPresentationEvent(
+        id: "multi-day-all-day",
+        start: agendaPresentationDate(newYork, year: 2024, month: 5, day: 15),
+        end: agendaPresentationDate(newYork, year: 2024, month: 5, day: 17),
+        isAllDay: true
+    )
+    let multiDaySections = AgendaDayPresentation.sections(
+        events: [multiDayAllDay],
+        now: now,
+        calendar: newYork,
+        snapshotInterval: agendaSnapshot,
+        isLoading: false
+    )
+    let todayMultiDayTarget = multiDaySections.first { $0.day == .today }
+        .map { $0.detailPopoverTarget(for: multiDayAllDay) }
+    let tomorrowMultiDayTarget = multiDaySections.first { $0.day == .tomorrow }
+        .map { $0.detailPopoverTarget(for: multiDayAllDay) }
+    expectAgendaPresentation(
+        todayMultiDayTarget?.eventID == multiDayAllDay.id
+            && tomorrowMultiDayTarget?.eventID == multiDayAllDay.id
+            && todayMultiDayTarget != tomorrowMultiDayTarget,
+        "each day copy of a multi-day event has a distinct popover presenter identity"
     )
 
     let allDayDetails = CalendarEventDetailsPresentation(

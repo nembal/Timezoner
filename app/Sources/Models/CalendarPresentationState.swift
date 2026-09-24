@@ -46,6 +46,19 @@ public enum CalendarDestination: Equatable, Sendable {
     case calendar
 }
 
+/// Identifies one concrete event-details presenter rather than only the EventKit event. The same
+/// multi-day event may have a distinct visible row for each agenda day, so its popover anchor must
+/// remain specific to the row that opened it.
+public struct CalendarEventDetailPopoverTarget: Equatable, Sendable {
+    public let eventID: String
+    public let presenterID: String
+
+    public init(eventID: String, presenterID: String) {
+        self.eventID = eventID
+        self.presenterID = presenterID
+    }
+}
+
 /// User-facing calendar presentation that outlives SwiftUI view reconstruction.
 /// It also owns the map-selection snapshot so selecting a calendar event never loses
 /// the user's prior map expansion choice.
@@ -59,9 +72,18 @@ public final class CalendarPresentationState: EventSelectionPresenting {
 
     public private(set) var isMapExpanded: Bool
     public var isSettingsPresented = false
-    /// The shared event-details identity works for all events, including all-day events with no
-    /// other attendees. The older attendee name remains as a compatibility alias for callers.
-    public var eventDetailPopoverEventID: String?
+    /// The active presenter remains distinct when one event appears in multiple visible rows.
+    public var eventDetailPopoverTarget: CalendarEventDetailPopoverTarget?
+    /// Compatibility lookup for callers that only need the event identity. New presentation code
+    /// must use `eventDetailPopoverTarget` to avoid activating multiple anchors for one event.
+    public var eventDetailPopoverEventID: String? {
+        get { eventDetailPopoverTarget?.eventID }
+        set {
+            eventDetailPopoverTarget = newValue.map {
+                CalendarEventDetailPopoverTarget(eventID: $0, presenterID: "legacy-event:\($0)")
+            }
+        }
+    }
     public var attendeePopoverEventID: String? {
         get { eventDetailPopoverEventID }
         set { eventDetailPopoverEventID = newValue }
@@ -104,7 +126,7 @@ public final class CalendarPresentationState: EventSelectionPresenting {
     }
 
     public var hasOwnedPopover: Bool {
-        isSettingsPresented || eventDetailPopoverEventID != nil
+        isSettingsPresented || eventDetailPopoverTarget != nil
     }
 
     public func toggleMapManually() {
@@ -191,12 +213,28 @@ public final class CalendarPresentationState: EventSelectionPresenting {
 @MainActor
 public enum CalendarEventDetailPopoverOwnership {
     public static func update(
+        target: CalendarEventDetailPopoverTarget?,
+        presentation: CalendarPresentationState,
+        onOwnedPopoverChanged: (Bool) -> Void
+    ) {
+        presentation.eventDetailPopoverTarget = target
+        onOwnedPopoverChanged(presentation.hasOwnedPopover)
+    }
+
+    /// Compatibility overload for the earlier single-presenter caller. New surfaces should supply
+    /// a target that includes the row or grid anchor.
+    public static func update(
         eventID: String?,
         presentation: CalendarPresentationState,
         onOwnedPopoverChanged: (Bool) -> Void
     ) {
-        presentation.eventDetailPopoverEventID = eventID
-        onOwnedPopoverChanged(presentation.hasOwnedPopover)
+        update(
+            target: eventID.map {
+                CalendarEventDetailPopoverTarget(eventID: $0, presenterID: "legacy-event:\($0)")
+            },
+            presentation: presentation,
+            onOwnedPopoverChanged: onOwnedPopoverChanged
+        )
     }
 }
 

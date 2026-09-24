@@ -126,7 +126,7 @@ public struct CalendarModeView: View {
                     ),
                     calendar: calendar,
                     onSelectTimedEvent: selectTimedEvent,
-                    eventDetailPopoverEventID: eventDetailPopoverEventID,
+                    eventDetailPopoverTarget: eventDetailPopoverTarget,
                     onShowEventDetails: showEventDetails,
                     onEventDetailPopoverChanged: updateEventDetailPopover
                 )
@@ -172,22 +172,26 @@ public struct CalendarModeView: View {
 
     private func showEventDetails(_ event: CalendarEventSnapshot) {
         guard CalendarEventActivationPolicy.action(for: event) == .showDetails else { return }
-        updateEventDetailPopover(event.id)
+        updateEventDetailPopover(gridDetailPopoverTarget(for: event))
     }
 
-    private func updateEventDetailPopover(_ eventID: String?) {
+    private func updateEventDetailPopover(_ target: CalendarEventDetailPopoverTarget?) {
         CalendarEventDetailPopoverOwnership.update(
-            eventID: eventID,
+            target: target,
             presentation: presentation,
             onOwnedPopoverChanged: onOwnedPopoverChanged
         )
     }
 
-    private var eventDetailPopoverEventID: Binding<String?> {
+    private var eventDetailPopoverTarget: Binding<CalendarEventDetailPopoverTarget?> {
         Binding(
-            get: { presentation.eventDetailPopoverEventID },
+            get: { presentation.eventDetailPopoverTarget },
             set: { updateEventDetailPopover($0) }
         )
+    }
+
+    private func gridDetailPopoverTarget(for event: CalendarEventSnapshot) -> CalendarEventDetailPopoverTarget {
+        CalendarEventDetailPopoverTarget(eventID: event.id, presenterID: "calendar-grid:\(event.id)")
     }
 
     private var headerTitle: String {

@@ -265,11 +265,15 @@ func runCalendarPanelCoordinatorTests() {
         let referenceDate = Date(timeIntervalSince1970: 1_750_000_000)
         timeState.referenceDate = referenceDate
         timeState.isLive = false
+        let allDayDetailTarget = CalendarEventDetailPopoverTarget(
+            eventID: "all-day-details",
+            presenterID: "calendar-grid:all-day-details"
+        )
 
         coordinator.show(showAgenda: false)
         main.isKey = false
         CalendarEventDetailPopoverOwnership.update(
-            eventID: "all-day-details",
+            target: allDayDetailTarget,
             presentation: presentation,
             onOwnedPopoverChanged: coordinator.setOwnedPopoverPresented
         )
@@ -277,8 +281,8 @@ func runCalendarPanelCoordinatorTests() {
         scheduler.runAll()
 
         expectCalendarPanel(
-            main.isVisible && presentation.eventDetailPopoverEventID == "all-day-details",
-            "calendar all-day details keep their host panel visible while the owned popover is open"
+            main.isVisible && presentation.eventDetailPopoverTarget == allDayDetailTarget,
+            "a targeted calendar all-day detail keeps its host panel visible while the owned popover is open"
         )
         expectCalendarPanel(
             timeState.referenceDate == referenceDate && !timeState.isLive,
@@ -286,7 +290,7 @@ func runCalendarPanelCoordinatorTests() {
         )
 
         CalendarEventDetailPopoverOwnership.update(
-            eventID: nil,
+            target: nil,
             presentation: presentation,
             onOwnedPopoverChanged: coordinator.setOwnedPopoverPresented
         )

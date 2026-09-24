@@ -179,6 +179,19 @@ func runCalendarRangeTests() {
         "visible date ranges use the inclusive final day rather than the interval's exclusive endpoint"
     )
     expectCalendarRangeEqual(
+        CalendarRangeHeaderPresentation.visibleDateRange(
+            for: CalendarDateIntervalCalculator.interval(
+                for: .today,
+                anchor: threeDayAnchor,
+                calendar: utcCalendar
+            ),
+            calendar: utcCalendar,
+            locale: Locale(identifier: "en_US_POSIX")
+        ),
+        "May 15",
+        "a single visible day formats once rather than repeating its endpoint"
+    )
+    expectCalendarRangeEqual(
         CalendarRangeHeaderPresentation.title(for: .today, interval: threeDayInterval, calendar: utcCalendar),
         "Today",
         "today navigation does not present itself as a week"

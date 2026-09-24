@@ -85,6 +85,10 @@ public enum CalendarRangeHeaderPresentation {
             return ""
         }
 
+        if calendar.isDate(interval.start, inSameDayAs: inclusiveEnd) {
+            return formatted(interval.start, format: "MMM d", calendar: calendar, locale: locale)
+        }
+
         let startComponents = calendar.dateComponents([.year, .month], from: interval.start)
         let endComponents = calendar.dateComponents([.year, .month], from: inclusiveEnd)
 
