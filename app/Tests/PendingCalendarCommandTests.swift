@@ -39,7 +39,9 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
     var descriptors: [CalendarDescriptor] = []
     var snapshots: [CalendarEventSnapshot] = []
     var failure: Error?
-    private(set) var requests: [Request] = []
+    private let requestLock = NSLock()
+    private var recordedRequests: [Request] = []
+    private var requestCountWaiters: [(minimumCount: Int, continuation: CheckedContinuation<Void, Never>)] = []
     let changes: AsyncStream<Void>
     private let changesContinuation: AsyncStream<Void>.Continuation
 
@@ -51,6 +53,12 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
 
     deinit { changesContinuation.finish() }
 
+    var requests: [Request] {
+        requestLock.lock()
+        defer { requestLock.unlock() }
+        return recordedRequests
+    }
+
     func requestAccess() async throws -> Bool { authorizationStatus == .fullAccess }
     func calendars() async throws -> [CalendarDescriptor] { descriptors }
     func events(
@@ -58,13 +66,41 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
         to end: Date,
         calendarIDs: Set<String>
     ) async throws -> [CalendarEventSnapshot] {
-        requests.append(Request(start: start, end: end, calendarIDs: calendarIDs))
+        let request = Request(start: start, end: end, calendarIDs: calendarIDs)
+        let waiters = record(request)
+        waiters.forEach { $0.resume() }
         if let failure { throw failure }
         return snapshots.filter { calendarIDs.contains($0.calendarID) }
     }
 
     func clearRequests() {
-        requests = []
+        requestLock.lock()
+        recordedRequests = []
+        requestLock.unlock()
+    }
+
+    func waitForRequestCount(_ minimumCount: Int) async {
+        await withCheckedContinuation { continuation in
+            requestLock.lock()
+            if recordedRequests.count >= minimumCount {
+                requestLock.unlock()
+                continuation.resume()
+            } else {
+                requestCountWaiters.append((minimumCount, continuation))
+                requestLock.unlock()
+            }
+        }
+    }
+
+    private func record(_ request: Request) -> [CheckedContinuation<Void, Never>] {
+        requestLock.lock()
+        recordedRequests.append(request)
+        let waiters = requestCountWaiters
+            .filter { recordedRequests.count >= $0.minimumCount }
+            .map(\.continuation)
+        requestCountWaiters.removeAll { recordedRequests.count >= $0.minimumCount }
+        requestLock.unlock()
+        return waiters
     }
 
     func emitChange() { changesContinuation.yield(()) }
@@ -771,29 +807,44 @@ func runPendingCalendarCommandTests() async {
 
         provider.clearRequests()
         provider.emitChange()
-        expectPendingCalendarCommandTrue(
-            await waitForPendingCalendarCommand {
-                providerForwards == 1 && !calendarStore.isLoading && provider.requests.count == 2
-            },
-            "one CalendarStore provider observer refreshes presentation and forwards one alert reconciliation"
+        await provider.waitForRequestCount(2)
+        expectPendingCalendarCommand(
+            providerForwards,
+            1,
+            "one CalendarStore provider observer forwards one alert reconciliation"
+        )
+        expectPendingCalendarCommand(
+            Set(provider.requests.map { $0.end.timeIntervalSince($0.start) }),
+            Set([60 * 60, 7 * 24 * 60 * 60]),
+            "provider changes complete the presentation and seven-day alert fetches"
         )
 
         provider.clearRequests()
         signals.emitHourTick()
-        expectPendingCalendarCommandTrue(
-            await waitForPendingCalendarCommand {
-                hourForwards == 1 && provider.requests.count == 1
-            },
+        await provider.waitForRequestCount(1)
+        expectPendingCalendarCommand(
+            hourForwards,
+            1,
             "one CalendarStore hourly observer forwards the alert lifecycle without a competing iterator"
+        )
+        expectPendingCalendarCommand(
+            provider.requests.map { $0.end.timeIntervalSince($0.start) },
+            [7 * 24 * 60 * 60],
+            "hourly forwarding completes one seven-day alert fetch"
         )
 
         provider.clearRequests()
         signals.emitTimeZoneChange()
-        expectPendingCalendarCommandTrue(
-            await waitForPendingCalendarCommand {
-                timeZoneForwards == 1 && !calendarStore.isLoading && provider.requests.count == 2
-            },
-            "one CalendarStore timezone observer refreshes presentation and forwards alerts exactly once"
+        await provider.waitForRequestCount(2)
+        expectPendingCalendarCommand(
+            timeZoneForwards,
+            1,
+            "one CalendarStore timezone observer forwards alerts exactly once"
+        )
+        expectPendingCalendarCommand(
+            Set(provider.requests.map { $0.end.timeIntervalSince($0.start) }),
+            Set([3 * 24 * 60 * 60, 7 * 24 * 60 * 60]),
+            "timezone changes complete the refreshed presentation and seven-day alert fetches"
         )
     }
 }
