@@ -33,9 +33,9 @@ The agenda and grid keep event data in memory for presentation. TimeZoner persis
 
 ### Current-branch automated and package evidence
 
-Completed on 2026-09-24 against code SHA `0542b8b` before this documentation-only change:
+Completed on 2026-09-24 against final code SHA `51c96bb` immediately before this evidence-refresh documentation-only change:
 
-- `cd app && swift run TimeZonerTests` — **535 passed, 0 failed**.
+- `cd app && swift run TimeZonerTests` — **548 passed, 0 failed**.
 - `./scripts/build.sh` — passed and produced an ad-hoc-signed `app/TimeZoner.app`.
 - `codesign --verify --deep --strict app/TimeZoner.app` — passed.
 - The packaged `NSCalendarsFullAccessUsageDescription` is exactly: `TimeZoner reads your calendars to show upcoming events across your saved time zones.`
