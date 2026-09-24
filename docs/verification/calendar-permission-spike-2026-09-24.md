@@ -18,7 +18,7 @@ The normal application launch does not construct the probe or request Calendar a
 
 Calendar permission changes were performed by a human. Automation did not perform any authorization, revocation, recovery, launch, or UI interaction.
 
-- Initial Calendar grant succeeded. The exact calendar and event count values were not supplied.
+- Initial Calendar grant succeeded. After relaunch, the probe showed a brief loading spinner and then populated both `Calendars: [number]` and `Events in the next 7 days: [number]` with no red fetch error. The exact numeric values were not supplied.
 - The changed, re-signed `calendar-probe-b` rebuild at the same installed path retained `Full access` without a new permission prompt.
 - Revoking Calendar access produced the denied/recovery state.
 - Re-enabling TimeZoner Calendar access in Calendar Privacy and relaunching restored `Full access`.
@@ -37,7 +37,7 @@ This follow-up is code- and package-verified; it was not clicked after the final
 | Check | Observation |
 | --- | --- |
 | Initial status | Calendar grant succeeded; exact initial probe text was not supplied. |
-| Initial real calendar/event count | Not supplied; no counts are claimed. |
+| Initial real calendar/event fetch | Completed successfully after a brief loading spinner: both `Calendars: [number]` and `Events in the next 7 days: [number]` were populated, with no red fetch error. Exact numeric values were not supplied and are not claimed. |
 | Changed-rebuild result | Re-signed `calendar-probe-b` at the same path retained `Full access` without a new prompt. |
 | Denial result | Revocation displayed the denied/recovery state. |
 | Recovery result | Re-enabling Calendar Privacy access and relaunching restored `Full access`. |
@@ -50,4 +50,4 @@ This follow-up is code- and package-verified; it was not clicked after the final
 
 ## Gate decision
 
-**DONE_WITH_CONCERNS.** The human observations establish successful grant, changed-rebuild persistence without a new prompt, denial, and recovery. The exact real calendar/event count values were not captured, so this document does not claim them. The privacy-settings visibility follow-up is package-tested but awaits an optional visual confirmation on a future manual use.
+**DONE_WITH_CONCERNS.** The human observations establish successful grant, a real successful fetch, changed-rebuild persistence without a new prompt, denial, and recovery. The exact real calendar/event count values were not captured, so this document does not claim them. The privacy-settings visibility follow-up is package-tested but awaits an optional visual confirmation on a future manual use.
