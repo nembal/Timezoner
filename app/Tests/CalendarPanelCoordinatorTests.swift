@@ -45,6 +45,7 @@ private final class CalendarPanelPopoverFake: CalendarPanelPopoverSurface {
     var isFocused = false
     private(set) var showCount = 0
     private(set) var dismissCount = 0
+    private(set) var focusCount = 0
 
     func show() {
         isPresented = true
@@ -54,6 +55,11 @@ private final class CalendarPanelPopoverFake: CalendarPanelPopoverSurface {
     func dismiss() {
         isPresented = false
         dismissCount += 1
+    }
+
+    func focus() {
+        isFocused = true
+        focusCount += 1
     }
 }
 
@@ -251,5 +257,60 @@ func runCalendarPanelCoordinatorTests() {
         coordinator.handleEscape()
         expectCalendarPanel(!main.isVisible && !agenda.isVisible, "Escape uses the same pair hide path")
         expectCalendarPanel(popover.dismissCount == 1, "Escape closes an owned agenda popover")
+    }
+
+    do {
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 300, y: 100, width: 400, height: 500))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let coordinator = CalendarPanelPairController(
+            main: main,
+            agenda: agenda,
+            agendaPopover: popover,
+            visibleFrame: { visible }
+        )
+
+        coordinator.show(showAgenda: true)
+        main.isKey = false
+        expectCalendarPanel(
+            coordinator.focusAgenda() == .detachedPanel,
+            "a visible detached agenda has an explicit keyboard focus target"
+        )
+        expectCalendarPanel(agenda.isKey, "keyboard agenda focus moves to the detached wing")
+    }
+
+    do {
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 200, y: 100, width: 600, height: 500))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let coordinator = CalendarPanelPairController(
+            main: main,
+            agenda: agenda,
+            agendaPopover: popover,
+            visibleFrame: { visible }
+        )
+
+        coordinator.show(showAgenda: true)
+        main.isKey = false
+        expectCalendarPanel(
+            coordinator.focusAgenda() == .popover,
+            "a visible fallback agenda popover has an explicit keyboard focus target"
+        )
+        expectCalendarPanel(popover.isFocused && popover.focusCount == 1, "keyboard agenda focus enters the fallback popover")
+    }
+
+    do {
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 300, y: 100, width: 400, height: 500))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let coordinator = CalendarPanelPairController(
+            main: main,
+            agenda: agenda,
+            agendaPopover: popover,
+            visibleFrame: { visible }
+        )
+
+        expectCalendarPanel(coordinator.focusAgenda() == nil, "a hidden paired surface does not claim agenda keyboard focus")
+        expectCalendarPanel(!agenda.isKey && popover.focusCount == 0, "hidden agenda focus leaves both agenda presentations untouched")
     }
 }

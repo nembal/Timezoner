@@ -54,6 +54,10 @@ private final class AgendaPopoverSurfaceAdapter: NSObject, CalendarPanelPopoverS
         guard popover.isShown else { return }
         popover.performClose(nil)
     }
+
+    func focus() {
+        popover.contentViewController?.view.window?.makeKeyAndOrderFront(nil)
+    }
 }
 
 /// AppKit adapter for the pure paired-panel policy in TimeZonerLib.
@@ -138,6 +142,11 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
                 showAgenda: presentation.destination == .timezoner && presentation.showAgendaWing
             )
         }
+    }
+
+    @discardableResult
+    func focusAgenda() -> CalendarAgendaFocusTarget? {
+        pair.focusAgenda()
     }
 
     func resizeMain(to size: CGSize) {

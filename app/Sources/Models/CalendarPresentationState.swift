@@ -266,6 +266,12 @@ public enum AgendaPlacement: Equatable, Sendable {
     case popover
 }
 
+/// The concrete surface entered by TimeZoner's agenda-focus keyboard command.
+public enum CalendarAgendaFocusTarget: Equatable, Sendable {
+    case detachedPanel
+    case popover
+}
+
 public struct AgendaPlacementResult: Equatable, Sendable {
     public let location: AgendaPlacement
     public let frame: CGRect?
@@ -345,6 +351,7 @@ public protocol CalendarPanelPopoverSurface: AnyObject {
     var isFocused: Bool { get }
     func show()
     func dismiss()
+    func focus()
 }
 
 /// Pure paired-panel policy. The executable target supplies AppKit adapters and notification
@@ -432,6 +439,23 @@ public final class CalendarPanelPairController {
         }
     }
 
+    /// Transfers keyboard focus only to an already-visible agenda presentation. Opening and
+    /// hiding remain owned by the permission-aware app coordinator.
+    @discardableResult
+    public func focusAgenda() -> CalendarAgendaFocusTarget? {
+        guard main.isVisible else { return nil }
+        switch placement {
+        case .right, .left:
+            guard agenda.isVisible else { return nil }
+            agenda.focus()
+            return .detachedPanel
+        case .popover:
+            guard agendaPopover.isPresented else { return nil }
+            agendaPopover.focus()
+            return .popover
+        }
+    }
+
     public func resizeMain(to size: CGSize, showAgenda: Bool = true) {
         let oldFrame = main.frame
         let frame = CGRect(
@@ -489,6 +513,7 @@ public protocol CalendarPanelControlling: AnyObject {
     func hide()
     func toggle()
     func syncAgendaVisibility()
+    @discardableResult func focusAgenda() -> CalendarAgendaFocusTarget?
     func resizeMain(to size: CGSize)
     func enterCalendarMode()
     func returnToTimeZoner()

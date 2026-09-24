@@ -9,6 +9,8 @@ public struct CalendarTimedSegment: Identifiable, Equatable, Sendable {
     public let endDate: Date
     public var laneIndex: Int
     public var laneCount: Int
+    /// Stable identity for a contiguous set of mutually-overlapping segments on one day.
+    public var overlapGroupID: String?
 
     public init(
         id: String,
@@ -18,7 +20,8 @@ public struct CalendarTimedSegment: Identifiable, Equatable, Sendable {
         startDate: Date,
         endDate: Date,
         laneIndex: Int = 0,
-        laneCount: Int = 1
+        laneCount: Int = 1,
+        overlapGroupID: String? = nil
     ) {
         self.id = id
         self.occurrenceID = occurrenceID
@@ -28,6 +31,7 @@ public struct CalendarTimedSegment: Identifiable, Equatable, Sendable {
         self.endDate = endDate
         self.laneIndex = laneIndex
         self.laneCount = laneCount
+        self.overlapGroupID = overlapGroupID
     }
 }
 
@@ -165,8 +169,10 @@ public enum CalendarLayoutEngine {
         var groupLaneCount = 0
 
         func finalizeCurrentGroup() {
+            let overlapGroupID = groupIndices.first.map { laidOut[$0].id }
             for index in groupIndices {
                 laidOut[index].laneCount = groupLaneCount
+                laidOut[index].overlapGroupID = overlapGroupID
             }
         }
 

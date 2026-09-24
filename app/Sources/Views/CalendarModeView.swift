@@ -7,17 +7,20 @@ public struct CalendarModeView: View {
     public let referenceMoment: ReferenceMomentController
     public let presentation: CalendarPresentationState
     public let onReturnToTimeZoner: () -> Void
+    public let onOpenPrivacySettings: () -> Void
 
     public init(
         calendarStore: CalendarStore,
         referenceMoment: ReferenceMomentController,
         presentation: CalendarPresentationState,
-        onReturnToTimeZoner: @escaping () -> Void
+        onReturnToTimeZoner: @escaping () -> Void,
+        onOpenPrivacySettings: @escaping () -> Void
     ) {
         self.calendarStore = calendarStore
         self.referenceMoment = referenceMoment
         self.presentation = presentation
         self.onReturnToTimeZoner = onReturnToTimeZoner
+        self.onOpenPrivacySettings = onOpenPrivacySettings
     }
 
     private var calendar: Calendar { calendarStore.localCalendar }
@@ -132,7 +135,7 @@ public struct CalendarModeView: View {
             CalendarAccessView(
                 status: calendarStore.authorizationStatus,
                 onEnable: { calendarStore.requestAccess() },
-                onOpenPrivacySettings: {}
+                onOpenPrivacySettings: onOpenPrivacySettings
             )
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }

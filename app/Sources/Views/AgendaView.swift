@@ -306,11 +306,17 @@ public struct AgendaView: View {
             Text("Attendees")
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(Theme.textPrimary)
-            ForEach(event.attendeeNames, id: \.self) { name in
-                Text(name)
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundStyle(Theme.textSecondary)
+            ScrollView(.vertical) {
+                LazyVStack(alignment: .leading, spacing: 7) {
+                    ForEach(event.attendeeNames, id: \.self) { name in
+                        Text(name)
+                            .font(.system(size: 12, design: .rounded))
+                            .foregroundStyle(Theme.textSecondary)
+                    }
+                }
             }
+            .frame(maxHeight: 220)
+            .accessibilityLabel("Attendee list")
         }
         .padding(12)
         .frame(minWidth: 170, alignment: .leading)

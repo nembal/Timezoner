@@ -35,6 +35,36 @@ public struct CalendarGridCurrentTimePosition: Equatable, Sendable {
     }
 }
 
+/// A contiguous overlap group. Dense groups use one accessible summary control rather than
+/// collapsing individual event buttons into unusable slivers.
+public struct CalendarGridTimedGroup: Identifiable, Equatable, Sendable {
+    public let id: String
+    public let dayStart: Date
+    public let segments: [CalendarTimedSegment]
+
+    public init(id: String, dayStart: Date, segments: [CalendarTimedSegment]) {
+        self.id = id
+        self.dayStart = dayStart
+        self.segments = segments
+    }
+
+    public var laneCount: Int {
+        segments.map(\.laneCount).max() ?? 1
+    }
+
+    public var usesOverflowMenu: Bool {
+        laneCount >= 4
+    }
+
+    public var startDate: Date {
+        segments.map(\.startDate).min() ?? dayStart
+    }
+
+    public var endDate: Date {
+        segments.map(\.endDate).max() ?? startDate
+    }
+}
+
 /// Pure color policy for the calendar grid. SwiftUI receives this value with a ten-percent
 /// fill opacity and a two-point leading stripe so calendar identity never depends on fill alone.
 public enum CalendarGridColor {
@@ -92,6 +122,54 @@ public enum CalendarGridMetrics {
     public static let hourHeight: CGFloat = 52
     public static let horizontalInset: CGFloat = 4
     public static let laneGap: CGFloat = 2
+    public static let minimumInteractiveEventWidth: CGFloat = 44
+    public static let minimumInteractiveEventHeight: CGFloat = 22
+
+    public static func overlapGroups(from segments: [CalendarTimedSegment]) -> [CalendarGridTimedGroup] {
+        let grouped = Dictionary(grouping: segments) { segment in
+            segment.overlapGroupID ?? segment.id
+        }
+        return grouped.map { id, segments in
+            let ordered = segments.sorted { lhs, rhs in
+                if lhs.startDate != rhs.startDate { return lhs.startDate < rhs.startDate }
+                if lhs.endDate != rhs.endDate { return lhs.endDate < rhs.endDate }
+                return lhs.occurrenceID < rhs.occurrenceID
+            }
+            return CalendarGridTimedGroup(id: id, dayStart: ordered.first?.dayStart ?? .distantPast, segments: ordered)
+        }
+        .sorted { lhs, rhs in
+            if lhs.dayStart != rhs.dayStart { return lhs.dayStart < rhs.dayStart }
+            if lhs.startDate != rhs.startDate { return lhs.startDate < rhs.startDate }
+            return lhs.id < rhs.id
+        }
+    }
+
+    /// Uses the full local-day column for a dense overlap menu, never a one-point lane.
+    public static func overlapSummaryFrame(
+        for group: CalendarGridTimedGroup,
+        dayStarts: [Date],
+        totalWidth: CGFloat,
+        calendar: Calendar
+    ) -> CalendarGridTimedFrame? {
+        guard let dayIndex = dayStarts.firstIndex(of: group.dayStart), !dayStarts.isEmpty else {
+            return nil
+        }
+        let dayWidth = max((totalWidth - timeRulerWidth) / CGFloat(dayStarts.count), 0)
+        let x = timeRulerWidth + CGFloat(dayIndex) * dayWidth + horizontalInset
+        let y = wallMinute(for: group.startDate, on: group.dayStart, calendar: calendar) / 60 * hourHeight
+        let endY = wallMinute(
+            for: group.endDate,
+            on: group.dayStart,
+            calendar: calendar,
+            isEnd: true
+        ) / 60 * hourHeight
+        return CalendarGridTimedFrame(
+            x: x,
+            y: y,
+            width: max(dayWidth - 2 * horizontalInset, minimumInteractiveEventWidth),
+            height: max(endY - y, minimumInteractiveEventHeight)
+        )
+    }
 
     public static func dayStarts(in interval: DateInterval, calendar: Calendar) -> [Date] {
         var starts: [Date] = []
@@ -252,6 +330,10 @@ public struct CalendarTimeGrid: View {
         CalendarLayoutEngine.timedSegments(events: events, interval: interval, calendar: calendar)
     }
 
+    private var timedGroups: [CalendarGridTimedGroup] {
+        CalendarGridMetrics.overlapGroups(from: timedSegments)
+    }
+
     private var allDayPlacements: [CalendarGridAllDayPlacement] {
         CalendarGridMetrics.allDayPlacements(
             for: CalendarLayoutEngine.allDaySpans(events: events, interval: interval, calendar: calendar)
@@ -366,15 +448,29 @@ public struct CalendarTimeGrid: View {
                     .accessibilityHidden(true)
             }
 
-            ForEach(timedSegments) { segment in
-                if let frame = CalendarGridMetrics.timedFrame(
-                    for: segment,
-                    dayStarts: dayStarts,
-                    totalWidth: totalWidth,
-                    calendar: calendar
-                ) {
-                    timedEventButton(segment: segment, frame: frame)
-                        .offset(x: frame.x, y: frame.y)
+            ForEach(timedGroups) { group in
+                if group.usesOverflowMenu {
+                    if let frame = CalendarGridMetrics.overlapSummaryFrame(
+                        for: group,
+                        dayStarts: dayStarts,
+                        totalWidth: totalWidth,
+                        calendar: calendar
+                    ) {
+                        overlapMenu(group: group, frame: frame)
+                            .offset(x: frame.x, y: frame.y)
+                    }
+                } else {
+                    ForEach(group.segments) { segment in
+                        if let frame = CalendarGridMetrics.timedFrame(
+                            for: segment,
+                            dayStarts: dayStarts,
+                            totalWidth: totalWidth,
+                            calendar: calendar
+                        ) {
+                            timedEventButton(segment: segment, frame: frame)
+                                .offset(x: frame.x, y: frame.y)
+                        }
+                    }
                 }
             }
         }
@@ -452,6 +548,41 @@ public struct CalendarTimeGrid: View {
         .accessibilityHint("Sets TimeZoner to this event start")
     }
 
+    private func overlapMenu(group: CalendarGridTimedGroup, frame: CalendarGridTimedFrame) -> some View {
+        let color = group.segments.first.map { calendarColor(for: $0.event) } ?? Theme.border
+        return Menu {
+            ForEach(group.segments) { segment in
+                Button(eventMenuTitle(segment.event)) {
+                    onSelectTimedEvent(segment.event)
+                }
+                .accessibilityLabel(eventAccessibilityLabel(segment.event))
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Rectangle()
+                    .fill(color)
+                    .frame(width: CalendarGridColor.leadingIndicatorWidth)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("\(group.segments.count) overlapping events")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(1)
+                    Text("Choose an event")
+                        .font(.system(size: 9, design: .rounded))
+                        .foregroundStyle(Theme.textSecondary)
+                        .lineLimit(1)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.trailing, 3)
+            .frame(width: frame.width, height: frame.height, alignment: .topLeading)
+            .background(color.opacity(CalendarGridColor.fillOpacity), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
+        }
+        .menuStyle(.borderlessButton)
+        .accessibilityLabel("\(group.segments.count) overlapping events, \(timeFormatter.string(from: group.startDate)) to \(timeFormatter.string(from: group.endDate))")
+        .accessibilityHint("Opens a menu of calendar events to set TimeZoner to an event start")
+    }
+
     private func dayColumnWidth(totalWidth: CGFloat, dayCount: Int) -> CGFloat {
         guard dayCount > 0 else { return 0 }
         return max((totalWidth - CalendarGridMetrics.timeRulerWidth) / CGFloat(dayCount), 0)
@@ -467,6 +598,10 @@ public struct CalendarTimeGrid: View {
 
     private func eventAccessibilityLabel(_ event: CalendarEventSnapshot) -> String {
         "\(event.title), \(timeFormatter.string(from: event.startDate)) to \(timeFormatter.string(from: event.endDate)), \(event.calendarTitle)"
+    }
+
+    private func eventMenuTitle(_ event: CalendarEventSnapshot) -> String {
+        "\(event.title) — \(timeFormatter.string(from: event.startDate)) to \(timeFormatter.string(from: event.endDate)) — \(event.calendarTitle)"
     }
 
     private func scrollToInitialHour(proxy: ScrollViewProxy, dayStarts: [Date]) {

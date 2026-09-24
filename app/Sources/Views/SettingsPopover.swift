@@ -118,9 +118,15 @@ public struct SettingsPopover: View {
                         .font(.system(size: 11, design: .rounded))
                         .foregroundStyle(Theme.textTertiary)
                 } else {
-                    ForEach(calendarStore.descriptors) { descriptor in
-                        calendarPreferenceRow(for: descriptor)
+                    ScrollView(.vertical) {
+                        LazyVStack(alignment: .leading, spacing: 8) {
+                            ForEach(calendarStore.descriptors) { descriptor in
+                                calendarPreferenceRow(for: descriptor)
+                            }
+                        }
                     }
+                    .frame(maxHeight: 156)
+                    .accessibilityLabel("Calendar visibility and alert controls")
                 }
             } else {
                 HStack(spacing: 8) {
@@ -209,6 +215,7 @@ public struct SettingsPopover: View {
             ))
             .toggleStyle(.checkbox)
             .font(.system(size: 10, design: .rounded))
+            .accessibilityLabel(CalendarAccessibilityLabels.showCalendar(for: descriptor))
 
             Toggle("Alerts", isOn: Binding(
                 get: { calendarPreferences.preference(for: descriptor.id).alertsEnabled },
@@ -216,6 +223,7 @@ public struct SettingsPopover: View {
             ))
             .toggleStyle(.checkbox)
             .font(.system(size: 10, design: .rounded))
+            .accessibilityLabel(CalendarAccessibilityLabels.alertsCalendar(for: descriptor))
         }
     }
 

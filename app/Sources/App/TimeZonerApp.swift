@@ -21,6 +21,7 @@ private final class CalendarPanelControllerProxy: CalendarPanelControlling {
     func hide() { target?.hide() }
     func toggle() { target?.toggle() }
     func syncAgendaVisibility() { target?.syncAgendaVisibility() }
+    func focusAgenda() -> CalendarAgendaFocusTarget? { target?.focusAgenda() }
     func resizeMain(to size: CGSize) { target?.resizeMain(to: size) }
     func enterCalendarMode() { target?.enterCalendarMode() }
     func returnToTimeZoner() { target?.returnToTimeZoner() }

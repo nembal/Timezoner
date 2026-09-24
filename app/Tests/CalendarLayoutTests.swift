@@ -97,6 +97,11 @@ func runCalendarLayoutTests() {
         [2, 2],
         "every event in an overlap group reports the group lane count"
     )
+    expectCalendarLayoutEqual(
+        Set(overlappingSegments.compactMap(\.overlapGroupID)).count,
+        1,
+        "simultaneous segments retain one stable overlap group identity"
+    )
 
     let touchingSegments = CalendarLayoutEngine.timedSegments(
         events: [

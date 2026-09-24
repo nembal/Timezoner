@@ -102,7 +102,7 @@ public struct ContentView: View {
                             .foregroundStyle(presentation.showAgendaWing ? Theme.accent : Theme.textTertiary)
                     }
                     .buttonStyle(.plain)
-                    .help("Calendar agenda")
+                    .help("Calendar agenda (⌘⇧A focuses it when shown)")
 
                     Button(action: { setSettingsPresented(!presentation.isSettingsPresented) }) {
                         Image(systemName: "gearshape")
@@ -170,7 +170,8 @@ public struct ContentView: View {
                     calendarStore: calendarStore,
                     referenceMoment: referenceMoment,
                     presentation: presentation,
-                    onReturnToTimeZoner: returnFromCalendarMode
+                    onReturnToTimeZoner: returnFromCalendarMode,
+                    onOpenPrivacySettings: openCalendarPrivacySettings
                 )
             } else {
                 normalContent
@@ -213,6 +214,11 @@ public struct ContentView: View {
                 .keyboardShortcut(",", modifiers: .command)
                 .hidden()
         }
+        .background {
+            Button("") { focusAgendaFromKeyboard() }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+                .hidden()
+        }
         .onChange(of: zoneStore.zones.count) {
             guard presentation.destination == .timezoner else { return }
             DispatchQueue.main.async {
@@ -230,6 +236,11 @@ public struct ContentView: View {
 
     private func activateCalendar() {
         setAgendaWingRequested(!presentation.showAgendaWing)
+    }
+
+    private func focusAgendaFromKeyboard() {
+        guard presentation.destination == .timezoner, presentation.showAgendaWing else { return }
+        panelController?.focusAgenda()
     }
 
     private func returnFromCalendarMode() {
