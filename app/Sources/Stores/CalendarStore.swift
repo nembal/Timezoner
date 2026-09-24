@@ -14,6 +14,9 @@ public final class CalendarStore {
     public private(set) var isStale = false
     public private(set) var errorMessage: String?
     public private(set) var activeInterval: DateInterval?
+    /// The interval that produced the currently retained snapshot. It can differ from
+    /// activeInterval after a range change fails, so presentation must gate stale values.
+    public private(set) var snapshotInterval: DateInterval?
     public private(set) var currentDate: Date
 
     private let provider: any CalendarEventReading
@@ -41,6 +44,14 @@ public final class CalendarStore {
         observeClockAndProvider()
     }
 
+    /// The injected local wall-clock Calendar shared by refresh ownership and grid geometry.
+    public var localCalendar: Calendar { clock.calendar }
+
+    /// A retained snapshot is safe to render only for the exact interval that fetched it.
+    public func hasSnapshot(for interval: DateInterval) -> Bool {
+        snapshotInterval == interval
+    }
+
     /// Refreshes a specific presentation range. Starting a new request invalidates every older one.
     public func refresh(interval: DateInterval) {
         activeInterval = interval
@@ -62,7 +73,12 @@ public final class CalendarStore {
                     preferences.preference(for: descriptor.id).isVisible ? descriptor.id : nil
                 })
                 guard !visibleIDs.isEmpty else {
-                    self.finishSuccess(descriptors: descriptors, events: [], generation: generation)
+                    self.finishSuccess(
+                        descriptors: descriptors,
+                        events: [],
+                        interval: interval,
+                        generation: generation
+                    )
                     return
                 }
 
@@ -74,7 +90,12 @@ public final class CalendarStore {
                 guard self.requestGeneration == generation else { return }
                 self.handlePermissionChange()
                 guard self.authorizationStatus == .fullAccess, self.requestGeneration == generation else { return }
-                self.finishSuccess(descriptors: descriptors, events: fetchedEvents, generation: generation)
+                self.finishSuccess(
+                    descriptors: descriptors,
+                    events: fetchedEvents,
+                    interval: interval,
+                    generation: generation
+                )
             } catch {
                 guard let self, self.requestGeneration == generation else { return }
                 self.handlePermissionChange()
@@ -114,6 +135,7 @@ public final class CalendarStore {
         requestGeneration += 1
         descriptors = []
         events = []
+        snapshotInterval = nil
         isLoading = false
         isStale = false
         errorMessage = nil
@@ -153,11 +175,13 @@ public final class CalendarStore {
     private func finishSuccess(
         descriptors: [CalendarDescriptor],
         events: [CalendarEventSnapshot],
+        interval: DateInterval,
         generation: Int
     ) {
         guard requestGeneration == generation else { return }
         self.descriptors = descriptors
         self.events = events
+        snapshotInterval = interval
         isLoading = false
         isStale = false
         errorMessage = nil

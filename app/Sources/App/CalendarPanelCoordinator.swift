@@ -66,6 +66,7 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     private let pair: CalendarPanelPairController
     private var observerTokens: [NSObjectProtocol] = []
     private var isUpdatingAttachment = false
+    private var savedNormalFrame: CGRect?
 
     init(
         mainPanel: FloatingPanel,
@@ -112,7 +113,7 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
 
     func show() {
         NSApp.activate(ignoringOtherApps: true)
-        pair.show(showAgenda: presentation.showAgendaWing)
+        pair.show(showAgenda: presentation.destination == .timezoner && presentation.showAgendaWing)
     }
 
     func hide() {
@@ -132,13 +133,48 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
 
     func syncAgendaVisibility() {
         updateAttachment {
-            pair.syncAgendaVisibility(showAgenda: presentation.showAgendaWing)
+            pair.syncAgendaVisibility(
+                showAgenda: presentation.destination == .timezoner && presentation.showAgendaWing
+            )
         }
     }
 
     func resizeMain(to size: CGSize) {
+        guard presentation.destination == .timezoner else { return }
         updateAttachment {
             pair.resizeMain(to: size, showAgenda: presentation.showAgendaWing)
+        }
+    }
+
+    func enterCalendarMode() {
+        guard savedNormalFrame == nil else { return }
+        savedNormalFrame = mainPanel.frame
+        updateAttachment {
+            pair.syncAgendaVisibility(showAgenda: false)
+            mainPanel.setFrame(
+                CalendarPanelFrameCalculator.calendarFrame(
+                    normalFrame: mainPanel.frame,
+                    visibleFrame: visibleFrame()
+                ),
+                display: true,
+                animate: false
+            )
+        }
+    }
+
+    func returnToTimeZoner() {
+        guard let savedNormalFrame else { return }
+        updateAttachment {
+            mainPanel.setFrame(
+                CalendarPanelFrameCalculator.restoredNormalFrame(
+                    savedNormalFrame,
+                    visibleFrame: visibleFrame()
+                ),
+                display: true,
+                animate: false
+            )
+            self.savedNormalFrame = nil
+            pair.syncAgendaVisibility(showAgenda: presentation.showAgendaWing)
         }
     }
 
@@ -175,6 +211,13 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
         isUpdatingAttachment = true
         operation()
         isUpdatingAttachment = false
+    }
+
+    private func visibleFrame() -> CGRect {
+        mainPanel.screen?.visibleFrame
+            ?? NSScreen.screens.first(where: { $0.frame.intersects(mainPanel.frame) })?.visibleFrame
+            ?? NSScreen.main?.visibleFrame
+            ?? .zero
     }
 }
 

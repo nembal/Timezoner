@@ -1,5 +1,10 @@
 import Foundation
 
+public enum CalendarDestination: Equatable, Sendable {
+    case timezoner
+    case calendar
+}
+
 /// User-facing calendar presentation that outlives SwiftUI view reconstruction.
 /// It also owns the map-selection snapshot so selecting a calendar event never loses
 /// the user's prior map expansion choice.
@@ -17,6 +22,11 @@ public final class CalendarPresentationState: EventSelectionPresenting {
     public var accessDestination: AccessDestination = .none
     public var mainPanelHugsMenuBar = true
     public var agendaPanelHugsMenuBar = true
+    public private(set) var destination: CalendarDestination = .timezoner
+    public private(set) var range: CalendarRangeSelection = .week
+    public private(set) var anchor: Date
+    /// Session-scoped selection only. It deliberately is not persisted with preferences.
+    public private(set) var lastRange: CalendarRangeSelection?
 
     private let defaults: UserDefaults
     private let mapExpandedKey: String
@@ -31,6 +41,7 @@ public final class CalendarPresentationState: EventSelectionPresenting {
         self.settings = settings
         self.defaults = defaults
         self.mapExpandedKey = mapExpandedKey
+        anchor = Date()
         if defaults.object(forKey: mapExpandedKey) == nil {
             isMapExpanded = true
         } else {
@@ -80,6 +91,98 @@ public final class CalendarPresentationState: EventSelectionPresenting {
 
     public func dismissAccessDestination() {
         accessDestination = .none
+    }
+
+    /// Opens the full calendar without ever changing TimeZoner's selected reference moment.
+    public func enterCalendar(now: Date, calendar: Calendar) {
+        range = lastRange ?? .week
+        anchor = calendar.startOfDay(for: now)
+        destination = .calendar
+    }
+
+    public func setRange(_ range: CalendarRangeSelection) {
+        self.range = range
+        lastRange = range
+    }
+
+    public func move(_ direction: CalendarRangeNavigationDirection, calendar: Calendar) {
+        anchor = CalendarDateIntervalCalculator.movedAnchor(
+            anchor,
+            direction: direction,
+            range: range,
+            calendar: calendar
+        )
+    }
+
+    /// Resets only the calendar's local-day anchor. The shared TimeState remains untouched.
+    public func goToday(now: Date, calendar: Calendar) {
+        anchor = calendar.startOfDay(for: now)
+    }
+
+    public func activeInterval(calendar: Calendar) -> DateInterval {
+        CalendarDateIntervalCalculator.interval(for: range, anchor: anchor, calendar: calendar)
+    }
+
+    public func returnToTimeZoner() {
+        lastRange = range
+        destination = .timezoner
+    }
+}
+
+/// Geometry-only main-panel sizing for calendar mode. Keeping this out of AppKit makes the
+/// saved-frame contract deterministic in the executable test target.
+public enum CalendarPanelFrameCalculator {
+    public static let calendarTargetSize = CGSize(width: 760, height: 560)
+
+    public static func calendarFrame(normalFrame: CGRect, visibleFrame: CGRect) -> CGRect {
+        clampedFrame(
+            centeredAt: normalFrame.center,
+            requestedSize: calendarTargetSize,
+            visibleFrame: visibleFrame
+        )
+    }
+
+    public static func restoredNormalFrame(_ normalFrame: CGRect, visibleFrame: CGRect) -> CGRect {
+        clampedFrame(
+            centeredAt: normalFrame.center,
+            requestedSize: normalFrame.size,
+            visibleFrame: visibleFrame
+        )
+    }
+
+    private static func clampedFrame(
+        centeredAt center: CGPoint,
+        requestedSize: CGSize,
+        visibleFrame: CGRect
+    ) -> CGRect {
+        guard visibleFrame.width > 0, visibleFrame.height > 0 else {
+            return CGRect(
+                x: center.x - requestedSize.width / 2,
+                y: center.y - requestedSize.height / 2,
+                width: requestedSize.width,
+                height: requestedSize.height
+            )
+        }
+
+        let size = CGSize(
+            width: min(requestedSize.width, visibleFrame.width),
+            height: min(requestedSize.height, visibleFrame.height)
+        )
+        let desiredOrigin = CGPoint(
+            x: center.x - size.width / 2,
+            y: center.y - size.height / 2
+        )
+        let origin = CGPoint(
+            x: min(max(desiredOrigin.x, visibleFrame.minX), visibleFrame.maxX - size.width),
+            y: min(max(desiredOrigin.y, visibleFrame.minY), visibleFrame.maxY - size.height)
+        )
+        return CGRect(origin: origin, size: size)
+    }
+}
+
+private extension CGRect {
+    var center: CGPoint {
+        CGPoint(x: midX, y: midY)
     }
 }
 
@@ -335,6 +438,8 @@ public protocol CalendarPanelControlling: AnyObject {
     func toggle()
     func syncAgendaVisibility()
     func resizeMain(to size: CGSize)
+    func enterCalendarMode()
+    func returnToTimeZoner()
     func setOwnedPopoverPresented(_ isPresented: Bool)
     func handleEscape()
 }

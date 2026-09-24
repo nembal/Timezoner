@@ -1,5 +1,27 @@
 import SwiftUI
 
+/// Textual metadata for a selectable agenda event. Kept value-only so the row's local-time
+/// contract remains testable without rendering SwiftUI.
+public struct AgendaTimedEventPresentation: Equatable, Sendable {
+    public let timeRange: String
+    public let calendarTitle: String
+
+    public init(event: CalendarEventSnapshot, timeZone: TimeZone, locale: Locale = .current) {
+        let formatter = DateFormatter()
+        formatter.locale = locale
+        formatter.timeZone = timeZone
+        formatter.dateFormat = "h:mm a"
+
+        let zoneFormatter = DateFormatter()
+        zoneFormatter.locale = locale
+        zoneFormatter.timeZone = timeZone
+        zoneFormatter.dateFormat = "z"
+
+        timeRange = "\(formatter.string(from: event.startDate)) – \(formatter.string(from: event.endDate)) \(zoneFormatter.string(from: event.startDate))"
+        calendarTitle = event.calendarTitle
+    }
+}
+
 public struct AgendaView: View {
     public let calendarStore: CalendarStore
     public let referenceMoment: ReferenceMomentController
@@ -39,7 +61,9 @@ public struct AgendaView: View {
             VStack(alignment: .leading, spacing: 12) {
                 header
                 Divider()
-                content
+                ScrollView(.vertical) {
+                    content
+                }
             }
             .padding(.horizontal, 14)
             .padding(.bottom, 14)
@@ -194,31 +218,33 @@ public struct AgendaView: View {
         .padding(.vertical, 12)
     }
 
+    @ViewBuilder
     private func eventRow(_ event: CalendarEventSnapshot, selectable: Bool) -> some View {
         let selected = referenceMoment.selectedEvent?.id == event.id
-        return VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline, spacing: 7) {
-                Text(event.isAllDay ? "All-day" : timeFormatter.string(from: event.startDate))
-                    .font(.system(size: 10, weight: .medium, design: .rounded))
-                    .foregroundStyle(Theme.textTertiary)
-                    .frame(width: 46, alignment: .leading)
-                Text(event.title)
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineLimit(2)
-                Spacer(minLength: 0)
-            }
+        let color = calendarColor(for: event)
+        HStack(alignment: .top, spacing: 7) {
+            Rectangle()
+                .fill(color)
+                .frame(width: CalendarGridColor.leadingIndicatorWidth)
+                .accessibilityHidden(true)
 
-            HStack(spacing: 5) {
-                Text(event.calendarTitle)
-                    .font(.system(size: 10, design: .rounded))
-                    .foregroundStyle(Theme.textTertiary)
-                    .lineLimit(1)
+            VStack(alignment: .leading, spacing: 3) {
+                if selectable {
+                    Button {
+                        referenceMoment.selectEvent(event, sourceZone: .current)
+                    } label: {
+                        eventTextContent(event)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(eventAccessibilityLabel(event))
+                    .accessibilityHint("Sets TimeZoner to this event start")
+                } else {
+                    eventTextContent(event)
+                        .accessibilityElement(children: .combine)
+                        .accessibilityLabel("\(event.title), all-day, \(event.calendarTitle). Does not set a time.")
+                }
 
                 if !event.attendeeNames.isEmpty {
-                    Text("·")
-                        .font(.system(size: 10, design: .rounded))
-                        .foregroundStyle(Theme.textTertiary)
                     Button(attendeeSummary(for: event)) {
                         presentation.attendeePopoverEventID = event.id
                     }
@@ -230,20 +256,38 @@ public struct AgendaView: View {
                         attendeePopover(for: event)
                     }
                 }
-                Spacer(minLength: 0)
             }
         }
-        .padding(.horizontal, 8)
+        .padding(.horizontal, 4)
         .padding(.vertical, 7)
-        .background(selected ? Theme.accent.opacity(0.12) : Theme.cardBg, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .strokeBorder(selected ? Theme.accent.opacity(0.45) : Theme.border, lineWidth: 1)
-        )
-        .contentShape(Rectangle())
-        .onTapGesture {
-            guard selectable else { return }
-            referenceMoment.selectEvent(event, sourceZone: .current)
+        .background(selected ? Theme.accent.opacity(0.08) : .clear)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Theme.border.opacity(0.55))
+                .frame(height: 1)
+        }
+    }
+
+    private func eventTextContent(_ event: CalendarEventSnapshot) -> some View {
+        let timedDetails = AgendaTimedEventPresentation(event: event, timeZone: .current)
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(event.title)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+            }
+
+            Text(event.isAllDay ? "All-day" : timedDetails.timeRange)
+                .font(.system(size: 10, design: .rounded))
+                .foregroundStyle(Theme.textTertiary)
+                .lineLimit(1)
+
+            Text(timedDetails.calendarTitle)
+                .font(.system(size: 10, design: .rounded))
+                .foregroundStyle(Theme.textTertiary)
+                .lineLimit(1)
         }
     }
 
@@ -277,6 +321,19 @@ public struct AgendaView: View {
         let visible = names.prefix(2).joined(separator: ", ")
         let remaining = names.count - min(names.count, 2)
         return remaining > 0 ? "\(visible) + \(remaining)" : visible
+    }
+
+    private func calendarColor(for event: CalendarEventSnapshot) -> Color {
+        guard let rawColor = calendarStore.descriptors.first(where: { $0.id == event.calendarID })?.color else {
+            return Theme.border
+        }
+        let color = CalendarGridColor.displayColor(from: rawColor)
+        return Color(red: color.red, green: color.green, blue: color.blue, opacity: color.alpha)
+    }
+
+    private func eventAccessibilityLabel(_ event: CalendarEventSnapshot) -> String {
+        let details = AgendaTimedEventPresentation(event: event, timeZone: .current)
+        return "\(event.title), \(details.timeRange), \(details.calendarTitle)"
     }
 
     private var nextVisibleEventTomorrow: CalendarEventSnapshot? {

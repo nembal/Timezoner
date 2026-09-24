@@ -21,6 +21,8 @@ private final class CalendarPanelControllerProxy: CalendarPanelControlling {
     func toggle() { target?.toggle() }
     func syncAgendaVisibility() { target?.syncAgendaVisibility() }
     func resizeMain(to size: CGSize) { target?.resizeMain(to: size) }
+    func enterCalendarMode() { target?.enterCalendarMode() }
+    func returnToTimeZoner() { target?.returnToTimeZoner() }
     func setOwnedPopoverPresented(_ isPresented: Bool) { target?.setOwnedPopoverPresented(isPresented) }
     func handleEscape() { target?.handleEscape() }
 }
@@ -38,6 +40,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         CalendarStore(
             preferenceStore: calendarPreferences,
             clock: calendarClock,
+            intervalBuilder: { [presentation] now, calendar in
+                switch presentation.destination {
+                case .timezoner:
+                    return CalendarStore.agendaInterval(for: now, calendar: calendar)
+                case .calendar:
+                    return presentation.activeInterval(calendar: calendar)
+                }
+            },
             onPermissionLost: { [weak self] in
                 self?.referenceMoment.clearSelectedEvent()
                 self?.presentation.attendeePopoverEventID = nil
@@ -172,7 +182,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.openCalendarPrivacySettings()
             },
             onOpenWeek: { [weak self] in
-                self?.openCalendarWeek()
+                self?.openCalendarMode(panelProxy: panelProxy)
             },
             onOwnedPopoverChanged: { isPresented in
                 panelProxy.setOwnedPopoverPresented(isPresented)
@@ -201,10 +211,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         ))
     }
 
-    private func openCalendarWeek() {
-        let timestamp = Int(calendarStore.currentDate.timeIntervalSince1970)
-        guard let url = URL(string: "calshow:\(timestamp)") else { return }
-        NSWorkspace.shared.open(url)
+    private func openCalendarMode(panelProxy: CalendarPanelControllerProxy) {
+        guard calendarStore.authorizationStatus == .fullAccess else { return }
+        presentation.enterCalendar(now: calendarStore.currentDate, calendar: calendarStore.localCalendar)
+        panelProxy.enterCalendarMode()
+        calendarStore.refresh(interval: presentation.activeInterval(calendar: calendarStore.localCalendar))
     }
 
     private func showPanel() {

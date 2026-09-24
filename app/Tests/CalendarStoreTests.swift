@@ -289,6 +289,31 @@ func runCalendarStoreTests() async {
     }
 
     do {
+        let provider = CalendarStoreProviderFake()
+        let signals = CalendarStoreClockSignals()
+        let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
+        let store = CalendarStore(provider: provider, clock: clock)
+        let firstInterval = DateInterval(start: morning, duration: 60 * 60)
+        let secondInterval = DateInterval(start: morning.addingTimeInterval(60 * 60), duration: 60 * 60)
+        let firstEvent = calendarStoreEvent(id: "first-range", start: firstInterval.start)
+
+        store.refresh(interval: firstInterval)
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 1 }, "snapshot-range setup request begins")
+        provider.completeEventRequest(0, with: .success([firstEvent]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "snapshot-range setup request completes")
+        expectCalendarStore(store.snapshotInterval, firstInterval, "a successful fetch records the interval that owns its snapshots")
+        expectCalendarStoreTrue(store.hasSnapshot(for: firstInterval), "the successful interval exposes its own snapshot")
+
+        store.refresh(interval: secondInterval)
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 2 }, "changing the range starts a replacement request")
+        expectCalendarStoreTrue(!store.hasSnapshot(for: secondInterval), "a new active range never presents the old successful snapshot as current")
+        provider.completeEventRequest(1, with: .failure(CalendarStoreTestError.fetchFailed))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "replacement range failure completes")
+        expectCalendarStore(store.snapshotInterval, firstInterval, "a failed replacement keeps ownership with the last successful interval")
+        expectCalendarStoreTrue(!store.hasSnapshot(for: secondInterval), "a failed replacement remains gated from displaying the old range as active")
+    }
+
+    do {
         let hidden = calendarStoreDescriptor(id: "hidden", title: "Hidden")
         let visible = calendarStoreDescriptor(id: "visible", title: "Visible")
         let provider = CalendarStoreProviderFake(descriptors: [hidden, visible])
@@ -387,6 +412,61 @@ func runCalendarStoreTests() async {
         expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 4 }, "EventKit store changes refetch the current range")
         provider.completeEventRequest(3, with: .success([]))
         expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "store-change refresh completes")
+    }
+
+    do {
+        var clockNow = morning
+        let provider = CalendarStoreProviderFake()
+        let signals = CalendarStoreClockSignals()
+        let clock = calendarStoreClock(now: { clockNow }, calendar: { utcCalendar }, signals: signals)
+        let suiteName = "CalendarStoreTests.presentation.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = CalendarPresentationState(defaults: defaults)
+        let intervalBuilder: CalendarStore.IntervalBuilder = { now, calendar in
+            switch presentation.destination {
+            case .timezoner:
+                return CalendarStore.agendaInterval(for: now, calendar: calendar)
+            case .calendar:
+                return presentation.activeInterval(calendar: calendar)
+            }
+        }
+        let store = CalendarStore(provider: provider, clock: clock, intervalBuilder: intervalBuilder)
+
+        presentation.enterCalendar(now: clockNow, calendar: utcCalendar)
+        presentation.setRange(.week)
+        presentation.move(.next, calendar: utcCalendar)
+        let historicalWeek = presentation.activeInterval(calendar: utcCalendar)
+        store.refresh(interval: historicalWeek)
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 1 }, "calendar-mode lifecycle setup request begins")
+        provider.completeEventRequest(0, with: .success([]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "calendar-mode lifecycle setup request completes")
+
+        clockNow = clockNow.addingTimeInterval(24 * 60 * 60)
+        signals.emitMidnightTick()
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 2 }, "midnight refetches while calendar mode is active")
+        expectCalendarStore(
+            provider.eventRequests[1].start,
+            historicalWeek.start,
+            "midnight retains the active calendar range instead of resetting to the agenda range"
+        )
+        expectCalendarStore(
+            provider.eventRequests[1].end,
+            historicalWeek.end,
+            "calendar-mode lifecycle refresh retains the active range end"
+        )
+        provider.completeEventRequest(1, with: .success([]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "calendar-mode midnight refresh completes")
+
+        presentation.returnToTimeZoner()
+        signals.emitTimeZoneChange()
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 3 }, "timezone change refetches after returning to TimeZoner")
+        let expectedAgenda = CalendarStore.agendaInterval(for: clockNow, calendar: utcCalendar)
+        expectCalendarStore(provider.eventRequests[2].start, expectedAgenda.start, "TimeZoner mode rebuilds the agenda interval")
+        expectCalendarStore(provider.eventRequests[2].end, expectedAgenda.end, "TimeZoner mode uses the agenda interval end")
+        provider.completeEventRequest(2, with: .success([]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "TimeZoner-mode timezone refresh completes")
     }
 
     do {

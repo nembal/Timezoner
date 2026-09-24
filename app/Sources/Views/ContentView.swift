@@ -52,7 +52,7 @@ public struct ContentView: View {
         )
     }
 
-    public var body: some View {
+    private var normalContent: some View {
         VStack(spacing: 0) {
             // Drag handle
             DragHandle(showPill: true, isHugging: presentation.mainPanelHugsMenuBar)
@@ -138,6 +138,21 @@ public struct ContentView: View {
         }
         .frame(width: idealWidth)
         .fixedSize(horizontal: true, vertical: true)
+    }
+
+    public var body: some View {
+        Group {
+            if presentation.destination == .calendar {
+                CalendarModeView(
+                    calendarStore: calendarStore,
+                    referenceMoment: referenceMoment,
+                    presentation: presentation,
+                    onReturnToTimeZoner: returnFromCalendarMode
+                )
+            } else {
+                normalContent
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             editingZoneId = nil
@@ -176,6 +191,7 @@ public struct ContentView: View {
                 .hidden()
         }
         .onChange(of: zoneStore.zones.count) {
+            guard presentation.destination == .timezoner else { return }
             DispatchQueue.main.async {
                 panelController?.resizeMain(to: CGSize(width: idealWidth, height: 580))
             }
@@ -196,7 +212,7 @@ public struct ContentView: View {
             if presentation.showAgendaWing {
                 calendarStore.refresh(interval: CalendarStore.agendaInterval(
                     for: calendarStore.currentDate,
-                    calendar: .autoupdatingCurrent
+                    calendar: calendarStore.localCalendar
                 ))
             }
             panelController?.syncAgendaVisibility()
@@ -209,6 +225,11 @@ public struct ContentView: View {
             presentation.presentRecovery()
             panelController?.syncAgendaVisibility()
         }
+    }
+
+    private func returnFromCalendarMode() {
+        presentation.returnToTimeZoner()
+        panelController?.returnToTimeZoner()
     }
 
     private func setSettingsPresented(_ isPresented: Bool) {
