@@ -12,20 +12,25 @@ public struct TimezoneMapView: View {
     public let zones: [ZoneInfo]
     public let timeState: TimeState
     public let highlightedZoneIds: Set<UUID>
+    public let mapPresentation: MapExpansionPresentationState
+    public var onManualMapToggle: () -> Void
     public var onAddZone: ((String, String) -> Void)?
 
     @State private var geoData: GeoJSONFeatureCollection?
-    @AppStorage("mapExpanded") private var isExpanded = true
     @State private var hoveredTzid: String?
     @State private var hoveredOffset: Int?
     @State private var mapSize: CGSize = .zero
     @State private var cachedPaths: [(tzid: String, paths: [CGPath])] = []
 
     public init(zones: [ZoneInfo], timeState: TimeState, highlightedZoneIds: Set<UUID>,
+                mapPresentation: MapExpansionPresentationState,
+                onManualMapToggle: @escaping () -> Void = {},
                 onAddZone: ((String, String) -> Void)? = nil) {
         self.zones = zones
         self.timeState = timeState
         self.highlightedZoneIds = highlightedZoneIds
+        self.mapPresentation = mapPresentation
+        self.onManualMapToggle = onManualMapToggle
         self.onAddZone = onAddZone
     }
 
@@ -63,13 +68,14 @@ public struct TimezoneMapView: View {
             // Toggle — full-width hit target
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    isExpanded.toggle()
+                    mapPresentation.toggleMapManually()
+                    onManualMapToggle()
                 }
             }) {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 10, weight: .semibold))
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .rotationEffect(.degrees(mapPresentation.isMapExpanded ? 90 : 0))
                     Text("Map")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                     Spacer()
@@ -90,7 +96,7 @@ public struct TimezoneMapView: View {
             .padding(.vertical, 4)
             .animation(.easeInOut(duration: 0.15), value: hoveredOffset)
 
-            if isExpanded, let geoData = geoData {
+            if mapPresentation.isMapExpanded, let geoData = geoData {
                 Canvas { context, size in
                     let hlOffsets = MapColorLogic.offsetSeconds(for: highlightedIanaIds, at: timeState.referenceDate)
                     let userOffsets = MapColorLogic.offsetSeconds(for: userIanaIds, at: timeState.referenceDate)

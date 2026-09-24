@@ -117,7 +117,7 @@ func runReferenceMomentControllerTests() {
         controller.selectEvent(makeReferenceMomentEvent(id: "selected", title: "Selected", startDate: firstStart), sourceZone: bangkok)
         controller.setTime(hour: 9, minute: 15, in: sanFrancisco)
 
-        expectReferenceMoment(controller.selectedEvent == nil, "chat, card, and deep-link time changes clear event context")
+        expectReferenceMoment(controller.selectedEvent == nil, "setTime clears event context")
 
         controller.selectEvent(makeReferenceMomentEvent(id: "selected-again", title: "Selected again", startDate: firstStart), sourceZone: bangkok)
         controller.setDate(secondStart, sourceZone: sanFrancisco)
@@ -152,6 +152,49 @@ func runReferenceMomentControllerTests() {
         controller.goLive()
 
         expectReferenceMoment(presentation.isMapExpanded, "ordinary context clearing restores the pre-selection map state")
+    }
+
+    do {
+        let timeState = TimeState()
+        timeState.referenceDate = firstStart
+        timeState.isLive = false
+        let presentation = EventSelectionPresentationFake(isMapExpanded: true)
+        let controller = ReferenceMomentController(timeState: timeState, presentation: presentation)
+
+        controller.selectEvent(makeReferenceMomentEvent(id: "source", title: "Source", startDate: secondStart), sourceZone: bangkok)
+        controller.setSourceZone(sanFrancisco)
+
+        expectReferenceMoment(controller.selectedEvent == nil, "source-zone repair clears event context")
+        expectReferenceMoment(timeState.sourceZoneId == sanFrancisco.identifier, "source-zone repair updates the source zone through the controller")
+        expectReferenceMoment(timeState.referenceDate == secondStart, "source-zone repair preserves the reference date")
+        expectReferenceMoment(!timeState.isLive, "source-zone repair preserves live state")
+        expectReferenceMoment(presentation.isMapExpanded, "source-zone repair restores the pre-selection map state")
+    }
+
+    do {
+        let suiteName = "ReferenceMomentControllerTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let presentation = MapExpansionPresentationState(defaults: defaults)
+        let controller = ReferenceMomentController(timeState: TimeState(), presentation: presentation)
+
+        controller.selectEvent(makeReferenceMomentEvent(id: "production-first", title: "Production first", startDate: firstStart), sourceZone: bangkok)
+        controller.selectEvent(makeReferenceMomentEvent(id: "production-second", title: "Production second", startDate: secondStart), sourceZone: sanFrancisco)
+        controller.setDate(secondStart.addingTimeInterval(60 * 60), sourceZone: sanFrancisco)
+
+        expectReferenceMoment(presentation.isMapExpanded, "production presenter restores its first expansion snapshot after repeated selection")
+
+        presentation.toggleMapManually()
+        controller.selectEvent(makeReferenceMomentEvent(id: "production-manual", title: "Production manual", startDate: firstStart), sourceZone: bangkok)
+        presentation.toggleMapManually()
+        controller.didManuallyToggleMap()
+        controller.goLive()
+
+        expectReferenceMoment(presentation.isMapExpanded, "production presenter preserves a manual map toggle")
+        let restoredPresentation = MapExpansionPresentationState(defaults: defaults)
+        expectReferenceMoment(restoredPresentation.isMapExpanded, "production presenter persists a manual map toggle")
     }
 }
 

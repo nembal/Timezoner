@@ -20,6 +20,49 @@ public protocol EventSelectionPresenting: AnyObject {
     func cancelMapRestorationAfterManualToggle()
 }
 
+/// The temporary map-only presentation state used until CalendarPresentationState owns this concern.
+@Observable
+public final class MapExpansionPresentationState: EventSelectionPresenting {
+    public private(set) var isMapExpanded: Bool
+
+    private let defaults: UserDefaults
+    private let mapExpandedKey: String
+    private var mapExpansionSnapshot: Bool?
+
+    public init(defaults: UserDefaults = .standard, mapExpandedKey: String = "mapExpanded") {
+        self.defaults = defaults
+        self.mapExpandedKey = mapExpandedKey
+        if defaults.object(forKey: mapExpandedKey) == nil {
+            isMapExpanded = true
+        } else {
+            isMapExpanded = defaults.bool(forKey: mapExpandedKey)
+        }
+    }
+
+    public func toggleMapManually() {
+        isMapExpanded.toggle()
+        defaults.set(isMapExpanded, forKey: mapExpandedKey)
+    }
+
+    public func collapseMapForEventSelection() {
+        guard mapExpansionSnapshot == nil else { return }
+
+        mapExpansionSnapshot = isMapExpanded
+        isMapExpanded = false
+    }
+
+    public func restoreMapAfterEventSelection() {
+        guard let mapExpansionSnapshot else { return }
+
+        isMapExpanded = mapExpansionSnapshot
+        self.mapExpansionSnapshot = nil
+    }
+
+    public func cancelMapRestorationAfterManualToggle() {
+        mapExpansionSnapshot = nil
+    }
+}
+
 @Observable
 public final class ReferenceMomentController {
     public let timeState: TimeState
@@ -58,6 +101,11 @@ public final class ReferenceMomentController {
         timeState.referenceDate = date
         timeState.sourceZoneId = sourceZone.identifier
         timeState.isLive = false
+    }
+
+    public func setSourceZone(_ zone: TimeZone) {
+        clearSelectedEvent()
+        timeState.sourceZoneId = zone.identifier
     }
 
     public func goLive() {

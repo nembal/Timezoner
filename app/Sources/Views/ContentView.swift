@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct ContentView: View {
     @State private var referenceMoment: ReferenceMomentController
+    @State private var mapPresentation: MapExpansionPresentationState
     @State private var zoneStore = ZoneStore()
     @State private var editingZoneId: UUID? = nil
     @State private var showingSettings = false
@@ -13,7 +14,9 @@ public struct ContentView: View {
 
     public init() {
         let timeState = TimeState()
-        _referenceMoment = State(initialValue: ReferenceMomentController(timeState: timeState))
+        let mapPresentation = MapExpansionPresentationState()
+        _referenceMoment = State(initialValue: ReferenceMomentController(timeState: timeState, presentation: mapPresentation))
+        _mapPresentation = State(initialValue: mapPresentation)
     }
 
     private var timeState: TimeState {
@@ -94,6 +97,10 @@ public struct ContentView: View {
                     zones: zoneStore.zones,
                     timeState: timeState,
                     highlightedZoneIds: highlightedZoneIds,
+                    mapPresentation: mapPresentation,
+                    onManualMapToggle: {
+                        referenceMoment.didManuallyToggleMap()
+                    },
                     onAddZone: { label, ianaId in
                         withAnimation(.easeInOut(duration: 0.3)) {
                             zoneStore.add(label: label, timezoneId: ianaId)
@@ -171,7 +178,7 @@ public struct ContentView: View {
     private func ensureDefaultSource() {
         if let first = zoneStore.zones.first,
            !zoneStore.zones.contains(where: { $0.timeZoneId == timeState.sourceZoneId }) {
-            timeState.sourceZoneId = first.timeZoneId
+            referenceMoment.setSourceZone(first.timeZone)
         }
     }
 
