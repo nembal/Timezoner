@@ -10,9 +10,11 @@ public struct ContentView: View {
     @State private var highlightClearToken = UUID()
     private let settings: SettingsStore
     private let calendarPreferences: CalendarPreferenceStore
+    private let calendarAlertLifecycle: CalendarAlertLifecycleCoordinator
     private let panelController: (any CalendarPanelControlling)?
     private let setAgendaWingRequested: (Bool) -> Void
     private let openCalendarPrivacySettings: () -> Void
+    private let openNotificationSettings: () -> Void
     private let deepLinkRouter = DeepLinkRouter.shared
 
     public init(
@@ -22,9 +24,11 @@ public struct ContentView: View {
         calendarStore: CalendarStore,
         settings: SettingsStore,
         calendarPreferences: CalendarPreferenceStore,
+        calendarAlertLifecycle: CalendarAlertLifecycleCoordinator,
         panelController: (any CalendarPanelControlling)?,
         setAgendaWingRequested: @escaping (Bool) -> Void,
-        openCalendarPrivacySettings: @escaping () -> Void
+        openCalendarPrivacySettings: @escaping () -> Void,
+        openNotificationSettings: @escaping () -> Void
     ) {
         _referenceMoment = State(initialValue: referenceMoment)
         _presentation = State(initialValue: presentation)
@@ -32,9 +36,11 @@ public struct ContentView: View {
         _calendarStore = State(initialValue: calendarStore)
         self.settings = settings
         self.calendarPreferences = calendarPreferences
+        self.calendarAlertLifecycle = calendarAlertLifecycle
         self.panelController = panelController
         self.setAgendaWingRequested = setAgendaWingRequested
         self.openCalendarPrivacySettings = openCalendarPrivacySettings
+        self.openNotificationSettings = openNotificationSettings
     }
 
     private var timeState: TimeState {
@@ -112,8 +118,10 @@ public struct ContentView: View {
                             settings: settings,
                             calendarStore: calendarStore,
                             calendarPreferences: calendarPreferences,
+                            calendarAlertLifecycle: calendarAlertLifecycle,
                             setAgendaWingRequested: setAgendaWingRequested,
-                            openCalendarPrivacySettings: openCalendarPrivacySettings
+                            openCalendarPrivacySettings: openCalendarPrivacySettings,
+                            openNotificationSettings: openNotificationSettings
                         )
                     }
                 }

@@ -14,6 +14,24 @@ public final class UserNotificationCenterAdapter: CalendarNotificationCenter {
         try await center.requestAuthorization(options: [.alert, .sound])
     }
 
+    public func currentAuthorizationStatus() async -> CalendarNotificationAuthorizationStatus {
+        let settings = await center.notificationSettings()
+        switch settings.authorizationStatus {
+        case .notDetermined:
+            return .notDetermined
+        case .denied:
+            return .denied
+        case .authorized:
+            return .authorized
+        case .provisional:
+            return .provisional
+        case .ephemeral:
+            return .ephemeral
+        @unknown default:
+            return .denied
+        }
+    }
+
     public func pendingRequests() async -> [CalendarNotificationRequest] {
         let requests = await center.pendingNotificationRequests()
         return requests.map(snapshot(from:))

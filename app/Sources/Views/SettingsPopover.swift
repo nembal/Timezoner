@@ -5,22 +5,28 @@ public struct SettingsPopover: View {
     @Bindable var settings: SettingsStore
     public let calendarStore: CalendarStore
     public let calendarPreferences: CalendarPreferenceStore
+    public let calendarAlertLifecycle: CalendarAlertLifecycleCoordinator
     public let setAgendaWingRequested: (Bool) -> Void
     public let openCalendarPrivacySettings: () -> Void
+    public let openNotificationSettings: () -> Void
     @State private var loginError: String? = nil
 
     public init(
         settings: SettingsStore,
         calendarStore: CalendarStore,
         calendarPreferences: CalendarPreferenceStore,
+        calendarAlertLifecycle: CalendarAlertLifecycleCoordinator,
         setAgendaWingRequested: @escaping (Bool) -> Void,
-        openCalendarPrivacySettings: @escaping () -> Void
+        openCalendarPrivacySettings: @escaping () -> Void,
+        openNotificationSettings: @escaping () -> Void
     ) {
         self.settings = settings
         self.calendarStore = calendarStore
         self.calendarPreferences = calendarPreferences
+        self.calendarAlertLifecycle = calendarAlertLifecycle
         self.setAgendaWingRequested = setAgendaWingRequested
         self.openCalendarPrivacySettings = openCalendarPrivacySettings
+        self.openNotificationSettings = openNotificationSettings
     }
 
     public var body: some View {
@@ -129,8 +135,28 @@ public struct SettingsPopover: View {
                 }
             }
 
-            Toggle("Calendar alerts", isOn: $settings.alertsEnabled)
+            Toggle("Calendar alerts", isOn: Binding(
+                get: { settings.alertsEnabled },
+                set: { requested in
+                    Task { @MainActor in
+                        await calendarAlertLifecycle.setGlobalAlertsEnabled(requested)
+                    }
+                }
+            ))
                 .toggleStyle(.checkbox)
+
+            if calendarAlertLifecycle.showsNotificationSettingsRecovery {
+                HStack(spacing: 8) {
+                    Text("Notifications are off in System Settings.")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Theme.textTertiary)
+                    Spacer(minLength: 4)
+                    Button("Open Notification Settings", action: openNotificationSettings)
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.accent)
+                }
+            }
 
             HStack(spacing: 7) {
                 Text("Lead times")

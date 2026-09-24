@@ -17,6 +17,7 @@ public final class CalendarPreferenceStore {
     private let userDefaults: UserDefaults
     private let storageKey: String
     private var preferences: [String: CalendarPreference]
+    public var onAlertsEnabledChange: ((String, Bool) -> Void)?
 
     public init(userDefaults: UserDefaults = .standard, storageKey: String = "calendar.preferences") {
         self.userDefaults = userDefaults
@@ -45,6 +46,7 @@ public final class CalendarPreferenceStore {
         preference.alertsEnabled = alertsEnabled
         preferences[calendarID] = preference
         persist()
+        onAlertsEnabledChange?(calendarID, alertsEnabled)
     }
 
     private func persist() {

@@ -79,6 +79,36 @@ public final class CalendarStore {
         preferenceStore.setAlertsEnabled(alertsEnabled, calendarID: calendarID)
     }
 
+    /// Performs a narrow, independent EventKit lookup for a notification response. It deliberately
+    /// reads every discovered calendar, including hidden calendars, without touching presentation state.
+    public func event(matching occurrenceID: String, near startDate: Date) async -> CalendarEventSnapshot? {
+        guard authorizationStatus == .fullAccess else { return nil }
+
+        do {
+            let descriptors = try await provider.calendars()
+            handlePermissionChange()
+            guard authorizationStatus == .fullAccess else { return nil }
+            let calendarIDs = Set(descriptors.map(\.id))
+            guard !calendarIDs.isEmpty else { return nil }
+
+            let interval = DateInterval(
+                start: startDate.addingTimeInterval(-5 * 60),
+                end: startDate.addingTimeInterval(5 * 60)
+            )
+            let matches = try await provider.events(
+                from: interval.start,
+                to: interval.end,
+                calendarIDs: calendarIDs
+            )
+            handlePermissionChange()
+            guard authorizationStatus == .fullAccess else { return nil }
+            return matches.first(where: { $0.id == occurrenceID })
+        } catch {
+            handlePermissionChange()
+            return nil
+        }
+    }
+
     /// Refreshes a specific presentation range. Starting a new request invalidates every older one.
     public func refresh(interval: DateInterval) {
         activeInterval = interval

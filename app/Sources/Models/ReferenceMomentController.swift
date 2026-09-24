@@ -35,15 +35,31 @@ public final class ReferenceMomentController {
     public func selectEvent(_ event: CalendarEventSnapshot, sourceZone: TimeZone) {
         guard !event.isAllDay else { return }
 
+        selectEvent(
+            occurrenceID: event.id,
+            title: event.title,
+            startDate: event.startDate,
+            sourceZone: sourceZone
+        )
+    }
+
+    /// Selects notification fallback values without fabricating a CalendarEventSnapshot.
+    public func selectEvent(
+        occurrenceID: String,
+        title: String,
+        startDate: Date,
+        sourceZone: TimeZone
+    ) {
+
         if selectedEvent == nil {
             shouldRestoreMapAfterSelection = true
             presentation?.collapseMapForEventSelection()
         }
 
-        timeState.referenceDate = event.startDate
+        timeState.referenceDate = startDate
         timeState.sourceZoneId = sourceZone.identifier
         timeState.isLive = false
-        selectedEvent = SelectedEventContext(id: event.id, title: event.title, startDate: event.startDate)
+        selectedEvent = SelectedEventContext(id: occurrenceID, title: title, startDate: startDate)
     }
 
     public func setTime(hour: Int, minute: Int, in zone: TimeZone) {

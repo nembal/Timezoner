@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import TimeZonerLib
+import UserNotifications
 
 @main
 struct TimeZonerApp {
@@ -35,9 +36,30 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     private let referenceMoment: ReferenceMomentController
     private let calendarPreferences: CalendarPreferenceStore
     private let calendarClock: CalendarClock
+    private let calendarProvider: EventKitCalendarProvider
+    private let notificationCenter: UserNotificationCenterAdapter
     private let zoneStore: ZoneStore
+    private lazy var notificationScheduler: CalendarNotificationScheduler = {
+        CalendarNotificationScheduler(
+            eventReader: calendarProvider,
+            preferenceStore: calendarPreferences,
+            notificationCenter: notificationCenter,
+            leadMinutes: { [settings] in settings.notificationLeadMinutes }
+        )
+    }()
+    private lazy var calendarAlertLifecycle: CalendarAlertLifecycleCoordinator = {
+        CalendarAlertLifecycleCoordinator(
+            settings: settings,
+            preferenceStore: calendarPreferences,
+            calendarProvider: calendarProvider,
+            calendarClock: calendarClock,
+            scheduler: notificationScheduler,
+            notificationCenter: notificationCenter
+        )
+    }()
     private lazy var calendarStore: CalendarStore = {
         CalendarStore(
+            provider: calendarProvider,
             preferenceStore: calendarPreferences,
             clock: calendarClock,
             intervalBuilder: { [presentation] now, calendar in
@@ -55,13 +77,47 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     presentation: self.presentation
                 )
                 self.panelCoordinator?.syncAgendaVisibility()
+            },
+            onRemoveCalendarNotifications: { [weak self] in
+                Task { @MainActor [weak self] in
+                    await self?.calendarAlertLifecycle.calendarPermissionDidBecomeUnavailable()
+                }
             }
         )
+    }()
+    private lazy var calendarNotificationRouter: CalendarNotificationCommandRouter = {
+        CalendarNotificationCommandRouter(
+            resolveEvent: { [weak self] occurrenceID, startDate in
+                guard let self else { return nil }
+                return await self.calendarStore.event(matching: occurrenceID, near: startDate)
+            },
+            showPairedPanels: { [weak self] in
+                self?.panelCoordinator?.show()
+            },
+            selectEvent: { [weak self] event, sourceZone in
+                self?.referenceMoment.selectEvent(event, sourceZone: sourceZone)
+            },
+            selectFallback: { [weak self] occurrenceID, title, startDate, sourceZone in
+                self?.referenceMoment.selectEvent(
+                    occurrenceID: occurrenceID,
+                    title: title,
+                    startDate: startDate,
+                    sourceZone: sourceZone
+                )
+            }
+        )
+    }()
+    private lazy var calendarCommandQueue: PendingCalendarCommandQueue = {
+        PendingCalendarCommandQueue { [weak self] command in
+            guard let self else { return }
+            await self.calendarNotificationRouter.route(command)
+        }
     }()
 
     private var panelCoordinator: CalendarPanelCoordinator?
     private var permissionProbePanel: FloatingPanel?
     private var statusItem: NSStatusItem!
+    private var notificationDelegate: CalendarNotificationDelegate?
 
     override init() {
         let settings = SettingsStore.shared
@@ -74,11 +130,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         self.referenceMoment = ReferenceMomentController(timeState: timeState, presentation: presentation)
         self.calendarPreferences = CalendarPreferenceStore()
         self.calendarClock = CalendarClock()
+        self.calendarProvider = EventKitCalendarProvider()
+        self.notificationCenter = UserNotificationCenterAdapter()
         self.zoneStore = ZoneStore()
         super.init()
     }
 
     func applicationWillFinishLaunching(_ notification: Notification) {
+        let delegate = CalendarNotificationDelegate { [weak self] command in
+            self?.calendarCommandQueue.enqueue(command)
+        }
+        notificationDelegate = delegate
+        UNUserNotificationCenter.current().delegate = delegate
         settings.applyAppearance()
     }
 
@@ -96,7 +159,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             permissionProbePanel = FloatingPanel(contentView: contentView, role: .main)
         } else {
             buildPanels()
+            // Both hosting views and both paired surfaces now exist, so cold-start alert responses
+            // can leave their in-memory queue exactly once.
+            calendarCommandQueue.markReady()
             refreshPersistedAgendaIfNeeded()
+        }
+
+        Task { @MainActor [weak self] in
+            await self?.calendarAlertLifecycle.resolveLaunchAuthorization()
         }
 
         _ = LaunchAtLogin.reconcile(desired: settings.launchAtLogin)
@@ -148,12 +218,16 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             calendarStore: calendarStore,
             settings: settings,
             calendarPreferences: calendarPreferences,
+            calendarAlertLifecycle: calendarAlertLifecycle,
             panelController: panelProxy,
             setAgendaWingRequested: { [weak self] requested in
                 self?.setAgendaWingRequested(requested)
             },
             openCalendarPrivacySettings: { [weak self] in
                 self?.openCalendarPrivacySettings()
+            },
+            openNotificationSettings: { [weak self] in
+                self?.openNotificationSettings()
             }
         )
         let mainHost = NSHostingView(rootView: mainView)
@@ -205,6 +279,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func openCalendarPrivacySettings() {
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Calendars") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
+    }
+
+    private func openNotificationSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") else {
             return
         }
         NSWorkspace.shared.open(url)

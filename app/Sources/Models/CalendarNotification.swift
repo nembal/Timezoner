@@ -36,9 +36,28 @@ public struct CalendarNotificationUserInfo: Equatable, Sendable {
     }
 }
 
+/// The value-only authorization state used by lifecycle policy outside UserNotifications.
+public enum CalendarNotificationAuthorizationStatus: Equatable, Sendable {
+    case notDetermined
+    case denied
+    case authorized
+    case provisional
+    case ephemeral
+
+    public var permitsAlerts: Bool {
+        switch self {
+        case .authorized, .provisional, .ephemeral:
+            true
+        case .notDetermined, .denied:
+            false
+        }
+    }
+}
+
 /// The testable boundary around UserNotifications. Authorization is deliberately explicit.
 public protocol CalendarNotificationCenter: AnyObject {
     func requestAuthorization() async throws -> Bool
+    func currentAuthorizationStatus() async -> CalendarNotificationAuthorizationStatus
     func pendingRequests() async -> [CalendarNotificationRequest]
     func addOrReplace(_ request: CalendarNotificationRequest) async throws
     func removePendingRequests(withIdentifiers identifiers: [String]) async

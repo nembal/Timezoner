@@ -51,3 +51,15 @@ This follow-up is code- and package-verified; it was not clicked after the final
 ## Gate decision
 
 **DONE_WITH_CONCERNS.** The human observations establish successful grant, a real successful fetch, changed-rebuild persistence without a new prompt, denial, and recovery. The exact real calendar/event count values were not captured, so this document does not claim them. The privacy-settings visibility follow-up is package-tested but awaits an optional visual confirmation on a future manual use.
+
+## Notification authorization
+
+**NEEDS_CONTEXT — not performed.** This Task 9 code changes local-notification scheduling and response routing, but no notification permission, System Settings action, application launch, or packaged-app reinstall was automated. No notification authorization persistence or recovery result is claimed here.
+
+Human verification still required:
+
+1. Install the built app at its normal path, enable **Calendar alerts**, and grant TimeZoner notification permission when macOS asks.
+2. Create a near-future eligible event in real Calendar data, wait for the `timezoner.event.*` alert, and verify foreground banner + sound and clicked-alert routing to the matching event (or the stored timestamp fallback if the event is removed).
+3. Quit TimeZoner, make a harmless compiled marker change, rebuild and reinstall at the same path, then reopen and confirm macOS retains notification authorization without a new prompt.
+4. Deny or revoke TimeZoner notifications, reopen the app, and verify the global alert toggle resets off while calendar display remains usable and **Open Notification Settings** is offered.
+5. Restore the source marker before any commit and record the observed result, installed path, macOS version, and whether the fresh-event or fallback route was exercised.

@@ -196,6 +196,33 @@ func runReferenceMomentControllerTests() {
         let restoredPresentation = CalendarPresentationState(defaults: defaults)
         expectReferenceMoment(restoredPresentation.isMapExpanded, "production presenter persists a manual map toggle")
     }
+
+    do {
+        let timeState = TimeState()
+        let presentation = EventSelectionPresentationFake(isMapExpanded: true)
+        let controller = ReferenceMomentController(timeState: timeState, presentation: presentation)
+
+        controller.selectEvent(
+            occurrenceID: "notification-fallback",
+            title: "Notification fallback",
+            startDate: secondStart,
+            sourceZone: bangkok
+        )
+
+        expectReferenceMoment(
+            controller.selectedEvent == SelectedEventContext(
+                id: "notification-fallback",
+                title: "Notification fallback",
+                startDate: secondStart
+            ),
+            "timestamp fallback creates an event context without fabricating an event snapshot"
+        )
+        expectReferenceMoment(
+            timeStateMatches(timeState, date: secondStart, sourceZone: bangkok, isLive: false),
+            "timestamp fallback routes reference changes through the controller"
+        )
+        expectReferenceMoment(!presentation.isMapExpanded, "timestamp fallback preserves normal event-selection map behavior")
+    }
 }
 
 private func timeStateMatches(_ timeState: TimeState, date: Date, sourceZone: TimeZone, isLive: Bool) -> Bool {

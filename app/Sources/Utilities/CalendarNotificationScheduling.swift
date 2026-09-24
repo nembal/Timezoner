@@ -8,7 +8,7 @@ public final class CalendarNotificationScheduler {
     private let eventReader: any CalendarEventReading
     private let preferenceStore: CalendarPreferenceStore
     private let notificationCenter: any CalendarNotificationCenter
-    private let leadMinutes: [Int]
+    private let leadMinutesProvider: () -> [Int]
 
     public init(
         eventReader: any CalendarEventReading,
@@ -19,7 +19,20 @@ public final class CalendarNotificationScheduler {
         self.eventReader = eventReader
         self.preferenceStore = preferenceStore
         self.notificationCenter = notificationCenter
-        self.leadMinutes = Array(Set(leadMinutes.filter { (0...1_440).contains($0) })).sorted(by: >)
+        leadMinutesProvider = { Self.normalizedLeadMinutes(leadMinutes) }
+    }
+
+    /// Uses current settings when lead-time changes should reconcile without replacing scheduler ownership.
+    public init(
+        eventReader: any CalendarEventReading,
+        preferenceStore: CalendarPreferenceStore,
+        notificationCenter: any CalendarNotificationCenter,
+        leadMinutes: @escaping () -> [Int]
+    ) {
+        self.eventReader = eventReader
+        self.preferenceStore = preferenceStore
+        self.notificationCenter = notificationCenter
+        leadMinutesProvider = { Self.normalizedLeadMinutes(leadMinutes()) }
     }
 
     /// Fetches and reconciles a scheduler-owned, half-open seven-day horizon from `now`.
@@ -61,6 +74,7 @@ public final class CalendarNotificationScheduler {
         timeZone: TimeZone
     ) -> [String: CalendarNotificationRequest] {
         var desired: [String: CalendarNotificationRequest] = [:]
+        let leadMinutes = leadMinutesProvider()
 
         for event in events where isEligible(event, now: now) {
             for leadMinutes in leadMinutes {
@@ -103,5 +117,9 @@ public final class CalendarNotificationScheduler {
             return "BKK"
         }
         return timeZone.abbreviation() ?? timeZone.identifier
+    }
+
+    private static func normalizedLeadMinutes(_ values: [Int]) -> [Int] {
+        Array(Set(values.filter { (0...1_440).contains($0) })).sorted(by: >)
     }
 }

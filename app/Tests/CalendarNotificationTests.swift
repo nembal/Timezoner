@@ -41,6 +41,7 @@ private final class CalendarNotificationReaderFake: CalendarEventReading {
 }
 
 private final class CalendarNotificationCenterFake: CalendarNotificationCenter {
+    var authorizationStatus: CalendarNotificationAuthorizationStatus = .authorized
     private(set) var authorizationRequestCount = 0
     private(set) var addedOrReplaced: [CalendarNotificationRequest] = []
     private(set) var removedIdentifiers: [String] = []
@@ -53,6 +54,10 @@ private final class CalendarNotificationCenterFake: CalendarNotificationCenter {
     func requestAuthorization() async throws -> Bool {
         authorizationRequestCount += 1
         return true
+    }
+
+    func currentAuthorizationStatus() async -> CalendarNotificationAuthorizationStatus {
+        authorizationStatus
     }
 
     func pendingRequests() async -> [CalendarNotificationRequest] {

@@ -40,12 +40,16 @@ public final class SettingsStore {
         didSet { persist() }
     }
     public var alertsEnabled: Bool {
-        didSet { persist() }
+        didSet { persist(); onAlertsEnabledChange?(alertsEnabled) }
     }
-    public private(set) var notificationLeadMinutes: [Int]
+    public private(set) var notificationLeadMinutes: [Int] {
+        didSet { persist(); onNotificationLeadMinutesChange?(notificationLeadMinutes) }
+    }
 
     public var onHotkeyChange: ((Shortcut?) -> Void)?
     public var onLaunchAtLoginChange: ((Bool) -> Void)?
+    public var onAlertsEnabledChange: ((Bool) -> Void)?
+    public var onNotificationLeadMinutesChange: (([Int]) -> Void)?
 
     private let userDefaults: UserDefaults
     private let keys: Keys
@@ -142,7 +146,6 @@ public final class SettingsStore {
 
     public func setNotificationLeadMinutes(_ values: [Int?]) {
         notificationLeadMinutes = Self.normalizedNotificationLeadMinutes(values)
-        persist()
     }
 
     public func applyAppearance() {
