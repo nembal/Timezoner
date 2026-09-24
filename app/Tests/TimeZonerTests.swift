@@ -19,6 +19,7 @@ struct TestRunner {
         runReferenceMomentControllerTests()
         await runCalendarClockTests()
         await runCalendarStoreTests()
+        await runCalendarNotificationTests()
 
         print("\nResults: \(testsPassed) passed, \(testsFailed) failed out of \(testsPassed + testsFailed) tests")
         if testsFailed > 0 {
