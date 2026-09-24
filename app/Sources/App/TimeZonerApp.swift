@@ -51,7 +51,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             onPermissionLost: { [weak self] in
                 self?.referenceMoment.clearSelectedEvent()
                 self?.presentation.attendeePopoverEventID = nil
+                self?.presentation.showAgendaWing = false
                 self?.presentation.presentRecovery()
+                self?.panelCoordinator?.syncAgendaVisibility()
             }
         )
     }()
@@ -144,7 +146,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             zoneStore: zoneStore,
             calendarStore: calendarStore,
             settings: settings,
-            panelController: panelProxy
+            calendarPreferences: calendarPreferences,
+            panelController: panelProxy,
+            setAgendaWingRequested: { [weak self] requested in
+                self?.setAgendaWingRequested(requested)
+            },
+            openCalendarPrivacySettings: { [weak self] in
+                self?.openCalendarPrivacySettings()
+            }
         )
         let mainHost = NSHostingView(rootView: mainView)
         mainHost.setFrameSize(NSSize(width: 750, height: 580))
@@ -201,11 +210,40 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func refreshPersistedAgendaIfNeeded() {
-        guard presentation.showAgendaWing,
-              calendarStore.authorizationStatus == .fullAccess else {
+        guard presentation.showAgendaWing else {
             return
         }
+
+        guard calendarStore.authorizationStatus == .fullAccess else {
+            presentation.showAgendaWing = false
+            return
+        }
+
         calendarStore.refreshPresentationInterval()
+    }
+
+    private func setAgendaWingRequested(_ requested: Bool) {
+        switch CalendarAgendaWingRequest.outcome(
+            requested: requested,
+            authorizationStatus: calendarStore.authorizationStatus
+        ) {
+        case .hide:
+            presentation.showAgendaWing = false
+            presentation.dismissAccessDestination()
+        case .show:
+            presentation.showAgendaWing = true
+            calendarStore.refresh(interval: CalendarStore.agendaInterval(
+                for: calendarStore.currentDate,
+                calendar: calendarStore.localCalendar
+            ))
+        case .explainAccess:
+            presentation.showAgendaWing = false
+            presentation.presentAccessExplanation()
+        case .recoverAccess:
+            presentation.showAgendaWing = false
+            presentation.presentRecovery()
+        }
+        panelCoordinator?.syncAgendaVisibility()
     }
 
     private func openCalendarMode(panelProxy: CalendarPanelControllerProxy) {

@@ -24,6 +24,7 @@ public final class CalendarStore {
     private let clock: CalendarClock
     private let intervalBuilder: IntervalBuilder
     private let onPermissionLost: () -> Void
+    private let onRemoveCalendarNotifications: () -> Void
     private var requestGeneration = 0
     private var observationTasks: [Task<Void, Never>] = []
 
@@ -32,16 +33,22 @@ public final class CalendarStore {
         preferenceStore: CalendarPreferenceStore = CalendarPreferenceStore(),
         clock: CalendarClock = CalendarClock(),
         intervalBuilder: @escaping IntervalBuilder = CalendarStore.agendaInterval,
-        onPermissionLost: @escaping () -> Void = {}
+        onPermissionLost: @escaping () -> Void = {},
+        onRemoveCalendarNotifications: @escaping () -> Void = {}
     ) {
         self.provider = provider
         self.preferenceStore = preferenceStore
         self.clock = clock
         self.intervalBuilder = intervalBuilder
         self.onPermissionLost = onPermissionLost
+        self.onRemoveCalendarNotifications = onRemoveCalendarNotifications
         authorizationStatus = provider.authorizationStatus
         currentDate = clock.now()
         observeClockAndProvider()
+    }
+
+    isolated deinit {
+        observationTasks.forEach { $0.cancel() }
     }
 
     /// The injected local wall-clock Calendar shared by refresh ownership and grid geometry.
@@ -56,6 +63,20 @@ public final class CalendarStore {
     /// assuming the agenda range, because calendar mode owns a different active interval.
     public func refreshPresentationInterval() {
         refresh(interval: defaultInterval())
+    }
+
+    /// Persists a calendar's visibility and refreshes the current presentation range so the
+    /// agenda and calendar views stop rendering that calendar's retained events immediately.
+    public func setVisible(_ isVisible: Bool, calendarID: String) {
+        preferenceStore.setVisible(isVisible, calendarID: calendarID)
+        guard authorizationStatus == .fullAccess else { return }
+        refresh(interval: activeInterval ?? defaultInterval())
+    }
+
+    /// Persists an alert preference without changing the event-fetch slice. Hidden calendars can
+    /// still retain alerts, so this must not be coupled to visibility.
+    public func setAlertsEnabled(_ alertsEnabled: Bool, calendarID: String) {
+        preferenceStore.setAlertsEnabled(alertsEnabled, calendarID: calendarID)
     }
 
     /// Refreshes a specific presentation range. Starting a new request invalidates every older one.
@@ -148,6 +169,7 @@ public final class CalendarStore {
 
         if hadFullAccess {
             onPermissionLost()
+            onRemoveCalendarNotifications()
         }
     }
 
@@ -236,25 +258,22 @@ public final class CalendarStore {
                     self?.refreshForWallClockRangeChange()
                 }
             },
-            Task { [weak self] in
-                guard let self else { return }
-                for await _ in self.clock.wakeEvents {
+            Task { [weak self, clock] in
+                for await _ in clock.wakeEvents {
                     guard !Task.isCancelled else { return }
-                    self.refreshCurrentInterval()
+                    self?.refreshCurrentInterval()
                 }
             },
-            Task { [weak self] in
-                guard let self else { return }
-                for await _ in self.clock.activationEvents {
+            Task { [weak self, clock] in
+                for await _ in clock.activationEvents {
                     guard !Task.isCancelled else { return }
-                    self.refreshCurrentInterval()
+                    self?.refreshCurrentInterval()
                 }
             },
-            Task { [weak self] in
-                guard let self else { return }
-                for await _ in self.clock.reopenEvents {
+            Task { [weak self, clock] in
+                for await _ in clock.reopenEvents {
                     guard !Task.isCancelled else { return }
-                    self.refreshCurrentInterval()
+                    self?.refreshCurrentInterval()
                 }
             },
         ]

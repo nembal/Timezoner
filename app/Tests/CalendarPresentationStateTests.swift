@@ -78,6 +78,29 @@ func runCalendarPresentationStateTests() {
     defaults.removePersistentDomain(forName: suiteName)
     defer { defaults.removePersistentDomain(forName: suiteName) }
 
+    expectCalendarPresentation(
+        CalendarAgendaWingRequest.outcome(requested: false, authorizationStatus: .fullAccess),
+        .hide,
+        "turning the agenda off always hides it immediately"
+    )
+    expectCalendarPresentation(
+        CalendarAgendaWingRequest.outcome(requested: true, authorizationStatus: .fullAccess),
+        .show,
+        "full calendar access may show the agenda"
+    )
+    expectCalendarPresentation(
+        CalendarAgendaWingRequest.outcome(requested: true, authorizationStatus: .notDetermined),
+        .explainAccess,
+        "an undetermined calendar permission explains access without persisting the agenda"
+    )
+    for status in [CalendarAuthorizationStatus.denied, .restricted, .writeOnly] {
+        expectCalendarPresentation(
+            CalendarAgendaWingRequest.outcome(requested: true, authorizationStatus: status),
+            .recoverAccess,
+            "unavailable calendar access keeps the agenda hidden and routes recovery"
+        )
+    }
+
     let presentation = CalendarPresentationState(defaults: defaults)
     let timeState = TimeState()
     timeState.referenceDate = now

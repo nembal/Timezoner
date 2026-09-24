@@ -3,15 +3,31 @@ import SwiftUI
 
 public struct SettingsPopover: View {
     @Bindable var settings: SettingsStore
+    public let calendarStore: CalendarStore
+    public let calendarPreferences: CalendarPreferenceStore
+    public let setAgendaWingRequested: (Bool) -> Void
+    public let openCalendarPrivacySettings: () -> Void
     @State private var loginError: String? = nil
 
-    public init(settings: SettingsStore) {
+    public init(
+        settings: SettingsStore,
+        calendarStore: CalendarStore,
+        calendarPreferences: CalendarPreferenceStore,
+        setAgendaWingRequested: @escaping (Bool) -> Void,
+        openCalendarPrivacySettings: @escaping () -> Void
+    ) {
         self.settings = settings
+        self.calendarStore = calendarStore
+        self.calendarPreferences = calendarPreferences
+        self.setAgendaWingRequested = setAgendaWingRequested
+        self.openCalendarPrivacySettings = openCalendarPrivacySettings
     }
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             appearanceSection
+            Divider()
+            calendarSection
             Divider()
             shortcutsAndBehaviorSection
             Divider()
@@ -78,6 +94,141 @@ public struct SettingsPopover: View {
                     .foregroundStyle(.red)
             }
         }
+    }
+
+    private var calendarSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            sectionTitle("Calendar")
+
+            Toggle("Show agenda", isOn: Binding(
+                get: { settings.showAgendaWing },
+                set: setAgendaWingRequested
+            ))
+            .toggleStyle(.checkbox)
+
+            if calendarStore.authorizationStatus == .fullAccess {
+                if calendarStore.descriptors.isEmpty {
+                    Text("Calendars appear here after the agenda loads.")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Theme.textTertiary)
+                } else {
+                    ForEach(calendarStore.descriptors) { descriptor in
+                        calendarPreferenceRow(for: descriptor)
+                    }
+                }
+            } else {
+                HStack(spacing: 8) {
+                    Text(calendarAccessMessage)
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Theme.textTertiary)
+                    Spacer(minLength: 4)
+                    Button("Privacy Settings", action: openCalendarPrivacySettings)
+                        .buttonStyle(.borderless)
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.accent)
+                }
+            }
+
+            Toggle("Calendar alerts", isOn: $settings.alertsEnabled)
+                .toggleStyle(.checkbox)
+
+            HStack(spacing: 7) {
+                Text("Lead times")
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundStyle(Theme.textSecondary)
+                TextField("First", text: notificationLeadBinding(at: 0))
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 50)
+                TextField("Second", text: notificationLeadBinding(at: 1))
+                    .textFieldStyle(.roundedBorder)
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 50)
+                Text("min")
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundStyle(Theme.textTertiary)
+            }
+
+            Text("TimeZoner schedules up to 7 days ahead while the app is running or when it next opens.")
+                .font(.system(size: 11, design: .rounded))
+                .foregroundStyle(Theme.textTertiary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func calendarPreferenceRow(for descriptor: CalendarDescriptor) -> some View {
+        HStack(alignment: .top, spacing: 7) {
+            Circle()
+                .fill(calendarColor(for: descriptor))
+                .frame(width: 8, height: 8)
+                .padding(.top, 4)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(descriptor.title)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                Text(descriptor.sourceTitle)
+                    .font(.system(size: 10, design: .rounded))
+                    .foregroundStyle(Theme.textTertiary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 4)
+
+            Toggle("Show", isOn: Binding(
+                get: { calendarPreferences.preference(for: descriptor.id).isVisible },
+                set: { calendarStore.setVisible($0, calendarID: descriptor.id) }
+            ))
+            .toggleStyle(.checkbox)
+            .font(.system(size: 10, design: .rounded))
+
+            Toggle("Alerts", isOn: Binding(
+                get: { calendarPreferences.preference(for: descriptor.id).alertsEnabled },
+                set: { calendarStore.setAlertsEnabled($0, calendarID: descriptor.id) }
+            ))
+            .toggleStyle(.checkbox)
+            .font(.system(size: 10, design: .rounded))
+        }
+    }
+
+    private var calendarAccessMessage: String {
+        switch calendarStore.authorizationStatus {
+        case .notDetermined:
+            return "Calendar access has not been granted."
+        case .denied, .restricted, .writeOnly:
+            return "Calendar events are unavailable."
+        case .fullAccess:
+            return ""
+        }
+    }
+
+    private func calendarColor(for descriptor: CalendarDescriptor) -> Color {
+        Color(
+            red: descriptor.color.red,
+            green: descriptor.color.green,
+            blue: descriptor.color.blue,
+            opacity: descriptor.color.alpha * 0.65
+        )
+    }
+
+    private func notificationLeadBinding(at index: Int) -> Binding<String> {
+        Binding(
+            get: {
+                guard settings.notificationLeadMinutes.indices.contains(index) else { return "" }
+                return String(settings.notificationLeadMinutes[index])
+            },
+            set: { text in
+                var values: [Int?] = (0 ..< 2).map { offset in
+                    settings.notificationLeadMinutes.indices.contains(offset)
+                        ? settings.notificationLeadMinutes[offset]
+                        : nil
+                }
+                values[index] = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : Int(text)
+                settings.setNotificationLeadMinutes(values)
+            }
+        )
     }
 
     private var helpSection: some View {

@@ -1,5 +1,31 @@
 import Foundation
 
+/// Permission-aware outcome for an explicit request to show or hide the agenda wing.
+/// The app coordinator applies this plan to panels and durable preferences.
+public enum CalendarAgendaWingRequest {
+    public enum Outcome: Equatable, Sendable {
+        case hide
+        case show
+        case explainAccess
+        case recoverAccess
+    }
+
+    public static func outcome(
+        requested: Bool,
+        authorizationStatus: CalendarAuthorizationStatus
+    ) -> Outcome {
+        guard requested else { return .hide }
+        switch authorizationStatus {
+        case .fullAccess:
+            return .show
+        case .notDetermined:
+            return .explainAccess
+        case .denied, .restricted, .writeOnly:
+            return .recoverAccess
+        }
+    }
+}
+
 public enum CalendarDestination: Equatable, Sendable {
     case timezoner
     case calendar

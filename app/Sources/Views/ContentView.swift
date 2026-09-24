@@ -9,7 +9,10 @@ public struct ContentView: View {
     @State private var highlightedZoneIds: Set<UUID> = []
     @State private var highlightClearToken = UUID()
     private let settings: SettingsStore
+    private let calendarPreferences: CalendarPreferenceStore
     private let panelController: (any CalendarPanelControlling)?
+    private let setAgendaWingRequested: (Bool) -> Void
+    private let openCalendarPrivacySettings: () -> Void
     private let deepLinkRouter = DeepLinkRouter.shared
 
     public init(
@@ -18,14 +21,20 @@ public struct ContentView: View {
         zoneStore: ZoneStore,
         calendarStore: CalendarStore,
         settings: SettingsStore,
-        panelController: (any CalendarPanelControlling)?
+        calendarPreferences: CalendarPreferenceStore,
+        panelController: (any CalendarPanelControlling)?,
+        setAgendaWingRequested: @escaping (Bool) -> Void,
+        openCalendarPrivacySettings: @escaping () -> Void
     ) {
         _referenceMoment = State(initialValue: referenceMoment)
         _presentation = State(initialValue: presentation)
         _zoneStore = State(initialValue: zoneStore)
         _calendarStore = State(initialValue: calendarStore)
         self.settings = settings
+        self.calendarPreferences = calendarPreferences
         self.panelController = panelController
+        self.setAgendaWingRequested = setAgendaWingRequested
+        self.openCalendarPrivacySettings = openCalendarPrivacySettings
     }
 
     private var timeState: TimeState {
@@ -99,7 +108,13 @@ public struct ContentView: View {
                     .buttonStyle(.plain)
                     .help("Settings (⌘,)")
                     .popover(isPresented: settingsPopoverBinding, arrowEdge: .bottom) {
-                        SettingsPopover(settings: settings)
+                        SettingsPopover(
+                            settings: settings,
+                            calendarStore: calendarStore,
+                            calendarPreferences: calendarPreferences,
+                            setAgendaWingRequested: setAgendaWingRequested,
+                            openCalendarPrivacySettings: openCalendarPrivacySettings
+                        )
                     }
                 }
 
@@ -206,25 +221,7 @@ public struct ContentView: View {
     }
 
     private func activateCalendar() {
-        switch calendarStore.authorizationStatus {
-        case .fullAccess:
-            presentation.showAgendaWing.toggle()
-            if presentation.showAgendaWing {
-                calendarStore.refresh(interval: CalendarStore.agendaInterval(
-                    for: calendarStore.currentDate,
-                    calendar: calendarStore.localCalendar
-                ))
-            }
-            panelController?.syncAgendaVisibility()
-        case .notDetermined:
-            presentation.showAgendaWing = true
-            presentation.presentAccessExplanation()
-            panelController?.syncAgendaVisibility()
-        case .denied, .restricted, .writeOnly:
-            presentation.showAgendaWing = true
-            presentation.presentRecovery()
-            panelController?.syncAgendaVisibility()
-        }
+        setAgendaWingRequested(!presentation.showAgendaWing)
     }
 
     private func returnFromCalendarMode() {

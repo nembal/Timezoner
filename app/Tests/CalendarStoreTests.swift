@@ -272,6 +272,48 @@ func runCalendarStoreTests() async {
         let provider = CalendarStoreProviderFake()
         let signals = CalendarStoreClockSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
+        let suiteName = "CalendarStoreTests.preferences.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = CalendarPreferenceStore(userDefaults: defaults)
+        let store = CalendarStore(provider: provider, preferenceStore: preferences, clock: clock)
+        let visibleEvent = calendarStoreEvent(id: "visible", start: morning)
+
+        store.refresh(interval: initialInterval)
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 1 }, "calendar preference setup request begins")
+        provider.completeEventRequest(0, with: .success([visibleEvent]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "calendar preference setup request completes")
+
+        store.setVisible(false, calendarID: "work")
+        expectCalendarStoreTrue(
+            await waitForCalendarStore { store.events.isEmpty && !store.isLoading },
+            "hiding a calendar refreshes the active presentation range without its events"
+        )
+        expectCalendarStore(
+            preferences.preference(for: "work"),
+            CalendarPreference(isVisible: false, alertsEnabled: true),
+            "hiding through CalendarStore preserves that calendar's alert setting"
+        )
+
+        store.setAlertsEnabled(false, calendarID: "work")
+        expectCalendarStore(
+            preferences.preference(for: "work"),
+            CalendarPreference(isVisible: false, alertsEnabled: false),
+            "alert preferences remain editable for a hidden calendar"
+        )
+        expectCalendarStore(provider.eventRequests.count, 1, "changing alerts alone does not refetch visible events")
+
+        store.setVisible(true, calendarID: "work")
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 2 }, "showing a calendar refetches the active presentation range")
+        provider.completeEventRequest(1, with: .success([visibleEvent]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "showing a calendar refresh completes")
+    }
+
+    do {
+        let provider = CalendarStoreProviderFake()
+        let signals = CalendarStoreClockSignals()
+        let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
         let oldEvent = calendarStoreEvent(id: "old", start: morning)
 
@@ -509,6 +551,26 @@ func runCalendarStoreTests() async {
         let provider = CalendarStoreProviderFake()
         let signals = CalendarStoreClockSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
+        weak var releasedStore: CalendarStore?
+
+        do {
+            let store = CalendarStore(provider: provider, clock: clock)
+            releasedStore = store
+            for _ in 0 ..< 8 {
+                await Task.yield()
+            }
+        }
+
+        expectCalendarStoreTrue(
+            await waitForCalendarStore { releasedStore == nil },
+            "CalendarStore releases its observer tasks when its owner releases the store"
+        )
+    }
+
+    do {
+        let provider = CalendarStoreProviderFake()
+        let signals = CalendarStoreClockSignals()
+        let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
 
         store.refresh(interval: initialInterval)
@@ -537,10 +599,12 @@ func runCalendarStoreTests() async {
         let signals = CalendarStoreClockSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         var permissionLossCount = 0
+        var notificationRemovalCount = 0
         let store = CalendarStore(
             provider: provider,
             clock: clock,
-            onPermissionLost: { permissionLossCount += 1 }
+            onPermissionLost: { permissionLossCount += 1 },
+            onRemoveCalendarNotifications: { notificationRemovalCount += 1 }
         )
         let selectedEvent = calendarStoreEvent(id: "selected", start: morning)
 
@@ -560,17 +624,20 @@ func runCalendarStoreTests() async {
         expectCalendarStore(store.isStale, false, "permission loss clears the stale marker")
         expectCalendarStore(store.isLoading, false, "permission loss ends the active loading state")
         expectCalendarStore(permissionLossCount, 1, "permission loss invokes the callback once")
+        expectCalendarStore(notificationRemovalCount, 1, "permission loss removes TimeZoner calendar notifications once")
         provider.completeEventRequest(1, with: .success([selectedEvent]))
         await Task.yield()
         expectCalendarStore(store.events, [], "invalidated in-flight success cannot restore revoked snapshots")
         store.handlePermissionChange()
         expectCalendarStore(permissionLossCount, 1, "repeating an unavailable status does not invoke the callback again")
+        expectCalendarStore(notificationRemovalCount, 1, "repeating an unavailable status does not remove notifications again")
 
         provider.authorizationStatus = .fullAccess
         store.handlePermissionChange()
         provider.authorizationStatus = .restricted
         store.handlePermissionChange()
         expectCalendarStore(permissionLossCount, 2, "a later full-to-unavailable transition invokes the callback once")
+        expectCalendarStore(notificationRemovalCount, 2, "a later full-to-unavailable transition removes notifications once")
     }
 
     do {
