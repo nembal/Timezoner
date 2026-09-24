@@ -1,5 +1,20 @@
 import Foundation
 
+/// The app-facing cleanup invoked from CalendarStore's full-to-unavailable callback.
+/// Keeping it in TimeZonerLib lets the real composition contract remain deterministic.
+@MainActor
+public enum CalendarPermissionLossCoordinator {
+    public static func handle(
+        referenceMoment: ReferenceMomentController,
+        presentation: CalendarPresentationState
+    ) {
+        referenceMoment.clearSelectedEvent()
+        presentation.attendeePopoverEventID = nil
+        presentation.showAgendaWing = false
+        presentation.presentRecovery()
+    }
+}
+
 /// Permission-aware outcome for an explicit request to show or hide the agenda wing.
 /// The app coordinator applies this plan to panels and durable preferences.
 public enum CalendarAgendaWingRequest {

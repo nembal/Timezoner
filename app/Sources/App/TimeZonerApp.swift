@@ -49,11 +49,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             },
             onPermissionLost: { [weak self] in
-                self?.referenceMoment.clearSelectedEvent()
-                self?.presentation.attendeePopoverEventID = nil
-                self?.presentation.showAgendaWing = false
-                self?.presentation.presentRecovery()
-                self?.panelCoordinator?.syncAgendaVisibility()
+                guard let self else { return }
+                CalendarPermissionLossCoordinator.handle(
+                    referenceMoment: self.referenceMoment,
+                    presentation: self.presentation
+                )
+                self.panelCoordinator?.syncAgendaVisibility()
             }
         )
     }()

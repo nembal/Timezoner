@@ -641,6 +641,75 @@ func runCalendarStoreTests() async {
     }
 
     do {
+        let provider = CalendarStoreProviderFake()
+        let signals = CalendarStoreClockSignals()
+        let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
+        let suiteName = "CalendarStoreTests.permission-composition.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = SettingsStore(
+            userDefaults: defaults,
+            keys: SettingsStore.Keys(
+                appearance: "composition.appearance",
+                launchAtLogin: "composition.launchAtLogin",
+                hotkey: "composition.hotkey",
+                showAgendaWing: "composition.showAgendaWing",
+                alertsEnabled: "composition.alertsEnabled",
+                notificationLeadMinutes: "composition.notificationLeadMinutes"
+            )
+        )
+        let presentation = CalendarPresentationState(
+            settings: settings,
+            defaults: defaults,
+            mapExpandedKey: "composition.mapExpanded"
+        )
+        let referenceMoment = ReferenceMomentController(timeState: TimeState(), presentation: presentation)
+        let selectedEvent = calendarStoreEvent(id: "selected-for-revocation", start: morning)
+        var notificationRemovalCount = 0
+        let store = CalendarStore(
+            provider: provider,
+            clock: clock,
+            onPermissionLost: {
+                CalendarPermissionLossCoordinator.handle(
+                    referenceMoment: referenceMoment,
+                    presentation: presentation
+                )
+            },
+            onRemoveCalendarNotifications: { notificationRemovalCount += 1 }
+        )
+
+        referenceMoment.selectEvent(selectedEvent, sourceZone: TimeZone(secondsFromGMT: 0)!)
+        presentation.attendeePopoverEventID = selectedEvent.id
+        presentation.showAgendaWing = true
+        expectCalendarStoreTrue(!presentation.isMapExpanded, "selected calendar events collapse the map before permission loss")
+
+        provider.authorizationStatus = .denied
+        store.handlePermissionChange()
+
+        expectCalendarStore(referenceMoment.selectedEvent, nil, "permission loss clears the selected event context through the app callback seam")
+        expectCalendarStoreTrue(presentation.isMapExpanded, "permission loss restores the pre-selection map expansion when no manual toggle occurred")
+        expectCalendarStore(presentation.attendeePopoverEventID, nil, "permission loss clears calendar-owned highlight state")
+        expectCalendarStore(presentation.showAgendaWing, false, "permission loss hides the persisted agenda wing")
+        expectCalendarStore(presentation.accessDestination, .recovery, "permission loss routes the shared presentation state to recovery")
+        expectCalendarStore(notificationRemovalCount, 1, "permission loss invokes the notification-removal callback alongside UI cleanup")
+
+        provider.authorizationStatus = .fullAccess
+        store.handlePermissionChange()
+        referenceMoment.selectEvent(selectedEvent, sourceZone: TimeZone(secondsFromGMT: 0)!)
+        presentation.attendeePopoverEventID = selectedEvent.id
+        presentation.toggleMapManually()
+        referenceMoment.didManuallyToggleMap()
+        provider.authorizationStatus = .writeOnly
+        store.handlePermissionChange()
+
+        expectCalendarStore(referenceMoment.selectedEvent, nil, "a later permission loss also clears a manually adjusted selected event")
+        expectCalendarStoreTrue(presentation.isMapExpanded, "permission loss preserves the manual map state after restoration was cancelled")
+        expectCalendarStore(presentation.attendeePopoverEventID, nil, "later permission loss clears the calendar highlight again")
+        expectCalendarStore(notificationRemovalCount, 2, "a later permission loss invokes notification removal again")
+    }
+
+    do {
         let provider = CalendarStoreProviderFake(authorizationStatus: .notDetermined)
         provider.requestAccessHandler = { provider.authorizationStatus = .fullAccess }
         let signals = CalendarStoreClockSignals()
