@@ -54,12 +54,12 @@ This follow-up is code- and package-verified; it was not clicked after the final
 
 ## Current-branch automated and scope evidence
 
-The following checks ran on 2026-09-24 against final code SHA `528e353` immediately before this evidence-refresh documentation-only commit. They establish deterministic/code and package evidence only; they do not substitute for a native privacy, panel, or notification observation.
+The following checks ran on 2026-09-24 against final code SHA `96bfe0d` immediately before this evidence-refresh documentation-only commit. They establish deterministic/code and package evidence only; they do not substitute for a native privacy, panel, or notification observation.
 
 | ID | Command or audit | Result | Boundary |
 | --- | --- | --- | --- |
-| A1 | `cd app && swift run TimeZonerTests` | **558 passed, 0 failed**. | Fakes cover calendar mapping, preferences, presentation, lifecycle, scheduling, and routing; they do not operate macOS permissions or real Calendar data. |
-| A1b | Task 9 bounded full-suite stress: 100 consecutive `swift run TimeZonerTests` executions, each bounded to five seconds | **100/100 passed**. | It demonstrates deterministic test stability after the fan-out test repair; it does not operate macOS permissions, Calendar accounts, native panels, or notification delivery. |
+| A1 | `cd app && swift run TimeZonerTests` | **616 passed, 0 failed**. | Fakes cover calendar mapping, preferences, presentation, lifecycle, scheduling, routing, first-use access, alert-intent races, and independent lead disabling; they do not operate macOS permissions or real Calendar data. |
+| A1b | Final bounded full-suite stress: 20 consecutive `swift run TimeZonerTests` executions | **20/20 passed**. | It demonstrates deterministic test stability after the final alert fan-out repair; it does not operate macOS permissions, Calendar accounts, native panels, or notification delivery. |
 | A2–A4 | `./scripts/build.sh`; `codesign --verify --deep --strict app/TimeZoner.app`; packaged PlistBuddy usage-string check | Passed; the build is ad-hoc signed and the usage string exactly matches the source declaration. | Build/signature/plist proof does not establish prompt timing or authorization persistence. |
 | A5 | `bash scripts/test-install.sh` | Passed; temporary install, resource-layout, and signature checks completed. | Installer regression coverage only. |
 | A6 | `git diff --check` | Passed with no output before the documentation commit. | Whitespace hygiene only. |
@@ -87,7 +87,7 @@ All rows below are **Pending — not performed in this run**. A deterministic te
 | M6 | Verify right-edge, left-edge, narrow-screen popover wing placement and same-display normal-frame restoration. | Pending — not performed in this run. |
 | M7 | Revoke and re-enable Calendar access with visible/selected content; verify clearing, notification cleanup, recovery, and refetch. | Pending — not performed in this run. The probe's denial/recovery result does not certify companion flow. |
 | M8 | Exercise reopen/activation, wake, a local-day boundary where practical, and a current-timezone change. | Pending — not performed in this run. |
-| M9 | Enable global alerts, grant permission, then deny/revoke in a separate pass; verify the recovery state and default lead times. | Pending — not performed in this run. |
+| M9 | Enable global alerts, grant permission, then deny/revoke in a separate pass; verify the recovery state, default lead times, and that clearing either completed lead field disables only that reminder. | Pending — not performed in this run. |
 | M10 | Use eligible near-future events to verify future-only 30- and 10-minute banner/sound delivery while hidden, plus muted/ended/all-day exclusions. | Pending — not performed in this run. |
 | M11 | Click distinct TimeZoner alerts while running, hidden, and cold-started; verify fresh-event selection or the absolute-time fallback exactly once. | Pending — not performed in this run. |
 | M12 | After notification grant, perform a harmless compiled-marker rebuild/reinstall at the same path; then deny/revoke and recover once. | Pending — not performed in this run. |

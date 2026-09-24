@@ -27,16 +27,16 @@
 
 ## Calendar Companion — current branch, not released
 
-Calendar Companion is implemented on the current branch but is not part of the dated `v0.3.0` release described above. It reads the accounts already configured in macOS Calendar through EventKit; it has no Google sign-in, Google Calendar API client, TimeZoner account, or direct network calendar client. macOS requests Full Access to read events, while TimeZoner's Calendar implementation remains read-only: it never creates, changes, deletes, accepts, or declines an event.
+Calendar Companion is implemented on the current branch but is not part of the dated `v0.3.0` release described above. It reads the accounts already configured in macOS Calendar through EventKit; it has no Google sign-in, Google Calendar API client, TimeZoner account, or direct network calendar client. First use presents an in-app explanation, and only the explicit **Enable Calendar Access** action requests macOS Full Access to read events. TimeZoner's Calendar implementation remains read-only: it never creates, changes, deletes, accepts, or declines an event.
 
-The agenda and grid keep event data in memory for presentation. TimeZoner persists normal app settings plus per-calendar identifier-keyed Show/Alerts preferences and alert lead-time settings, not an app-owned event or attendee database. Attendee labels are displayed locally from EventKit values; where a display name is unavailable, the current mapper may use an address-derived label. Optional alerts are a deliberate exception to the in-memory presentation boundary: when enabled, macOS's local notification queue retains the event title, occurrence identifier, and start timestamp for eligible occurrences in the next seven days. The queue supports delivery and response routing; it is not a TimeZoner-owned database.
+The agenda and grid keep event data in memory for presentation. TimeZoner persists normal app settings plus per-calendar identifier-keyed Show/Alerts preferences and alert lead-time settings, not an app-owned event or attendee database. Attendee labels are displayed locally from EventKit values; where a display name is unavailable, the current mapper may use an address-derived label. The two alert leads default to 30 and 10 minutes; a completed empty field disables that one lead without changing its sibling. Optional alerts are a deliberate exception to the in-memory presentation boundary: when enabled, macOS's local notification queue retains the event title, occurrence identifier, and start timestamp for eligible occurrences in the next seven days. The queue supports delivery and response routing; it is not a TimeZoner-owned database. Alert reconciliation and owned-request cleanup are serialized, so a later disable or Calendar-permission loss invalidates stale in-flight work before its owned requests are removed.
 
 ### Current-branch automated and package evidence
 
-Completed on 2026-09-24 against final code SHA `528e353` immediately before this evidence-refresh documentation-only change:
+Completed on 2026-09-24 against final code SHA `96bfe0d` immediately before this evidence-refresh documentation-only change:
 
-- `cd app && swift run TimeZonerTests` — **558 passed, 0 failed**.
-- Task 9 bounded full-suite stress — **100/100 consecutive passes**, with each run bounded to five seconds. This establishes deterministic test stability, not a native macOS notification result.
+- `cd app && swift run TimeZonerTests` — **616 passed, 0 failed**.
+- Final bounded full-suite repeat — **20/20 consecutive passes**. This establishes deterministic test stability, not a native macOS notification result.
 - `./scripts/build.sh` — passed and produced an ad-hoc-signed `app/TimeZoner.app`.
 - `codesign --verify --deep --strict app/TimeZoner.app` — passed.
 - The packaged `NSCalendarsFullAccessUsageDescription` is exactly: `TimeZoner reads your calendars to show upcoming events across your saved time zones.`
