@@ -59,7 +59,13 @@ public final class CalendarPresentationState: EventSelectionPresenting {
 
     public private(set) var isMapExpanded: Bool
     public var isSettingsPresented = false
-    public var attendeePopoverEventID: String?
+    /// The shared event-details identity works for all events, including all-day events with no
+    /// other attendees. The older attendee name remains as a compatibility alias for callers.
+    public var eventDetailPopoverEventID: String?
+    public var attendeePopoverEventID: String? {
+        get { eventDetailPopoverEventID }
+        set { eventDetailPopoverEventID = newValue }
+    }
     public var accessDestination: AccessDestination = .none
     public var mainPanelHugsMenuBar = true
     public var agendaPanelHugsMenuBar = true
@@ -98,7 +104,7 @@ public final class CalendarPresentationState: EventSelectionPresenting {
     }
 
     public var hasOwnedPopover: Bool {
-        isSettingsPresented || attendeePopoverEventID != nil
+        isSettingsPresented || eventDetailPopoverEventID != nil
     }
 
     public func toggleMapManually() {

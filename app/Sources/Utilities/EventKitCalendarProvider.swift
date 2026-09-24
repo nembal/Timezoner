@@ -111,7 +111,8 @@ private enum EventKitCalendarMappings {
         let attendees = eventAttendees.map { attendee in
             CalendarEventAttendee(
                 displayName: attendee.name,
-                email: attendeeEmail(from: attendee.url)
+                email: attendeeEmail(from: attendee.url),
+                isCurrentAccount: attendee.isCurrentUser
             )
         }
         let currentAccountParticipationStatus = CalendarCurrentAccountParticipationMapper.status(

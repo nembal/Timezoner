@@ -66,20 +66,30 @@ public struct CalendarModeView: View {
             }
 
             HStack(spacing: 8) {
-                Button("Previous \(presentation.range.accessibilityName)") {
+                Button {
                     presentation.move(.previous, calendar: calendar)
                     refreshActiveInterval()
+                } label: {
+                    Text("‹")
                 }
                 .buttonStyle(.borderless)
-                .font(.system(size: 11, design: .rounded))
+                .font(.system(size: 16, weight: .medium, design: .rounded))
+                .accessibilityLabel("Previous \(presentation.range.accessibilityName)")
                 .help("Previous \(presentation.range.accessibilityName)")
 
-                Button("Next \(presentation.range.accessibilityName)") {
+                Text(headerTitle)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Theme.textPrimary)
+
+                Button {
                     presentation.move(.next, calendar: calendar)
                     refreshActiveInterval()
+                } label: {
+                    Text("›")
                 }
                 .buttonStyle(.borderless)
-                .font(.system(size: 11, design: .rounded))
+                .font(.system(size: 16, weight: .medium, design: .rounded))
+                .accessibilityLabel("Next \(presentation.range.accessibilityName)")
                 .help("Next \(presentation.range.accessibilityName)")
 
                 Button("Today") {
@@ -92,7 +102,7 @@ public struct CalendarModeView: View {
 
                 Spacer(minLength: 0)
 
-                Text(intervalFormatter.string(from: activeInterval.start))
+                Text(visibleDateRange)
                     .font(.system(size: 11, weight: .medium, design: .rounded))
                     .foregroundStyle(Theme.textSecondary)
             }
@@ -112,7 +122,9 @@ public struct CalendarModeView: View {
                         uniqueKeysWithValues: calendarStore.descriptors.map { ($0.id, $0.color) }
                     ),
                     calendar: calendar,
-                    onSelectTimedEvent: selectTimedEvent
+                    onSelectTimedEvent: selectTimedEvent,
+                    eventDetailPopoverEventID: eventDetailPopoverEventID,
+                    onShowEventDetails: showEventDetails
                 )
             } else if calendarStore.isLoading {
                 ProgressView("Loading calendar…")
@@ -154,13 +166,31 @@ public struct CalendarModeView: View {
         onReturnToTimeZoner()
     }
 
-    private var intervalFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.locale = .current
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = presentation.range == .week ? "MMM d" : "EEEE, MMM d"
-        return formatter
+    private func showEventDetails(_ event: CalendarEventSnapshot) {
+        guard CalendarEventActivationPolicy.action(for: event) == .showDetails else { return }
+        presentation.eventDetailPopoverEventID = event.id
+    }
+
+    private var eventDetailPopoverEventID: Binding<String?> {
+        Binding(
+            get: { presentation.eventDetailPopoverEventID },
+            set: { presentation.eventDetailPopoverEventID = $0 }
+        )
+    }
+
+    private var headerTitle: String {
+        CalendarRangeHeaderPresentation.title(
+            for: presentation.range,
+            interval: activeInterval,
+            calendar: calendar
+        )
+    }
+
+    private var visibleDateRange: String {
+        CalendarRangeHeaderPresentation.visibleDateRange(
+            for: activeInterval,
+            calendar: calendar
+        )
     }
 }
 

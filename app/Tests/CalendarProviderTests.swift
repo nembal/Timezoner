@@ -274,7 +274,9 @@ func runCalendarProviderTests() {
         endDate: end,
         isAllDay: false,
         attendees: [
+            CalendarEventAttendee(displayName: "Me", email: "me@example.com", isCurrentAccount: true),
             CalendarEventAttendee(displayName: "  Ada Lovelace ", email: "ada@example.com"),
+            CalendarEventAttendee(displayName: "ADA LOVELACE", email: "ada-duplicate@example.com"),
             CalendarEventAttendee(displayName: nil, email: "grace@example.com"),
             CalendarEventAttendee(displayName: "   ", email: nil)
         ],
@@ -282,7 +284,11 @@ func runCalendarProviderTests() {
         currentAccountParticipationStatus: .pending,
         isCancelled: false
     ))
-    expectEqualCalendar(attendees?.attendeeNames, ["Ada Lovelace", "grace@example.com"], "attendee names prefer display name then email fallback")
+    expectEqualCalendar(
+        attendees?.attendeeNames,
+        ["Ada Lovelace", "grace@example.com"],
+        "attendee names exclude the current account, prefer display-name/email fallback, and deduplicate case-insensitively"
+    )
     expectEqualCalendar(attendees?.availability, .tentative, "tentative availability remains tentative")
     expectEqualCalendar(attendees?.participationStatus, .pending, "current-account participation status is preserved")
 }

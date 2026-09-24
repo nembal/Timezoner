@@ -383,6 +383,42 @@ func runCalendarPresentationStateTests() {
     expectCalendarPresentation(currentTime?.dayIndex, 1, "current-time marker appears in the matching visible day column")
     expectCalendarPresentation(currentTime?.y, 702, "current-time marker uses local wall-clock geometry")
 
+    expectCalendarPresentation(
+        CalendarGridMetrics.todayColumnIndex(
+            now: calendarPresentationDate(calendar, year: 2024, month: 5, day: 16, hour: 13, minute: 30),
+            dayStarts: [firstGridDay, secondGridDay, thirdGridDay],
+            calendar: calendar
+        ),
+        1,
+        "today-column highlighting uses the matching local visible day"
+    )
+    expectCalendarPresentation(
+        CalendarGridMetrics.todayColumnIndex(
+            now: calendarPresentationDate(calendar, year: 2024, month: 5, day: 12, hour: 13),
+            dayStarts: [firstGridDay, secondGridDay, thirdGridDay],
+            calendar: calendar
+        ),
+        nil,
+        "today-column highlighting is absent when Today is outside the visible interval"
+    )
+    let springForwardThreeDayInterval = DateInterval(
+        start: calendarPresentationDate(newYorkCalendar, year: 2024, month: 3, day: 9),
+        end: calendarPresentationDate(newYorkCalendar, year: 2024, month: 3, day: 12)
+    )
+    let springForwardDayStarts = CalendarGridMetrics.dayStarts(
+        in: springForwardThreeDayInterval,
+        calendar: newYorkCalendar
+    )
+    expectCalendarPresentation(
+        CalendarGridMetrics.todayColumnIndex(
+            now: calendarPresentationDate(newYorkCalendar, year: 2024, month: 3, day: 10, hour: 16),
+            dayStarts: springForwardDayStarts,
+            calendar: newYorkCalendar
+        ),
+        1,
+        "today-column highlighting compares local calendar days across spring-forward rather than elapsed duration"
+    )
+
     let muted = CalendarGridColor.displayColor(
         from: CalendarColor(red: 1, green: 0, blue: 0, alpha: 1)
     )

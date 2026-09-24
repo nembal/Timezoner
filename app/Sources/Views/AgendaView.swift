@@ -5,6 +5,7 @@ import SwiftUI
 public struct AgendaTimedEventPresentation: Equatable, Sendable {
     public let timeRange: String
     public let calendarTitle: String
+    public let metadata: String
 
     public init(event: CalendarEventSnapshot, timeZone: TimeZone, locale: Locale = .current) {
         let formatter = DateFormatter()
@@ -19,6 +20,157 @@ public struct AgendaTimedEventPresentation: Equatable, Sendable {
 
         timeRange = "\(formatter.string(from: event.startDate)) – \(formatter.string(from: event.endDate)) \(zoneFormatter.string(from: event.startDate))"
         calendarTitle = event.calendarTitle
+        metadata = "\(timeRange) · \(calendarTitle)"
+    }
+}
+
+public enum AgendaDay: String, CaseIterable, Equatable, Sendable {
+    case today
+    case tomorrow
+
+    public var title: String {
+        switch self {
+        case .today: "Today"
+        case .tomorrow: "Tomorrow"
+        }
+    }
+
+    public var emptyMessage: String {
+        switch self {
+        case .today: "Nothing scheduled today"
+        case .tomorrow: "Nothing scheduled tomorrow"
+        }
+    }
+}
+
+/// Value-only agenda grouping. It deliberately derives both days from one injected Calendar and
+/// snapshot, keeping range ownership in CalendarStore rather than creating another state graph.
+public struct AgendaDayPresentation: Equatable, Sendable {
+    public let day: AgendaDay
+    public let allDayEvents: [CalendarEventSnapshot]
+    public let earlierTimedEvents: [CalendarEventSnapshot]
+    public let timedEvents: [CalendarEventSnapshot]
+
+    public var isEmpty: Bool {
+        allDayEvents.isEmpty && earlierTimedEvents.isEmpty && timedEvents.isEmpty
+    }
+
+    public var emptyMessage: String { day.emptyMessage }
+
+    public static func sections(
+        events: [CalendarEventSnapshot],
+        now: Date,
+        calendar: Calendar
+    ) -> [AgendaDayPresentation] {
+        AgendaDay.allCases.map { day in
+            let date = day == .today
+                ? now
+                : calendar.date(byAdding: .day, value: 1, to: now) ?? now
+            let dayEvents = eventsForDay(date, from: events, calendar: calendar)
+            let allDayEvents = dayEvents.filter(\.isAllDay)
+            let timed = dayEvents.filter { !$0.isAllDay }
+            let earlierTimedEvents = day == .today
+                ? timed.filter { $0.endDate <= now }
+                : []
+            let timedEvents = day == .today
+                ? timed.filter { $0.endDate > now }
+                : timed
+            return AgendaDayPresentation(
+                day: day,
+                allDayEvents: allDayEvents,
+                earlierTimedEvents: earlierTimedEvents,
+                timedEvents: timedEvents
+            )
+        }
+    }
+
+    private static func eventsForDay(_ day: Date, from events: [CalendarEventSnapshot], calendar: Calendar) -> [CalendarEventSnapshot] {
+        guard let interval = calendar.dateInterval(of: .day, for: day) else { return [] }
+        return events
+            .filter { $0.startDate < interval.end && $0.endDate > interval.start }
+            .sorted { left, right in
+                if left.isAllDay != right.isAllDay { return left.isAllDay }
+                if left.startDate != right.startDate { return left.startDate < right.startDate }
+                return left.id < right.id
+            }
+    }
+}
+
+public enum AgendaParticipantPresentation {
+    public static func summary(for names: [String], maximumVisibleNames: Int = 2) -> String? {
+        guard !names.isEmpty else { return nil }
+        let visible = names.prefix(maximumVisibleNames).joined(separator: ", ")
+        let remaining = names.count - min(names.count, maximumVisibleNames)
+        return remaining > 0 ? "\(visible) + \(remaining)" : visible
+    }
+}
+
+/// The read-only information shown by every all-day detail popover. It makes the useful
+/// no-attendee case explicit and remains independent of EventKit and SwiftUI.
+public struct CalendarEventDetailsPresentation: Equatable, Sendable {
+    public let title: String
+    public let metadata: String
+    public let participantNames: [String]
+    public let participantSummary: String
+
+    public init(event: CalendarEventSnapshot, timeZone: TimeZone, locale: Locale = .current) {
+        title = event.title
+        metadata = event.isAllDay
+            ? "All-day · \(event.calendarTitle)"
+            : AgendaTimedEventPresentation(event: event, timeZone: timeZone, locale: locale).metadata
+        participantNames = event.attendeeNames
+        participantSummary = AgendaParticipantPresentation.summary(for: event.attendeeNames) ?? "No other participants"
+    }
+}
+
+public struct CalendarEventDetailsPopover: View {
+    public let event: CalendarEventSnapshot
+    public let timeZone: TimeZone
+    public let locale: Locale
+
+    public init(event: CalendarEventSnapshot, timeZone: TimeZone, locale: Locale = .current) {
+        self.event = event
+        self.timeZone = timeZone
+        self.locale = locale
+    }
+
+    private var details: CalendarEventDetailsPresentation {
+        CalendarEventDetailsPresentation(event: event, timeZone: timeZone, locale: locale)
+    }
+
+    public var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(details.title)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(Theme.textPrimary)
+            Text(details.metadata)
+                .font(.system(size: 11, design: .rounded))
+                .foregroundStyle(Theme.textSecondary)
+
+            Text("Participants")
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .foregroundStyle(Theme.textSecondary)
+                .padding(.top, 3)
+            if details.participantNames.isEmpty {
+                Text(details.participantSummary)
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundStyle(Theme.textTertiary)
+            } else {
+                ScrollView(.vertical) {
+                    LazyVStack(alignment: .leading, spacing: 7) {
+                        ForEach(details.participantNames, id: \.self) { name in
+                            Text(name)
+                                .font(.system(size: 12, design: .rounded))
+                                .foregroundStyle(Theme.textSecondary)
+                        }
+                    }
+                }
+                .frame(maxHeight: 220)
+                .accessibilityLabel("Participant list")
+            }
+        }
+        .padding(12)
+        .frame(minWidth: 190, alignment: .leading)
     }
 }
 
@@ -79,7 +231,7 @@ public struct AgendaView: View {
             topTrailingRadius: presentation.agendaPanelHugsMenuBar ? 0 : 12,
             style: .continuous
         ))
-        .onChange(of: presentation.attendeePopoverEventID) {
+        .onChange(of: presentation.eventDetailPopoverEventID) {
             onOwnedPopoverChanged(presentation.hasOwnedPopover)
         }
         .onKeyPress(.escape) {
@@ -121,12 +273,13 @@ public struct AgendaView: View {
     }
 
     private var agendaContent: some View {
-        let events = calendarStore.events(on: calendarStore.currentDate)
-        let allDayEvents = events.filter(\.isAllDay)
-        let earlierEvents = events.filter { !$0.isAllDay && $0.endDate <= calendarStore.currentDate }
-        let remainingEvents = events.filter { !$0.isAllDay && $0.endDate > calendarStore.currentDate }
+        let sections = AgendaDayPresentation.sections(
+            events: calendarStore.events,
+            now: calendarStore.currentDate,
+            calendar: calendarStore.localCalendar
+        )
         let contentState = AgendaContentState.resolve(
-            events: events,
+            events: calendarStore.events,
             isLoading: calendarStore.isLoading,
             errorMessage: calendarStore.errorMessage
         )
@@ -145,33 +298,12 @@ public struct AgendaView: View {
             case .errorWithoutEvents(let error):
                 failedEmptyState(error)
             case .agenda:
-                ForEach(allDayEvents) { event in
-                    eventRow(event, selectable: false)
-                }
-
-                if !earlierEvents.isEmpty {
-                    DisclosureGroup("Earlier today", isExpanded: $showEarlier) {
-                        VStack(spacing: 7) {
-                            ForEach(earlierEvents) { event in
-                                eventRow(event, selectable: true)
-                            }
-                        }
-                        .padding(.top, 7)
-                    }
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(Theme.textTertiary)
-                }
-
-                ForEach(remainingEvents) { event in
-                    eventRow(event, selectable: true)
-                }
-
-                if allDayEvents.isEmpty && remainingEvents.isEmpty {
-                    emptyState
+                ForEach(sections, id: \.day) { section in
+                    agendaDaySection(section)
                 }
             }
 
-            if calendarStore.isStale && !events.isEmpty {
+            if calendarStore.isStale && !calendarStore.events.isEmpty {
                 Label("Showing the last available calendar snapshot.", systemImage: "arrow.clockwise")
                     .font(.system(size: 11, design: .rounded))
                     .foregroundStyle(Theme.textTertiary)
@@ -201,25 +333,45 @@ public struct AgendaView: View {
     }
 
     @ViewBuilder
-    private var emptyState: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Clear for the rest of today")
-                .font(.system(size: 12, weight: .medium, design: .rounded))
+    private func agendaDaySection(_ section: AgendaDayPresentation) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(section.day.title)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(Theme.textSecondary)
 
-            if let tomorrow = nextVisibleEventTomorrow {
-                Text("Tomorrow · \(timeFormatter.string(from: tomorrow.startDate)) · \(tomorrow.title)")
+            if section.isEmpty {
+                Text(section.emptyMessage)
                     .font(.system(size: 11, design: .rounded))
                     .foregroundStyle(Theme.textTertiary)
-                    .lineLimit(2)
+                    .padding(.vertical, 7)
+            } else {
+                ForEach(section.allDayEvents) { event in
+                    eventRow(event)
+                }
+
+                if section.day == .today, !section.earlierTimedEvents.isEmpty {
+                    DisclosureGroup("Earlier today", isExpanded: $showEarlier) {
+                        VStack(spacing: 7) {
+                            ForEach(section.earlierTimedEvents) { event in
+                                eventRow(event)
+                            }
+                        }
+                        .padding(.top, 7)
+                    }
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(Theme.textTertiary)
+                }
+
+                ForEach(section.timedEvents) { event in
+                    eventRow(event)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.vertical, 12)
     }
 
     @ViewBuilder
-    private func eventRow(_ event: CalendarEventSnapshot, selectable: Bool) -> some View {
+    private func eventRow(_ event: CalendarEventSnapshot) -> some View {
         let selected = referenceMoment.selectedEvent?.id == event.id
         let color = calendarColor(for: event)
         HStack(alignment: .top, spacing: 7) {
@@ -229,7 +381,8 @@ public struct AgendaView: View {
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 3) {
-                if selectable {
+                switch CalendarEventActivationPolicy.action(for: event) {
+                case .selectReferenceMoment:
                     Button {
                         referenceMoment.selectEvent(event, sourceZone: .current)
                     } label: {
@@ -238,22 +391,21 @@ public struct AgendaView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel(eventAccessibilityLabel(event))
                     .accessibilityHint("Sets TimeZoner to this event start")
-                } else {
-                    eventTextContent(event)
-                        .accessibilityElement(children: .combine)
-                        .accessibilityLabel("\(event.title), all-day, \(event.calendarTitle). Does not set a time.")
-                }
-
-                if !event.attendeeNames.isEmpty {
-                    Button(attendeeSummary(for: event)) {
-                        presentation.attendeePopoverEventID = event.id
+                case .showDetails:
+                    Button {
+                        presentation.eventDetailPopoverEventID = event.id
+                        onOwnedPopoverChanged(presentation.hasOwnedPopover)
+                    } label: {
+                        eventTextContent(event)
                     }
                     .buttonStyle(.borderless)
-                    .font(.system(size: 10, design: .rounded))
-                    .foregroundStyle(Theme.textTertiary)
-                    .lineLimit(1)
-                    .popover(isPresented: attendeePopoverBinding(for: event), arrowEdge: .bottom) {
-                        attendeePopover(for: event)
+                    .accessibilityLabel(eventAccessibilityLabel(event))
+                    .accessibilityHint("Opens event details. Does not set a time.")
+                    .popover(isPresented: eventDetailPopoverBinding(for: event), arrowEdge: .bottom) {
+                        CalendarEventDetailsPopover(
+                            event: event,
+                            timeZone: calendarStore.localCalendar.timeZone
+                        )
                     }
                 }
             }
@@ -270,7 +422,11 @@ public struct AgendaView: View {
     }
 
     private func eventTextContent(_ event: CalendarEventSnapshot) -> some View {
-        let timedDetails = AgendaTimedEventPresentation(event: event, timeZone: .current)
+        let timedDetails = AgendaTimedEventPresentation(
+            event: event,
+            timeZone: calendarStore.localCalendar.timeZone
+        )
+        let metadata = event.isAllDay ? "All-day · \(event.calendarTitle)" : timedDetails.metadata
         return VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(event.title)
@@ -280,54 +436,32 @@ public struct AgendaView: View {
                 Spacer(minLength: 0)
             }
 
-            Text(event.isAllDay ? "All-day" : timedDetails.timeRange)
+            Text(metadata)
                 .font(.system(size: 10, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
                 .lineLimit(1)
 
-            Text(timedDetails.calendarTitle)
-                .font(.system(size: 10, design: .rounded))
-                .foregroundStyle(Theme.textTertiary)
-                .lineLimit(1)
+            if let participantSummary = AgendaParticipantPresentation.summary(for: event.attendeeNames) {
+                Text(participantSummary)
+                    .font(.system(size: 10, design: .rounded))
+                    .foregroundStyle(Theme.textTertiary)
+                    .lineLimit(1)
+            }
         }
     }
 
-    private func attendeePopoverBinding(for event: CalendarEventSnapshot) -> Binding<Bool> {
+    private func eventDetailPopoverBinding(for event: CalendarEventSnapshot) -> Binding<Bool> {
         Binding(
-            get: { presentation.attendeePopoverEventID == event.id },
+            get: { presentation.eventDetailPopoverEventID == event.id },
             set: { isPresented in
-                presentation.attendeePopoverEventID = isPresented ? event.id : nil
+                if isPresented {
+                    presentation.eventDetailPopoverEventID = event.id
+                } else if presentation.eventDetailPopoverEventID == event.id {
+                    presentation.eventDetailPopoverEventID = nil
+                }
                 onOwnedPopoverChanged(presentation.hasOwnedPopover)
             }
         )
-    }
-
-    private func attendeePopover(for event: CalendarEventSnapshot) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text("Attendees")
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
-                .foregroundStyle(Theme.textPrimary)
-            ScrollView(.vertical) {
-                LazyVStack(alignment: .leading, spacing: 7) {
-                    ForEach(event.attendeeNames, id: \.self) { name in
-                        Text(name)
-                            .font(.system(size: 12, design: .rounded))
-                            .foregroundStyle(Theme.textSecondary)
-                    }
-                }
-            }
-            .frame(maxHeight: 220)
-            .accessibilityLabel("Attendee list")
-        }
-        .padding(12)
-        .frame(minWidth: 170, alignment: .leading)
-    }
-
-    private func attendeeSummary(for event: CalendarEventSnapshot) -> String {
-        let names = event.attendeeNames
-        let visible = names.prefix(2).joined(separator: ", ")
-        let remaining = names.count - min(names.count, 2)
-        return remaining > 0 ? "\(visible) + \(remaining)" : visible
     }
 
     private func calendarColor(for event: CalendarEventSnapshot) -> Color {
@@ -339,33 +473,19 @@ public struct AgendaView: View {
     }
 
     private func eventAccessibilityLabel(_ event: CalendarEventSnapshot) -> String {
-        let details = AgendaTimedEventPresentation(event: event, timeZone: .current)
-        return "\(event.title), \(details.timeRange), \(details.calendarTitle)"
-    }
-
-    private var nextVisibleEventTomorrow: CalendarEventSnapshot? {
-        let calendar = Calendar.autoupdatingCurrent
-        guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: calendarStore.currentDate),
-              let activeInterval = calendarStore.activeInterval,
-              activeInterval.contains(tomorrow) else {
-            return nil
-        }
-        return calendarStore.events(on: tomorrow).first
+        let details = CalendarEventDetailsPresentation(
+            event: event,
+            timeZone: calendarStore.localCalendar.timeZone
+        )
+        return "\(details.title), \(details.metadata)"
     }
 
     private var dayFormatter: DateFormatter {
         let formatter = DateFormatter()
+        formatter.calendar = calendarStore.localCalendar
         formatter.locale = .current
-        formatter.timeZone = .current
+        formatter.timeZone = calendarStore.localCalendar.timeZone
         formatter.dateFormat = "EEEE, MMM d"
-        return formatter
-    }
-
-    private var timeFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = .current
-        formatter.timeZone = .current
-        formatter.dateFormat = "h:mm a"
         return formatter
     }
 }

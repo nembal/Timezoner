@@ -10,6 +10,46 @@ private func expectAgendaPresentation(_ condition: Bool, _ label: String, line: 
     }
 }
 
+private func agendaPresentationDate(
+    _ calendar: Calendar,
+    year: Int,
+    month: Int,
+    day: Int,
+    hour: Int = 0,
+    minute: Int = 0
+) -> Date {
+    calendar.date(from: DateComponents(
+        calendar: calendar,
+        timeZone: calendar.timeZone,
+        year: year,
+        month: month,
+        day: day,
+        hour: hour,
+        minute: minute
+    ))!
+}
+
+private func agendaPresentationEvent(
+    id: String,
+    start: Date,
+    end: Date,
+    isAllDay: Bool = false,
+    attendeeNames: [String] = []
+) -> CalendarEventSnapshot {
+    CalendarEventSnapshot(
+        id: id,
+        calendarID: "work",
+        calendarTitle: "Work",
+        title: id,
+        startDate: start,
+        endDate: end,
+        isAllDay: isAllDay,
+        attendeeNames: attendeeNames,
+        availability: .busy,
+        participationStatus: .accepted
+    )
+}
+
 func runAgendaPresentationTests() {
     print("Running AgendaPresentationTests...")
 
@@ -58,5 +98,97 @@ func runAgendaPresentationTests() {
     expectAgendaPresentation(
         timedDetails.calendarTitle == "Work",
         "timed agenda rows retain the event calendar title"
+    )
+    expectAgendaPresentation(
+        timedDetails.metadata == "9:00 AM – 10:30 AM EDT · Work",
+        "timed agenda rows combine the time range and calendar into compact metadata"
+    )
+
+    let now = agendaPresentationDate(newYork, year: 2024, month: 5, day: 15, hour: 12)
+    let allDayToday = agendaPresentationEvent(
+        id: "all-day-today",
+        start: agendaPresentationDate(newYork, year: 2024, month: 5, day: 15),
+        end: agendaPresentationDate(newYork, year: 2024, month: 5, day: 16),
+        isAllDay: true
+    )
+    let earlierToday = agendaPresentationEvent(
+        id: "earlier-today",
+        start: agendaPresentationDate(newYork, year: 2024, month: 5, day: 15, hour: 9),
+        end: agendaPresentationDate(newYork, year: 2024, month: 5, day: 15, hour: 10)
+    )
+    let laterToday = agendaPresentationEvent(
+        id: "later-today",
+        start: agendaPresentationDate(newYork, year: 2024, month: 5, day: 15, hour: 15),
+        end: agendaPresentationDate(newYork, year: 2024, month: 5, day: 15, hour: 16)
+    )
+    let tomorrowMorning = agendaPresentationEvent(
+        id: "tomorrow-morning",
+        start: agendaPresentationDate(newYork, year: 2024, month: 5, day: 16, hour: 9),
+        end: agendaPresentationDate(newYork, year: 2024, month: 5, day: 16, hour: 10)
+    )
+    let sections = AgendaDayPresentation.sections(
+        events: [tomorrowMorning, laterToday, allDayToday, earlierToday],
+        now: now,
+        calendar: newYork
+    )
+    let todaySection = sections.first { $0.day == .today }
+    let tomorrowSection = sections.first { $0.day == .tomorrow }
+    expectAgendaPresentation(
+        todaySection?.allDayEvents.map(\.id) == ["all-day-today"]
+            && todaySection?.earlierTimedEvents.map(\.id) == ["earlier-today"]
+            && todaySection?.timedEvents.map(\.id) == ["later-today"],
+        "Today keeps all-day rows first and isolates earlier timed rows for the existing disclosure"
+    )
+    expectAgendaPresentation(
+        tomorrowSection?.allDayEvents.isEmpty == true
+            && tomorrowSection?.earlierTimedEvents.isEmpty == true
+            && tomorrowSection?.timedEvents.map(\.id) == ["tomorrow-morning"],
+        "Tomorrow is a complete independent section and is never split into earlier and remaining events"
+    )
+
+    let tomorrowOnlySections = AgendaDayPresentation.sections(
+        events: [tomorrowMorning],
+        now: now,
+        calendar: newYork
+    )
+    expectAgendaPresentation(
+        tomorrowOnlySections.first { $0.day == .today }?.isEmpty == true
+            && tomorrowOnlySections.first { $0.day == .today }?.emptyMessage == "Nothing scheduled today",
+        "an empty Today section remains intentional when Tomorrow has events"
+    )
+    expectAgendaPresentation(
+        tomorrowOnlySections.first { $0.day == .tomorrow }?.isEmpty == false,
+        "a populated Tomorrow section remains visible when Today is empty"
+    )
+    let bothEmptySections = AgendaDayPresentation.sections(events: [], now: now, calendar: newYork)
+    expectAgendaPresentation(
+        bothEmptySections.map(\.emptyMessage) == ["Nothing scheduled today", "Nothing scheduled tomorrow"],
+        "each agenda day owns an explicit empty state"
+    )
+
+    expectAgendaPresentation(
+        AgendaParticipantPresentation.summary(for: ["Ada", "Grace", "Lin"]) == "Ada, Grace + 1",
+        "participant summaries retain the first names and indicate remaining participants"
+    )
+    expectAgendaPresentation(
+        AgendaParticipantPresentation.summary(for: []) == nil,
+        "events without participants do not render an empty participant line"
+    )
+
+    let allDayDetails = CalendarEventDetailsPresentation(
+        event: allDayToday,
+        timeZone: newYork.timeZone,
+        locale: newYork.locale!
+    )
+    expectAgendaPresentation(
+        allDayDetails.title == "all-day-today"
+            && allDayDetails.metadata == "All-day · Work"
+            && allDayDetails.participantSummary == "No other participants",
+        "all-day event details remain useful even when there are no other participants"
+    )
+    expectAgendaPresentation(
+        CalendarEventActivationPolicy.action(for: event) == .selectReferenceMoment
+            && CalendarEventActivationPolicy.action(for: allDayToday) == .showDetails,
+        "timed activation retains reference selection while all-day activation is details-only"
     )
 }

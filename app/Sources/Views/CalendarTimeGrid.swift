@@ -294,6 +294,16 @@ public enum CalendarGridMetrics {
             y: wallMinute(for: now, on: dayStarts[dayIndex], calendar: calendar) / 60 * hourHeight
         )
     }
+
+    /// Identity-only companion to the current-time line. A Date must match a local visible day,
+    /// not a fixed elapsed duration or a presentation anchor, before the decorative tint appears.
+    public static func todayColumnIndex(
+        now: Date,
+        dayStarts: [Date],
+        calendar: Calendar
+    ) -> Int? {
+        dayStarts.firstIndex { calendar.isDate($0, inSameDayAs: now) }
+    }
 }
 
 /// Read-only, local-time grid. Event geometry is deliberately driven by the pure Task 2 layout
@@ -305,6 +315,8 @@ public struct CalendarTimeGrid: View {
     public let descriptorColors: [String: CalendarColor]
     public let calendar: Calendar
     public let onSelectTimedEvent: (CalendarEventSnapshot) -> Void
+    public let eventDetailPopoverEventID: Binding<String?>
+    public let onShowEventDetails: (CalendarEventSnapshot) -> Void
 
     public init(
         interval: DateInterval,
@@ -312,7 +324,9 @@ public struct CalendarTimeGrid: View {
         currentDate: Date,
         descriptorColors: [String: CalendarColor],
         calendar: Calendar,
-        onSelectTimedEvent: @escaping (CalendarEventSnapshot) -> Void
+        onSelectTimedEvent: @escaping (CalendarEventSnapshot) -> Void,
+        eventDetailPopoverEventID: Binding<String?>,
+        onShowEventDetails: @escaping (CalendarEventSnapshot) -> Void
     ) {
         self.interval = interval
         self.events = events
@@ -320,6 +334,8 @@ public struct CalendarTimeGrid: View {
         self.descriptorColors = descriptorColors
         self.calendar = calendar
         self.onSelectTimedEvent = onSelectTimedEvent
+        self.eventDetailPopoverEventID = eventDetailPopoverEventID
+        self.onShowEventDetails = onShowEventDetails
     }
 
     private var dayStarts: [Date] {
@@ -374,13 +390,22 @@ public struct CalendarTimeGrid: View {
                 .foregroundStyle(Theme.textTertiary)
                 .frame(width: CalendarGridMetrics.timeRulerWidth, alignment: .trailing)
                 .padding(.trailing, 6)
-            ForEach(dayStarts, id: \.self) { day in
-                VStack(spacing: 2) {
-                    Text(dayFormatter.string(from: day))
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    Text(dayNumberFormatter.string(from: day))
-                        .font(.system(size: 10, design: .rounded))
-                        .foregroundStyle(Theme.textTertiary)
+            ForEach(Array(dayStarts.enumerated()), id: \.element) { index, day in
+                ZStack {
+                    if CalendarGridMetrics.todayColumnIndex(
+                        now: currentDate,
+                        dayStarts: dayStarts,
+                        calendar: calendar
+                    ) == index {
+                        todayColumnFill(width: dayWidth, height: 44)
+                    }
+                    VStack(spacing: 2) {
+                        Text(dayFormatter.string(from: day))
+                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        Text(dayNumberFormatter.string(from: day))
+                            .font(.system(size: 10, design: .rounded))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
                 }
                 .frame(width: dayWidth)
             }
@@ -393,6 +418,8 @@ public struct CalendarTimeGrid: View {
         let dayWidth = dayColumnWidth(totalWidth: totalWidth, dayCount: dayStarts.count)
         let height = CGFloat(allDayRowCount) * 22
         return ZStack(alignment: .topLeading) {
+            todayColumnFill(dayStarts: dayStarts, dayWidth: dayWidth, height: height)
+
             Text("All-day")
                 .font(.system(size: 10, weight: .medium, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
@@ -419,6 +446,8 @@ public struct CalendarTimeGrid: View {
         let contentHeight = 24 * CalendarGridMetrics.hourHeight
         let dayWidth = dayColumnWidth(totalWidth: totalWidth, dayCount: dayStarts.count)
         return ZStack(alignment: .topLeading) {
+            todayColumnFill(dayStarts: dayStarts, dayWidth: dayWidth, height: contentHeight)
+
             ForEach(0 ... 24, id: \.self) { hour in
                 hourRule(hour: hour, totalWidth: totalWidth)
                     .id("calendar-hour-\(hour)")
@@ -494,21 +523,29 @@ public struct CalendarTimeGrid: View {
 
     private func allDayLabel(for event: CalendarEventSnapshot) -> some View {
         let color = calendarColor(for: event)
-        return HStack(spacing: 5) {
-            Rectangle()
-                .fill(color)
-                .frame(width: CalendarGridColor.leadingIndicatorWidth)
-            Text(event.title)
-                .font(.system(size: 10, weight: .medium, design: .rounded))
-                .foregroundStyle(Theme.textPrimary)
-                .lineLimit(1)
-                .truncationMode(.tail)
-            Spacer(minLength: 0)
+        return Button {
+            onShowEventDetails(event)
+        } label: {
+            HStack(spacing: 5) {
+                Rectangle()
+                    .fill(color)
+                    .frame(width: CalendarGridColor.leadingIndicatorWidth)
+                Text(event.title)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
+            }
+            .padding(.trailing, 4)
+            .background(color.opacity(CalendarGridColor.fillOpacity), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
-        .padding(.trailing, 4)
-        .background(color.opacity(CalendarGridColor.fillOpacity), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(event.title), all-day, \(event.calendarTitle). Does not set a time.")
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(event.title), all-day, \(event.calendarTitle)")
+        .accessibilityHint("Opens event details. Does not set a time.")
+        .popover(isPresented: eventDetailPopoverBinding(for: event), arrowEdge: .bottom) {
+            CalendarEventDetailsPopover(event: event, timeZone: calendar.timeZone)
+        }
         .opacity(CalendarEventPresentationStyle.opacity(for: event))
     }
 
@@ -588,6 +625,39 @@ public struct CalendarTimeGrid: View {
     private func dayColumnWidth(totalWidth: CGFloat, dayCount: Int) -> CGFloat {
         guard dayCount > 0 else { return 0 }
         return max((totalWidth - CalendarGridMetrics.timeRulerWidth) / CGFloat(dayCount), 0)
+    }
+
+    @ViewBuilder
+    private func todayColumnFill(dayStarts: [Date], dayWidth: CGFloat, height: CGFloat) -> some View {
+        if let dayIndex = CalendarGridMetrics.todayColumnIndex(
+            now: currentDate,
+            dayStarts: dayStarts,
+            calendar: calendar
+        ) {
+            todayColumnFill(width: dayWidth, height: height)
+                .offset(x: CalendarGridMetrics.timeRulerWidth + CGFloat(dayIndex) * dayWidth)
+        }
+    }
+
+    private func todayColumnFill(width: CGFloat, height: CGFloat) -> some View {
+        Rectangle()
+            .fill(Theme.accent.opacity(0.07))
+            .frame(width: width, height: height)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+    }
+
+    private func eventDetailPopoverBinding(for event: CalendarEventSnapshot) -> Binding<Bool> {
+        Binding(
+            get: { eventDetailPopoverEventID.wrappedValue == event.id },
+            set: { isPresented in
+                if isPresented {
+                    eventDetailPopoverEventID.wrappedValue = event.id
+                } else if eventDetailPopoverEventID.wrappedValue == event.id {
+                    eventDetailPopoverEventID.wrappedValue = nil
+                }
+            }
+        )
     }
 
     private func calendarColor(for event: CalendarEventSnapshot) -> Color {

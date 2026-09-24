@@ -139,4 +139,80 @@ func runCalendarRangeTests() {
         calendarRangeDate(mondayFirstCalendar, year: 2024, month: 5, day: 22, hour: 16),
         "next week navigation moves one locale week"
     )
+
+    var isoLikeCalendar = utcCalendar
+    isoLikeCalendar.firstWeekday = 2
+    isoLikeCalendar.minimumDaysInFirstWeek = 4
+    let yearBoundaryAnchor = calendarRangeDate(isoLikeCalendar, year: 2021, month: 1, day: 3, hour: 12)
+    let yearBoundaryWeek = CalendarDateIntervalCalculator.interval(
+        for: .week,
+        anchor: yearBoundaryAnchor,
+        calendar: isoLikeCalendar
+    )
+    expectCalendarRangeEqual(
+        CalendarRangeHeaderPresentation.title(for: .week, interval: yearBoundaryWeek, calendar: isoLikeCalendar),
+        "Week 53",
+        "week headers use the injected calendar week number at a calendar-year boundary"
+    )
+
+    var sundayFirstCalendar = utcCalendar
+    sundayFirstCalendar.firstWeekday = 1
+    sundayFirstCalendar.minimumDaysInFirstWeek = 1
+    let sundayFirstWeek = CalendarDateIntervalCalculator.interval(
+        for: .week,
+        anchor: yearBoundaryAnchor,
+        calendar: sundayFirstCalendar
+    )
+    expectCalendarRangeEqual(
+        CalendarRangeHeaderPresentation.title(for: .week, interval: sundayFirstWeek, calendar: sundayFirstCalendar),
+        "Week 2",
+        "week headers honor a Sunday-first injected calendar instead of hard-coded ISO weeks"
+    )
+
+    expectCalendarRangeEqual(
+        CalendarRangeHeaderPresentation.visibleDateRange(
+            for: weekInterval,
+            calendar: mondayFirstCalendar,
+            locale: Locale(identifier: "en_US_POSIX")
+        ),
+        "May 13–19",
+        "visible date ranges use the inclusive final day rather than the interval's exclusive endpoint"
+    )
+    expectCalendarRangeEqual(
+        CalendarRangeHeaderPresentation.title(for: .today, interval: threeDayInterval, calendar: utcCalendar),
+        "Today",
+        "today navigation does not present itself as a week"
+    )
+    expectCalendarRangeEqual(
+        CalendarRangeHeaderPresentation.title(for: .threeDays, interval: threeDayInterval, calendar: utcCalendar),
+        "3 Days",
+        "three-day navigation does not present itself as a week"
+    )
+
+    let springForwardWeek = CalendarDateIntervalCalculator.interval(
+        for: .week,
+        anchor: springForwardAnchor,
+        calendar: newYorkCalendar
+    )
+    expectCalendarRangeEqual(
+        springForwardWeek.duration,
+        167 * 60 * 60,
+        "a spring-forward week remains local-midnight based rather than assuming seven 24-hour days"
+    )
+    let movedSpringForwardWeek = CalendarDateIntervalCalculator.movedAnchor(
+        CalendarDateIntervalCalculator.movedAnchor(
+            springForwardAnchor,
+            direction: .next,
+            range: .week,
+            calendar: newYorkCalendar
+        ),
+        direction: .previous,
+        range: .week,
+        calendar: newYorkCalendar
+    )
+    expectCalendarRangeEqual(
+        movedSpringForwardWeek,
+        springForwardAnchor,
+        "week navigation restores the original local date and time across a DST transition"
+    )
 }

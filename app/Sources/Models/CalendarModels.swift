@@ -153,6 +153,19 @@ public struct CalendarEventSnapshot: Identifiable, Equatable, Sendable {
     }
 }
 
+/// Separates the two deliberate calendar activations: only timed events may select TimeZoner's
+/// reference moment, while all-day events are informational details.
+public enum CalendarEventActivationAction: Equatable, Sendable {
+    case selectReferenceMoment
+    case showDetails
+}
+
+public enum CalendarEventActivationPolicy {
+    public static func action(for event: CalendarEventSnapshot) -> CalendarEventActivationAction {
+        event.isAllDay ? .showDetails : .selectReferenceMoment
+    }
+}
+
 /// Shared visual treatment for a calendar event after its availability and current-account
 /// participation are known. Either tentative signal remains readable while carrying less visual
 /// weight than a confirmed event.
@@ -166,10 +179,12 @@ public enum CalendarEventPresentationStyle {
 public struct CalendarEventAttendee: Equatable, Sendable {
     public let displayName: String?
     public let email: String?
+    public let isCurrentAccount: Bool
 
-    public init(displayName: String?, email: String?) {
+    public init(displayName: String?, email: String?, isCurrentAccount: Bool = false) {
         self.displayName = displayName
         self.email = email
+        self.isCurrentAccount = isCurrentAccount
     }
 }
 
@@ -223,8 +238,13 @@ public enum CalendarEventSnapshotMapper {
         }
 
         let title = nonEmpty(input.title) ?? "Untitled event"
-        let attendeeNames = input.attendees.compactMap { attendee in
-            nonEmpty(attendee.displayName) ?? nonEmpty(attendee.email)
+        var seenAttendeeNames = Set<String>()
+        let attendeeNames = input.attendees.compactMap { attendee -> String? in
+            guard !attendee.isCurrentAccount else { return nil }
+            guard let name = nonEmpty(attendee.displayName) ?? nonEmpty(attendee.email) else {
+                return nil
+            }
+            return seenAttendeeNames.insert(name.lowercased()).inserted ? name : nil
         }
 
         return CalendarEventSnapshot(
