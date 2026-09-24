@@ -168,6 +168,57 @@ public final class CalendarPresentationState: EventSelectionPresenting {
         lastRange = range
         destination = .timezoner
     }
+
+    /// Leaves Calendar mode once, preserving its range and making the timezone surface visible.
+    /// Presentation callers supply their own panel-frame restoration after this value-only action.
+    @discardableResult
+    public func restoreTimeZonerSurface() -> Bool {
+        guard destination == .calendar else { return false }
+        returnToTimeZoner()
+        return true
+    }
+}
+
+/// The explicit-access contract shared by the normal floating panel and the Calendar surfaces.
+/// Merely rendering an explanation never calls EventKit; only the visible user action does.
+public enum CalendarAccessFlow {
+    public enum UserAction: Equatable, Sendable {
+        case requestFullAccess
+        case openPrivacySettings
+    }
+
+    public enum Resolution: Equatable, Sendable {
+        case none
+        case waitForUserAction
+        case showAgenda
+        case showRecovery
+    }
+
+    public static func userAction(for authorizationStatus: CalendarAuthorizationStatus) -> UserAction {
+        switch authorizationStatus {
+        case .notDetermined:
+            return .requestFullAccess
+        case .denied, .restricted, .writeOnly, .fullAccess:
+            return .openPrivacySettings
+        }
+    }
+
+    /// Resolves a status transition after the access surface was intentionally presented.
+    /// Full access restores the requested agenda; unavailable access remains in recovery.
+    public static func resolution(
+        authorizationStatus: CalendarAuthorizationStatus,
+        accessDestination: CalendarPresentationState.AccessDestination
+    ) -> Resolution {
+        guard accessDestination != .none else { return .none }
+        switch authorizationStatus {
+        case .fullAccess:
+            return .showAgenda
+        case .notDetermined:
+            return .waitForUserAction
+        case .denied, .restricted, .writeOnly:
+            return .showRecovery
+        }
+    }
 }
 
 /// Geometry-only main-panel sizing for calendar mode. Keeping this out of AppKit makes the

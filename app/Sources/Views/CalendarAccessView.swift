@@ -30,11 +30,12 @@ public struct CalendarAccessView: View {
                 .foregroundStyle(Theme.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            if status == .notDetermined {
+            switch CalendarAccessFlow.userAction(for: status) {
+            case .requestFullAccess:
                 Button("Enable Calendar Access", action: onEnable)
                     .buttonStyle(.borderedProminent)
                     .tint(Theme.accent)
-            } else {
+            case .openPrivacySettings:
                 Button("Open Calendar Privacy Settings", action: onOpenPrivacySettings)
                     .buttonStyle(.bordered)
             }

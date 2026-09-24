@@ -10,6 +10,9 @@ public struct SettingsPopover: View {
     public let openCalendarPrivacySettings: () -> Void
     public let openNotificationSettings: () -> Void
     @State private var loginError: String? = nil
+    @State private var notificationLeadDrafts: CalendarNotificationLeadDrafts
+    @FocusState private var focusedLeadField: Int?
+    @State private var previouslyFocusedLeadField: Int?
 
     public init(
         settings: SettingsStore,
@@ -27,6 +30,11 @@ public struct SettingsPopover: View {
         self.setAgendaWingRequested = setAgendaWingRequested
         self.openCalendarPrivacySettings = openCalendarPrivacySettings
         self.openNotificationSettings = openNotificationSettings
+        _notificationLeadDrafts = State(
+            initialValue: CalendarNotificationLeadDrafts(
+                committedLeadMinutes: settings.notificationLeadMinutes
+            )
+        )
     }
 
     public var body: some View {
@@ -43,6 +51,12 @@ public struct SettingsPopover: View {
         }
         .padding(16)
         .frame(width: 320)
+        .onChange(of: focusedLeadField) {
+            if let previouslyFocusedLeadField {
+                commitNotificationLead(at: previouslyFocusedLeadField)
+            }
+            previouslyFocusedLeadField = focusedLeadField
+        }
     }
 
     // MARK: - Sections
@@ -134,10 +148,19 @@ public struct SettingsPopover: View {
                         .font(.system(size: 11, design: .rounded))
                         .foregroundStyle(Theme.textTertiary)
                     Spacer(minLength: 4)
-                    Button("Privacy Settings", action: openCalendarPrivacySettings)
+                    if calendarStore.authorizationStatus == .notDetermined {
+                        Button("Enable Calendar Access") {
+                            calendarStore.requestAccess()
+                        }
                         .buttonStyle(.borderless)
                         .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(Theme.accent)
+                    } else {
+                        Button("Privacy Settings", action: openCalendarPrivacySettings)
+                            .buttonStyle(.borderless)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(Theme.accent)
+                    }
                 }
             }
 
@@ -168,14 +191,20 @@ public struct SettingsPopover: View {
                 Text("Lead times")
                     .font(.system(size: 11, design: .rounded))
                     .foregroundStyle(Theme.textSecondary)
-                TextField("First", text: notificationLeadBinding(at: 0))
+                TextField("First reminder minutes", text: notificationLeadBinding(at: 0))
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                     .frame(width: 50)
-                TextField("Second", text: notificationLeadBinding(at: 1))
+                    .focused($focusedLeadField, equals: 0)
+                    .onSubmit { commitNotificationLead(at: 0) }
+                    .accessibilityLabel("First calendar alert lead time in minutes")
+                TextField("Second reminder minutes", text: notificationLeadBinding(at: 1))
                     .textFieldStyle(.roundedBorder)
                     .multilineTextAlignment(.trailing)
                     .frame(width: 50)
+                    .focused($focusedLeadField, equals: 1)
+                    .onSubmit { commitNotificationLead(at: 1) }
+                    .accessibilityLabel("Second calendar alert lead time in minutes")
                 Text("min")
                     .font(.system(size: 11, design: .rounded))
                     .foregroundStyle(Theme.textTertiary)
@@ -249,20 +278,13 @@ public struct SettingsPopover: View {
 
     private func notificationLeadBinding(at index: Int) -> Binding<String> {
         Binding(
-            get: {
-                guard settings.notificationLeadMinutes.indices.contains(index) else { return "" }
-                return String(settings.notificationLeadMinutes[index])
-            },
-            set: { text in
-                var values: [Int?] = (0 ..< 2).map { offset in
-                    settings.notificationLeadMinutes.indices.contains(offset)
-                        ? settings.notificationLeadMinutes[offset]
-                        : nil
-                }
-                values[index] = text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? nil : Int(text)
-                settings.setNotificationLeadMinutes(values)
-            }
+            get: { notificationLeadDrafts.value(at: index) },
+            set: { notificationLeadDrafts.edit($0, at: index) }
         )
+    }
+
+    private func commitNotificationLead(at index: Int) {
+        _ = notificationLeadDrafts.commit(at: index, settings: settings)
     }
 
     private var helpSection: some View {

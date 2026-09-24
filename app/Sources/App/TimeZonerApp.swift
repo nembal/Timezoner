@@ -54,7 +54,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             preferenceStore: calendarPreferences,
             calendarClock: calendarClock,
             scheduler: notificationScheduler,
-            notificationCenter: notificationCenter
+            notificationCenter: notificationCenter,
+            calendarAuthorizationStatus: { [weak self] in
+                self?.calendarStore.authorizationStatus ?? .denied
+            }
         )
     }()
     private lazy var calendarStore: CalendarStore = {
@@ -309,8 +312,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Notification activation must leave full Calendar mode before its selected-event context
     /// can be rendered and focused in the TimeZoner surface.
     private func restoreTimeZonerSurfaceForNotification() {
-        guard presentation.destination == .calendar else { return }
-        presentation.returnToTimeZoner()
+        guard presentation.restoreTimeZonerSurface() else { return }
         if presentation.showAgendaWing,
            calendarStore.authorizationStatus == .fullAccess {
             calendarStore.refreshPresentationInterval()

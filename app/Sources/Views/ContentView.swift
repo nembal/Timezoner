@@ -159,6 +159,21 @@ public struct ContentView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 8)
             .padding(.top, 6)
+
+            if presentation.accessDestination != .none {
+                CalendarAccessView(
+                    status: calendarStore.authorizationStatus,
+                    onEnable: { calendarStore.requestAccess() },
+                    onOpenPrivacySettings: openCalendarPrivacySettings
+                )
+                .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                        .strokeBorder(Theme.border, lineWidth: 1)
+                )
+                .padding(.horizontal, 20)
+                .padding(.bottom, 14)
+            }
         }
         .frame(width: idealWidth)
         .fixedSize(horizontal: true, vertical: true)
@@ -196,6 +211,9 @@ public struct ContentView: View {
         }
         .onChange(of: deepLinkRouter.pendingCommand) {
             consumePendingDeepLink()
+        }
+        .onChange(of: calendarStore.authorizationStatus) {
+            resolveCalendarAccessDestination()
         }
         .onReceive(NotificationCenter.default.publisher(for: .focusSelectedEventContext)) { _ in
             guard presentation.destination == .timezoner,
@@ -246,13 +264,32 @@ public struct ContentView: View {
         setAgendaWingRequested(!presentation.showAgendaWing)
     }
 
+    private func resolveCalendarAccessDestination() {
+        switch CalendarAccessFlow.resolution(
+            authorizationStatus: calendarStore.authorizationStatus,
+            accessDestination: presentation.accessDestination
+        ) {
+        case .showAgenda:
+            presentation.dismissAccessDestination()
+            setAgendaWingRequested(true)
+        case .showRecovery:
+            presentation.presentRecovery()
+        case .none, .waitForUserAction:
+            break
+        }
+    }
+
     private func focusAgendaFromKeyboard() {
         guard presentation.destination == .timezoner, presentation.showAgendaWing else { return }
         panelController?.focusAgenda()
     }
 
     private func returnFromCalendarMode() {
-        presentation.returnToTimeZoner()
+        guard presentation.restoreTimeZonerSurface() else { return }
+        finalizeTimeZonerSurfaceRestoration()
+    }
+
+    private func finalizeTimeZonerSurfaceRestoration() {
         if presentation.showAgendaWing,
            calendarStore.authorizationStatus == .fullAccess {
             calendarStore.refreshPresentationInterval()
@@ -274,6 +311,15 @@ public struct ContentView: View {
     private func handleDeepLink(_ deepLink: TimeZonerDeepLink) {
         editingZoneId = nil
 
+        TimeZonerDeepLinkPresentationRouter.route(
+            deepLink,
+            presentation: presentation,
+            restoreTimeZonerPanel: finalizeTimeZonerSurfaceRestoration,
+            apply: applyDeepLink
+        )
+    }
+
+    private func applyDeepLink(_ deepLink: TimeZonerDeepLink) {
         switch deepLink {
         case .open:
             focusChatField()

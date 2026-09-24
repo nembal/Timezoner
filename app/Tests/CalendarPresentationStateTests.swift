@@ -101,12 +101,69 @@ func runCalendarPresentationStateTests() {
         )
     }
 
+    expectCalendarPresentation(
+        CalendarAccessFlow.userAction(for: .notDetermined),
+        .requestFullAccess,
+        "first-use access explanation exposes only the explicit full-access request action"
+    )
+    for status in [CalendarAuthorizationStatus.denied, .restricted, .writeOnly] {
+        expectCalendarPresentation(
+            CalendarAccessFlow.userAction(for: status),
+            .openPrivacySettings,
+            "unavailable Calendar access exposes recovery instead of another permission prompt"
+        )
+    }
+
     let presentation = CalendarPresentationState(defaults: defaults)
     let timeState = TimeState()
     timeState.referenceDate = now
     timeState.sourceZoneId = TimeZone(secondsFromGMT: 0)!.identifier
     timeState.isLive = false
     let referenceMoment = ReferenceMomentController(timeState: timeState, presentation: presentation)
+
+    presentation.showAgendaWing = false
+    presentation.presentAccessExplanation()
+    expectCalendarPresentation(
+        CalendarAccessFlow.resolution(
+            authorizationStatus: .notDetermined,
+            accessDestination: presentation.accessDestination
+        ),
+        .waitForUserAction,
+        "showing the first-use explanation alone cannot request or grant Calendar access"
+    )
+    expectCalendarPresentation(
+        CalendarAccessFlow.resolution(
+            authorizationStatus: .fullAccess,
+            accessDestination: presentation.accessDestination
+        ),
+        .showAgenda,
+        "an explicit first-use grant returns the user to a visible agenda"
+    )
+    presentation.showAgendaWing = true
+    presentation.dismissAccessDestination()
+    expectCalendarPresentationTrue(presentation.showAgendaWing, "a successful explicit grant persists the agenda preference")
+
+    presentation.showAgendaWing = false
+    presentation.presentAccessExplanation()
+    expectCalendarPresentation(
+        CalendarAccessFlow.resolution(
+            authorizationStatus: .denied,
+            accessDestination: presentation.accessDestination
+        ),
+        .showRecovery,
+        "a denied first-use request stays recoverable without persisting the agenda"
+    )
+    expectCalendarPresentationTrue(!presentation.showAgendaWing, "denial leaves the agenda preference off")
+
+    presentation.presentRecovery()
+    expectCalendarPresentation(
+        CalendarAccessFlow.resolution(
+            authorizationStatus: .fullAccess,
+            accessDestination: presentation.accessDestination
+        ),
+        .showAgenda,
+        "restoring Calendar access from recovery makes the requested agenda reachable again"
+    )
 
     presentation.enterCalendar(now: now, calendar: calendar)
     expectCalendarPresentation(presentation.destination, .calendar, "expand switches the root surface to calendar mode")

@@ -49,6 +49,9 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
     private let requestLock = NSLock()
     private var recordedRequests: [Request] = []
     private var requestCountWaiters: [UUID: RequestCountWaiter] = [:]
+    private var suspendNextEventsFetch = false
+    private var eventsFetchStartedContinuation: CheckedContinuation<Void, Never>?
+    private var releaseEventsFetchContinuation: CheckedContinuation<Void, Never>?
     let changes: AsyncStream<Void>
     private let changesContinuation: AsyncStream<Void>.Continuation
 
@@ -83,6 +86,14 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
         let request = Request(start: start, end: end, calendarIDs: calendarIDs)
         let waiters = record(request)
         waiters.forEach { $0.resume(returning: true) }
+        if suspendNextEventsFetch {
+            suspendNextEventsFetch = false
+            eventsFetchStartedContinuation?.resume()
+            eventsFetchStartedContinuation = nil
+            await withCheckedContinuation { continuation in
+                releaseEventsFetchContinuation = continuation
+            }
+        }
         if let failure { throw failure }
         return snapshots.filter { calendarIDs.contains($0.calendarID) }
     }
@@ -149,6 +160,21 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
     }
 
     func emitChange() { changesContinuation.yield(()) }
+
+    func suspendOneEventsFetch() {
+        suspendNextEventsFetch = true
+    }
+
+    func waitForSuspendedEventsFetch() async {
+        await withCheckedContinuation { continuation in
+            eventsFetchStartedContinuation = continuation
+        }
+    }
+
+    func releaseSuspendedEventsFetch() {
+        releaseEventsFetchContinuation?.resume()
+        releaseEventsFetchContinuation = nil
+    }
 }
 
 private func pendingCalendarCommandDescriptor(_ id: String) -> CalendarDescriptor {
@@ -192,6 +218,9 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
     private(set) var added: [CalendarNotificationRequest] = []
     private(set) var removedIdentifiers: [String] = []
     private var pending: [CalendarNotificationRequest]
+    private var suspendNextAdd = false
+    private var addStartedContinuation: CheckedContinuation<Void, Never>?
+    private var releaseAddContinuation: CheckedContinuation<Void, Never>?
 
     init(pending: [CalendarNotificationRequest] = []) {
         self.pending = pending
@@ -210,6 +239,14 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
     func pendingRequests() async -> [CalendarNotificationRequest] { pending }
 
     func addOrReplace(_ request: CalendarNotificationRequest) async throws {
+        if suspendNextAdd {
+            suspendNextAdd = false
+            addStartedContinuation?.resume()
+            addStartedContinuation = nil
+            await withCheckedContinuation { continuation in
+                releaseAddContinuation = continuation
+            }
+        }
         added.append(request)
         pending.removeAll { $0.identifier == request.identifier }
         pending.append(request)
@@ -219,6 +256,25 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
         removedIdentifiers.append(contentsOf: identifiers)
         pending.removeAll { identifiers.contains($0.identifier) }
     }
+
+    func suspendOneAdd() {
+        suspendNextAdd = true
+    }
+
+    func waitForSuspendedAdd() async {
+        await withCheckedContinuation { continuation in
+            addStartedContinuation = continuation
+        }
+    }
+
+    func releaseSuspendedAdd() {
+        releaseAddContinuation?.resume()
+        releaseAddContinuation = nil
+    }
+}
+
+private final class PendingCalendarAuthorizationBox {
+    var status: CalendarAuthorizationStatus = .fullAccess
 }
 
 private final class PendingCalendarAlertSignals {
@@ -758,6 +814,171 @@ func runPendingCalendarCommandTests() async {
             await revocationCenter.pendingRequests().map(\.identifier) == [foreign.identifier],
             "Calendar permission loss preserves foreign requests"
         )
+    }
+
+    do {
+        let foreign = CalendarNotificationRequest(
+            identifier: "com.example.foreign-race",
+            title: "Foreign",
+            body: "Foreign",
+            fireDate: startDate,
+            userInfo: CalendarNotificationUserInfo(
+                occurrenceID: "foreign-race",
+                title: "Foreign",
+                startTimestamp: startDate.timeIntervalSince1970
+            )
+        )
+
+        func makeRaceFixture(_ name: String) -> (
+            SettingsStore,
+            PendingCalendarCommandReaderFake,
+            PendingCalendarAlertCenterFake,
+            CalendarAlertLifecycleCoordinator,
+            UserDefaults,
+            String,
+            PendingCalendarAuthorizationBox
+        ) {
+            let suiteName = "PendingCalendarCommandTests.lifecycle.race.\(name).\(UUID().uuidString)"
+            let defaults = UserDefaults(suiteName: suiteName)!
+            defaults.removePersistentDomain(forName: suiteName)
+            let settings = SettingsStore(userDefaults: defaults, keys: .default)
+            settings.alertsEnabled = true
+            let preferences = CalendarPreferenceStore(userDefaults: defaults, storageKey: "calendar.preferences")
+            let provider = PendingCalendarCommandReaderFake()
+            provider.descriptors = [pendingCalendarCommandDescriptor("work")]
+            provider.snapshots = [pendingCalendarCommandEvent(
+                id: "race-event",
+                title: "Race event",
+                start: startDate.addingTimeInterval(60 * 60)
+            )]
+            let center = PendingCalendarAlertCenterFake(pending: [foreign])
+            let calendarAuthorization = PendingCalendarAuthorizationBox()
+            let lifecycle = CalendarAlertLifecycleCoordinator(
+                settings: settings,
+                preferenceStore: preferences,
+                calendarClock: CalendarClock(now: { startDate }),
+                scheduler: CalendarNotificationScheduler(
+                    eventReader: provider,
+                    preferenceStore: preferences,
+                    notificationCenter: center
+                ),
+                notificationCenter: center,
+                calendarAuthorizationStatus: { calendarAuthorization.status }
+            )
+            return (settings, provider, center, lifecycle, defaults, suiteName, calendarAuthorization)
+        }
+
+        do {
+            let (settings, _, center, lifecycle, defaults, suiteName, _) = makeRaceFixture("global-disable")
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+            center.suspendOneAdd()
+            lifecycle.requestReconciliation()
+            await center.waitForSuspendedAdd()
+
+            let disable = Task { @MainActor in
+                await lifecycle.setGlobalAlertsEnabled(false)
+            }
+            for _ in 0 ..< 10 { await Task.yield() }
+            center.releaseSuspendedAdd()
+            await disable.value
+            expectPendingCalendarCommandTrue(
+                await waitForPendingCalendarCommand { !center.added.isEmpty },
+                "the suspended reconciliation resumes its old add after global disable"
+            )
+
+            expectPendingCalendarCommand(settings.alertsEnabled, false, "global disable persists while a prior alert add is suspended")
+            expectPendingCalendarCommand(
+                await center.pendingRequests().map(\.identifier),
+                [foreign.identifier],
+                "global disable drains a suspended old add before removing only TimeZoner requests"
+            )
+        }
+
+        do {
+            let (settings, _, center, lifecycle, defaults, suiteName, calendarAuthorization) = makeRaceFixture("calendar-revocation")
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+            center.suspendOneAdd()
+            lifecycle.requestReconciliation()
+            await center.waitForSuspendedAdd()
+
+            calendarAuthorization.status = .denied
+            let revoke = Task { @MainActor in
+                await lifecycle.calendarPermissionDidBecomeUnavailable()
+            }
+            for _ in 0 ..< 10 { await Task.yield() }
+            center.releaseSuspendedAdd()
+            await revoke.value
+            expectPendingCalendarCommandTrue(
+                await waitForPendingCalendarCommand { !center.added.isEmpty },
+                "the suspended reconciliation resumes its old add after Calendar revocation"
+            )
+
+            expectPendingCalendarCommand(settings.alertsEnabled, true, "Calendar revocation does not rewrite the global alerts preference")
+            expectPendingCalendarCommand(
+                await center.pendingRequests().map(\.identifier),
+                [foreign.identifier],
+                "Calendar revocation drains a suspended old add before removing only TimeZoner requests"
+            )
+        }
+
+        do {
+            let (settings, provider, center, lifecycle, defaults, suiteName, _) = makeRaceFixture("global-disable-fetch")
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+            provider.suspendOneEventsFetch()
+            lifecycle.requestReconciliation()
+            await provider.waitForSuspendedEventsFetch()
+
+            var disableFinished = false
+            let disable = Task { @MainActor in
+                await lifecycle.setGlobalAlertsEnabled(false)
+                disableFinished = true
+            }
+            for _ in 0 ..< 10 { await Task.yield() }
+            expectPendingCalendarCommandTrue(
+                !disableFinished,
+                "global disable waits for a paused fetch before reporting cleanup complete"
+            )
+            provider.releaseSuspendedEventsFetch()
+            await disable.value
+
+            expectPendingCalendarCommand(settings.alertsEnabled, false, "global disable remains off after a paused fetch drains")
+            expectPendingCalendarCommand(
+                await center.pendingRequests().map(\.identifier),
+                [foreign.identifier],
+                "global disable after a paused fetch keeps foreign requests and creates no TimeZoner alert"
+            )
+            expectPendingCalendarCommand(center.added, [], "a paused fetch cannot reach alert addition after global disable")
+        }
+
+        do {
+            let (settings, provider, center, lifecycle, defaults, suiteName, calendarAuthorization) = makeRaceFixture("calendar-revocation-fetch")
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+            provider.suspendOneEventsFetch()
+            lifecycle.requestReconciliation()
+            await provider.waitForSuspendedEventsFetch()
+
+            var revocationFinished = false
+            calendarAuthorization.status = .denied
+            let revoke = Task { @MainActor in
+                await lifecycle.calendarPermissionDidBecomeUnavailable()
+                revocationFinished = true
+            }
+            for _ in 0 ..< 10 { await Task.yield() }
+            expectPendingCalendarCommandTrue(
+                !revocationFinished,
+                "Calendar revocation waits for a paused fetch before reporting cleanup complete"
+            )
+            provider.releaseSuspendedEventsFetch()
+            await revoke.value
+
+            expectPendingCalendarCommand(settings.alertsEnabled, true, "Calendar revocation keeps the global preference during a paused fetch")
+            expectPendingCalendarCommand(
+                await center.pendingRequests().map(\.identifier),
+                [foreign.identifier],
+                "Calendar revocation after a paused fetch keeps foreign requests and creates no TimeZoner alert"
+            )
+            expectPendingCalendarCommand(center.added, [], "a paused fetch cannot reach alert addition after Calendar revocation")
+        }
     }
 
     do {

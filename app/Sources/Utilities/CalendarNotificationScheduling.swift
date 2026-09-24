@@ -36,13 +36,25 @@ public final class CalendarNotificationScheduler {
     }
 
     /// Fetches and reconciles a scheduler-owned, half-open seven-day horizon from `now`.
-    public func reconcile(now: Date, timeZone: TimeZone) async throws {
+    ///
+    /// The lifecycle owner supplies an eligibility check so an already-running reconciliation can
+    /// stop at every asynchronous boundary when Calendar access or TimeZoner alerts are revoked.
+    /// A `false` result means no later mutation should be assumed; the serialized lifecycle owner
+    /// follows it with its owned-request cleanup after any in-flight add has drained.
+    @discardableResult
+    public func reconcile(
+        now: Date,
+        timeZone: TimeZone,
+        shouldContinue: @escaping () async -> Bool = { true }
+    ) async throws -> Bool {
+        guard await shouldContinue() else { return false }
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "en_US_POSIX")
         calendar.timeZone = timeZone
         let end = calendar.date(byAdding: .day, value: 7, to: now) ?? now.addingTimeInterval(7 * 24 * 60 * 60)
 
         let calendars = try await eventReader.calendars()
+        guard await shouldContinue() else { return false }
         let alertEnabledCalendarIDs = Set(calendars.compactMap { descriptor in
             preferenceStore.preference(for: descriptor.id).alertsEnabled ? descriptor.id : nil
         })
@@ -51,8 +63,10 @@ public final class CalendarNotificationScheduler {
             to: end,
             calendarIDs: alertEnabledCalendarIDs
         )
+        guard await shouldContinue() else { return false }
         let desired = desiredRequests(for: events, now: now, timeZone: timeZone)
         let pending = await notificationCenter.pendingRequests()
+        guard await shouldContinue() else { return false }
         let staleIdentifiers = pending.compactMap { request in
             request.identifier.hasPrefix(Self.requestIdentifierPrefix) && desired[request.identifier] == nil
                 ? request.identifier
@@ -61,11 +75,15 @@ public final class CalendarNotificationScheduler {
 
         if !staleIdentifiers.isEmpty {
             await notificationCenter.removePendingRequests(withIdentifiers: staleIdentifiers)
+            guard await shouldContinue() else { return false }
         }
         for identifier in desired.keys.sorted() {
+            guard await shouldContinue() else { return false }
             guard let request = desired[identifier] else { continue }
             try await notificationCenter.addOrReplace(request)
+            guard await shouldContinue() else { return false }
         }
+        return true
     }
 
     private func desiredRequests(

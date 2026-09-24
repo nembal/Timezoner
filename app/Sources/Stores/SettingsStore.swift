@@ -173,3 +173,47 @@ public final class SettingsStore {
         }
     }
 }
+
+/// Stable per-field editing state for the two configurable notification lead times.
+/// Settings keeps the committed schedule normalized for scheduling; this model deliberately does
+/// not write on every keystroke, so an empty or partial field cannot shift its sibling reminder.
+@Observable
+public final class CalendarNotificationLeadDrafts {
+    private var drafts: [String]
+    private var committedSlots: [Int?]
+
+    public init(committedLeadMinutes: [Int]) {
+        var slots = Array(committedLeadMinutes.prefix(2).map(Optional.some))
+        while slots.count < 2 {
+            slots.append(nil)
+        }
+        committedSlots = slots
+        drafts = slots.map { $0.map(String.init) ?? "" }
+    }
+
+    public func value(at index: Int) -> String {
+        guard drafts.indices.contains(index) else { return "" }
+        return drafts[index]
+    }
+
+    public func edit(_ value: String, at index: Int) {
+        guard drafts.indices.contains(index) else { return }
+        drafts[index] = value
+    }
+
+    /// Validates a completed field, then normalizes only the committed scheduler value.
+    /// Invalid and transient drafts remain local and leave both persisted lead times untouched.
+    @discardableResult
+    public func commit(at index: Int, settings: SettingsStore) -> Bool {
+        guard drafts.indices.contains(index),
+              let minutes = Int(drafts[index].trimmingCharacters(in: .whitespacesAndNewlines)),
+              (0...1_440).contains(minutes) else {
+            return false
+        }
+
+        committedSlots[index] = minutes
+        drafts[index] = String(minutes)
+        settings.setNotificationLeadMinutes(committedSlots)
+        return true
+    }
+}

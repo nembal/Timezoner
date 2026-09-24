@@ -79,6 +79,58 @@ func runTimeZonerDeepLinkTests() {
     router.pendingCommand = nil
     expectDeepLinkNil(router.pendingCommand, "router clears pending command")
 
+    let deepLinkSurfaceDefaultsName = "TimeZonerDeepLinkTests.calendar-surface.\(UUID().uuidString)"
+    let deepLinkSurfaceDefaults = UserDefaults(suiteName: deepLinkSurfaceDefaultsName)!
+    defer { deepLinkSurfaceDefaults.removePersistentDomain(forName: deepLinkSurfaceDefaultsName) }
+    let deepLinkPresentation = CalendarPresentationState(defaults: deepLinkSurfaceDefaults)
+    let deepLinkZones = ZoneStore(userDefaults: deepLinkSurfaceDefaults, storageKey: "deep-link-zones")
+    var addedMissingZoneAfterRestoring = false
+    for deepLink in [
+        TimeZonerDeepLink.open,
+        TimeZonerDeepLink.setTime(hour: 15, minute: 30, zoneID: "America/Toronto", label: "Toronto")
+    ] {
+        deepLinkPresentation.enterCalendar(now: Date(timeIntervalSince1970: 1_750_000_000), calendar: .current)
+        var operations: [String] = []
+        TimeZonerDeepLinkPresentationRouter.route(
+            deepLink,
+            presentation: deepLinkPresentation,
+            restoreTimeZonerPanel: { operations.append("restore") },
+            apply: { command in
+                switch command {
+                case .open:
+                    operations.append("open")
+                case .setTime(_, _, let zoneID, let label):
+                    operations.append("set")
+                    addedMissingZoneAfterRestoring = deepLinkPresentation.destination == .timezoner
+                        && !deepLinkZones.zones.contains(where: { $0.timeZoneId == zoneID })
+                    if addedMissingZoneAfterRestoring {
+                        deepLinkZones.add(label: label ?? "Toronto", timezoneId: zoneID)
+                    }
+                }
+            }
+        )
+        if deepLinkPresentation.destination == .timezoner {
+            testsPassed += 1
+        } else {
+            testsFailed += 1
+            print("  FAIL: Calendar-mode deep links must restore the TimeZoner surface before they apply")
+        }
+        let expectedOperations = deepLink == .open ? ["restore", "open"] : ["restore", "set"]
+        if operations == expectedOperations {
+            testsPassed += 1
+        } else {
+            testsFailed += 1
+            print("  FAIL: Calendar-mode deep link ordering expected \(expectedOperations), got \(operations)")
+        }
+    }
+    if addedMissingZoneAfterRestoring,
+       deepLinkZones.zones.contains(where: { $0.timeZoneId == "America/Toronto" }) {
+        testsPassed += 1
+    } else {
+        testsFailed += 1
+        print("  FAIL: a Calendar-mode set link must restore TimeZoner before adding its missing zone")
+    }
+
     let controller = ReferenceMomentController(timeState: TimeState())
     let selectedEvent = CalendarEventSnapshot(
         id: "deep-link-event",

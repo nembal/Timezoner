@@ -116,4 +116,29 @@ func runSettingsStoreTests() {
         let malformed = SettingsStore(userDefaults: defaults, keys: keys)
         expectTrueS(malformed.notificationLeadMinutes == [30, 10], "malformed lead persistence falls back to defaults")
     }
+
+    // ── Test 6: Lead fields keep independent uncommitted drafts ───────────
+    do {
+        let s = SettingsStore(userDefaults: defaults, keys: keys)
+        s.setNotificationLeadMinutes([30, 10])
+        let drafts = CalendarNotificationLeadDrafts(committedLeadMinutes: s.notificationLeadMinutes)
+
+        drafts.edit("", at: 0)
+        expectTrueS(s.notificationLeadMinutes == [30, 10], "clearing the first lead is only a local draft until commit")
+        expectTrueS(drafts.value(at: 1) == "10", "clearing the first lead never shifts the sibling draft")
+
+        drafts.edit("6", at: 0)
+        expectTrueS(s.notificationLeadMinutes == [30, 10], "partially typing the first lead cannot normalize the stored schedule")
+        expectTrueS(drafts.value(at: 1) == "10", "partial first-lead input preserves the sibling draft")
+
+        drafts.edit("60", at: 0)
+        expectTrueS(drafts.commit(at: 0, settings: s), "a valid completed lead draft commits")
+        expectTrueS(s.notificationLeadMinutes == [60, 10], "editing thirty to sixty preserves the unedited ten-minute reminder")
+        expectTrueS(drafts.value(at: 1) == "10", "committing the first draft retains the sibling field value")
+
+        drafts.edit("not a number", at: 0)
+        expectTrueS(!drafts.commit(at: 0, settings: s), "invalid lead input is rejected on commit")
+        expectTrueS(s.notificationLeadMinutes == [60, 10], "invalid lead input cannot mutate the committed schedule")
+        expectTrueS(drafts.value(at: 1) == "10", "invalid first-lead input cannot mutate the sibling draft")
+    }
 }
