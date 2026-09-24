@@ -73,10 +73,27 @@ func runCalendarAccessibilityTests() {
         availability: .busy,
         participationStatus: .tentative
     )
+    let tentativeAvailabilityEvent = CalendarEventSnapshot(
+        id: "tentative-availability",
+        calendarID: "work",
+        calendarTitle: "Work",
+        title: "Tentative availability",
+        startDate: event.startDate,
+        endDate: event.endDate,
+        isAllDay: false,
+        attendeeNames: [],
+        availability: .tentative,
+        participationStatus: .accepted
+    )
     expectCalendarAccessibility(
         CalendarEventPresentationStyle.opacity(for: tentativeResponseEvent),
         0.6,
         "a tentative current-account response uses reduced event opacity"
+    )
+    expectCalendarAccessibility(
+        CalendarEventPresentationStyle.opacity(for: tentativeAvailabilityEvent),
+        0.6,
+        "tentative availability uses the same reduced opacity in agenda and grid"
     )
     expectCalendarAccessibility(
         CalendarEventPresentationStyle.opacity(for: event),

@@ -153,11 +153,12 @@ public struct CalendarEventSnapshot: Identifiable, Equatable, Sendable {
     }
 }
 
-/// Shared visual treatment for a calendar event after its current-account participation is known.
-/// A tentative response remains readable, while carrying less visual weight than a confirmed event.
+/// Shared visual treatment for a calendar event after its availability and current-account
+/// participation are known. Either tentative signal remains readable while carrying less visual
+/// weight than a confirmed event.
 public enum CalendarEventPresentationStyle {
     public static func opacity(for event: CalendarEventSnapshot) -> Double {
-        event.participationStatus == .tentative ? 0.6 : 1
+        (event.availability == .tentative || event.participationStatus == .tentative) ? 0.6 : 1
     }
 }
 
