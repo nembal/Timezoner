@@ -1,6 +1,6 @@
 # TimeZoner Calendar Companion Design
 
-**Status:** Draft for user review
+**Status:** Approved for implementation on 2026-09-24
 
 ## Goal
 
