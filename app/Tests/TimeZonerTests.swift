@@ -11,6 +11,7 @@ struct TestRunner {
         runTimeFormatterTests()
         runTimezoneMapTests()
         runSettingsStoreTests()
+        runCalendarProviderTests()
 
         print("\nResults: \(testsPassed) passed, \(testsFailed) failed out of \(testsPassed + testsFailed) tests")
         if testsFailed > 0 {

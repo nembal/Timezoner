@@ -31,9 +31,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             button.target = self
         }
 
-        let contentView = NSHostingView(rootView: ContentView())
-        contentView.setFrameSize(NSSize(width: 750, height: 580))
-        panel = FloatingPanel(contentView: contentView)
+        if ProcessInfo.processInfo.arguments.contains("--calendar-permission-spike") {
+            let contentView = NSHostingView(rootView: CalendarPermissionProbeView())
+            contentView.setFrameSize(NSSize(width: 420, height: 300))
+            panel = FloatingPanel(contentView: contentView)
+        } else {
+            let contentView = NSHostingView(rootView: ContentView())
+            contentView.setFrameSize(NSSize(width: 750, height: 580))
+            panel = FloatingPanel(contentView: contentView)
+        }
 
         // Reconcile login item (handles external changes in System Settings)
         _ = LaunchAtLogin.reconcile(desired: settings.launchAtLogin)

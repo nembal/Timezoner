@@ -36,7 +36,8 @@ verify_app_bundle() {
     local app_path="$1"
     local executable_path="$app_path/Contents/MacOS/TimeZoner"
     local info_plist_path="$app_path/Contents/Info.plist"
-    local resource_path="$app_path/Contents/Resources/TimeZoner_TimeZonerLib.bundle/timezone-boundaries.json"
+    local resource_bundle_path="$app_path/Contents/Resources/TimeZoner_TimeZonerLib.bundle"
+    local resource_path="$resource_bundle_path/Contents/Resources/timezone-boundaries.json"
 
     if [[ ! -x "$executable_path" ]]; then
         echo "error: missing executable: $executable_path" >&2
@@ -48,7 +49,7 @@ verify_app_bundle() {
         exit 1
     fi
 
-    if [[ ! -f "$resource_path" ]]; then
+    if [[ ! -f "$resource_path" && ! -f "$resource_bundle_path/timezone-boundaries.json" ]]; then
         echo "error: missing resource JSON: $resource_path" >&2
         exit 1
     fi

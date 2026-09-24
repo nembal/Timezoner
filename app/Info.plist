@@ -10,6 +10,8 @@
     <string>APPL</string>
     <key>CFBundleExecutable</key>
     <string>TimeZoner</string>
+    <key>NSCalendarsFullAccessUsageDescription</key>
+    <string>TimeZoner reads your calendars to show upcoming events across your saved time zones.</string>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>

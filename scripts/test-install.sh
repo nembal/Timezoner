@@ -41,7 +41,8 @@ bash scripts/build.sh
 installed_app="$tmpdir/Applications/TimeZoner.app"
 test -x "$installed_app/Contents/MacOS/TimeZoner"
 test -f "$installed_app/Contents/Info.plist"
-test -f "$installed_app/Contents/Resources/TimeZoner_TimeZonerLib.bundle/timezone-boundaries.json"
+test -f "$installed_app/Contents/Resources/TimeZoner_TimeZonerLib.bundle/Contents/Resources/timezone-boundaries.json" || \
+    test -f "$installed_app/Contents/Resources/TimeZoner_TimeZonerLib.bundle/timezone-boundaries.json"
 codesign --verify "$installed_app"
 
 echo "install.sh checks passed"
