@@ -86,6 +86,7 @@ private func expectCalendarPanel(_ condition: Bool, _ label: String, line: Int =
     }
 }
 
+@MainActor
 func runCalendarPanelCoordinatorTests() {
     print("Running CalendarPanelCoordinatorTests...")
 
@@ -240,6 +241,60 @@ func runCalendarPanelCoordinatorTests() {
         expectCalendarPanel(scheduler.scheduled.count == 1, "closing the last owned popover schedules a focus recheck")
         scheduler.runAll()
         expectCalendarPanel(!main.isVisible && !agenda.isVisible, "pair hides only when no panel or owned popover has focus")
+    }
+
+    do {
+        let suiteName = "CalendarPanelCoordinatorTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        let scheduler = CalendarPanelDeferredSchedulerFake()
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 300, y: 100, width: 400, height: 500))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let coordinator = CalendarPanelPairController(
+            main: main,
+            agenda: agenda,
+            agendaPopover: popover,
+            visibleFrame: { visible },
+            scheduleDeferredDismissal: scheduler.schedule
+        )
+        let presentation = CalendarPresentationState(defaults: defaults)
+        let timeState = TimeState()
+        let referenceDate = Date(timeIntervalSince1970: 1_750_000_000)
+        timeState.referenceDate = referenceDate
+        timeState.isLive = false
+
+        coordinator.show(showAgenda: false)
+        main.isKey = false
+        CalendarEventDetailPopoverOwnership.update(
+            eventID: "all-day-details",
+            presentation: presentation,
+            onOwnedPopoverChanged: coordinator.setOwnedPopoverPresented
+        )
+        coordinator.panelDidResignKey()
+        scheduler.runAll()
+
+        expectCalendarPanel(
+            main.isVisible && presentation.eventDetailPopoverEventID == "all-day-details",
+            "calendar all-day details keep their host panel visible while the owned popover is open"
+        )
+        expectCalendarPanel(
+            timeState.referenceDate == referenceDate && !timeState.isLive,
+            "calendar all-day detail ownership does not mutate the TimeZoner reference moment"
+        )
+
+        CalendarEventDetailPopoverOwnership.update(
+            eventID: nil,
+            presentation: presentation,
+            onOwnedPopoverChanged: coordinator.setOwnedPopoverPresented
+        )
+        scheduler.runAll()
+        expectCalendarPanel(
+            !main.isVisible,
+            "closing calendar all-day details releases owned-popover protection for normal dismissal"
+        )
     }
 
     do {

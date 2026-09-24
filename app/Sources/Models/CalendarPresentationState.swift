@@ -185,6 +185,21 @@ public final class CalendarPresentationState: EventSelectionPresenting {
     }
 }
 
+/// Couples the shared event-detail identity to the floating-panel ownership callback. Both
+/// Calendar surfaces use this path so focus transfer to a SwiftUI detail popover cannot dismiss
+/// the panel hosting it.
+@MainActor
+public enum CalendarEventDetailPopoverOwnership {
+    public static func update(
+        eventID: String?,
+        presentation: CalendarPresentationState,
+        onOwnedPopoverChanged: (Bool) -> Void
+    ) {
+        presentation.eventDetailPopoverEventID = eventID
+        onOwnedPopoverChanged(presentation.hasOwnedPopover)
+    }
+}
+
 /// The explicit-access contract shared by the normal floating panel and the Calendar surfaces.
 /// Merely rendering an explanation never calls EventKit; only the visible user action does.
 public enum CalendarAccessFlow {

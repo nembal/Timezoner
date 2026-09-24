@@ -8,19 +8,22 @@ public struct CalendarModeView: View {
     public let presentation: CalendarPresentationState
     public let onReturnToTimeZoner: () -> Void
     public let onOpenPrivacySettings: () -> Void
+    public let onOwnedPopoverChanged: (Bool) -> Void
 
     public init(
         calendarStore: CalendarStore,
         referenceMoment: ReferenceMomentController,
         presentation: CalendarPresentationState,
         onReturnToTimeZoner: @escaping () -> Void,
-        onOpenPrivacySettings: @escaping () -> Void
+        onOpenPrivacySettings: @escaping () -> Void,
+        onOwnedPopoverChanged: @escaping (Bool) -> Void
     ) {
         self.calendarStore = calendarStore
         self.referenceMoment = referenceMoment
         self.presentation = presentation
         self.onReturnToTimeZoner = onReturnToTimeZoner
         self.onOpenPrivacySettings = onOpenPrivacySettings
+        self.onOwnedPopoverChanged = onOwnedPopoverChanged
     }
 
     private var calendar: Calendar { calendarStore.localCalendar }
@@ -124,7 +127,8 @@ public struct CalendarModeView: View {
                     calendar: calendar,
                     onSelectTimedEvent: selectTimedEvent,
                     eventDetailPopoverEventID: eventDetailPopoverEventID,
-                    onShowEventDetails: showEventDetails
+                    onShowEventDetails: showEventDetails,
+                    onEventDetailPopoverChanged: updateEventDetailPopover
                 )
             } else if calendarStore.isLoading {
                 ProgressView("Loading calendar…")
@@ -168,13 +172,21 @@ public struct CalendarModeView: View {
 
     private func showEventDetails(_ event: CalendarEventSnapshot) {
         guard CalendarEventActivationPolicy.action(for: event) == .showDetails else { return }
-        presentation.eventDetailPopoverEventID = event.id
+        updateEventDetailPopover(event.id)
+    }
+
+    private func updateEventDetailPopover(_ eventID: String?) {
+        CalendarEventDetailPopoverOwnership.update(
+            eventID: eventID,
+            presentation: presentation,
+            onOwnedPopoverChanged: onOwnedPopoverChanged
+        )
     }
 
     private var eventDetailPopoverEventID: Binding<String?> {
         Binding(
             get: { presentation.eventDetailPopoverEventID },
-            set: { presentation.eventDetailPopoverEventID = $0 }
+            set: { updateEventDetailPopover($0) }
         )
     }
 

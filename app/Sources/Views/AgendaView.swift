@@ -393,8 +393,7 @@ public struct AgendaView: View {
                     .accessibilityHint("Sets TimeZoner to this event start")
                 case .showDetails:
                     Button {
-                        presentation.eventDetailPopoverEventID = event.id
-                        onOwnedPopoverChanged(presentation.hasOwnedPopover)
+                        updateEventDetailPopover(event.id)
                     } label: {
                         eventTextContent(event)
                     }
@@ -455,12 +454,19 @@ public struct AgendaView: View {
             get: { presentation.eventDetailPopoverEventID == event.id },
             set: { isPresented in
                 if isPresented {
-                    presentation.eventDetailPopoverEventID = event.id
+                    updateEventDetailPopover(event.id)
                 } else if presentation.eventDetailPopoverEventID == event.id {
-                    presentation.eventDetailPopoverEventID = nil
+                    updateEventDetailPopover(nil)
                 }
-                onOwnedPopoverChanged(presentation.hasOwnedPopover)
             }
+        )
+    }
+
+    private func updateEventDetailPopover(_ eventID: String?) {
+        CalendarEventDetailPopoverOwnership.update(
+            eventID: eventID,
+            presentation: presentation,
+            onOwnedPopoverChanged: onOwnedPopoverChanged
         )
     }
 

@@ -187,7 +187,10 @@ public struct ContentView: View {
                     referenceMoment: referenceMoment,
                     presentation: presentation,
                     onReturnToTimeZoner: returnFromCalendarMode,
-                    onOpenPrivacySettings: openCalendarPrivacySettings
+                    onOpenPrivacySettings: openCalendarPrivacySettings,
+                    onOwnedPopoverChanged: { isPresented in
+                        panelController?.setOwnedPopoverPresented(isPresented)
+                    }
                 )
             } else {
                 normalContent

@@ -317,6 +317,7 @@ public struct CalendarTimeGrid: View {
     public let onSelectTimedEvent: (CalendarEventSnapshot) -> Void
     public let eventDetailPopoverEventID: Binding<String?>
     public let onShowEventDetails: (CalendarEventSnapshot) -> Void
+    public let onEventDetailPopoverChanged: (String?) -> Void
 
     public init(
         interval: DateInterval,
@@ -326,7 +327,8 @@ public struct CalendarTimeGrid: View {
         calendar: Calendar,
         onSelectTimedEvent: @escaping (CalendarEventSnapshot) -> Void,
         eventDetailPopoverEventID: Binding<String?>,
-        onShowEventDetails: @escaping (CalendarEventSnapshot) -> Void
+        onShowEventDetails: @escaping (CalendarEventSnapshot) -> Void,
+        onEventDetailPopoverChanged: @escaping (String?) -> Void
     ) {
         self.interval = interval
         self.events = events
@@ -336,6 +338,7 @@ public struct CalendarTimeGrid: View {
         self.onSelectTimedEvent = onSelectTimedEvent
         self.eventDetailPopoverEventID = eventDetailPopoverEventID
         self.onShowEventDetails = onShowEventDetails
+        self.onEventDetailPopoverChanged = onEventDetailPopoverChanged
     }
 
     private var dayStarts: [Date] {
@@ -652,9 +655,9 @@ public struct CalendarTimeGrid: View {
             get: { eventDetailPopoverEventID.wrappedValue == event.id },
             set: { isPresented in
                 if isPresented {
-                    eventDetailPopoverEventID.wrappedValue = event.id
+                    onEventDetailPopoverChanged(event.id)
                 } else if eventDetailPopoverEventID.wrappedValue == event.id {
-                    eventDetailPopoverEventID.wrappedValue = nil
+                    onEventDetailPopoverChanged(nil)
                 }
             }
         )
