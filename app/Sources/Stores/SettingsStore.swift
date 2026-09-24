@@ -205,8 +205,19 @@ public final class CalendarNotificationLeadDrafts {
     /// Invalid and transient drafts remain local and leave both persisted lead times untouched.
     @discardableResult
     public func commit(at index: Int, settings: SettingsStore) -> Bool {
-        guard drafts.indices.contains(index),
-              let minutes = Int(drafts[index].trimmingCharacters(in: .whitespacesAndNewlines)),
+        guard drafts.indices.contains(index) else {
+            return false
+        }
+
+        let trimmedDraft = drafts[index].trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedDraft.isEmpty else {
+            committedSlots[index] = nil
+            drafts[index] = ""
+            settings.setNotificationLeadMinutes(committedSlots)
+            return true
+        }
+
+        guard let minutes = Int(trimmedDraft),
               (0...1_440).contains(minutes) else {
             return false
         }

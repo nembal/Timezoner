@@ -219,8 +219,12 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
     private(set) var removedIdentifiers: [String] = []
     private var pending: [CalendarNotificationRequest]
     private var suspendNextAdd = false
+    private var suspendNextAuthorizationStatus = false
     private var addStartedContinuation: CheckedContinuation<Void, Never>?
     private var releaseAddContinuation: CheckedContinuation<Void, Never>?
+    private var authorizationStatusIsSuspended = false
+    private var authorizationStatusStartedContinuations: [CheckedContinuation<Void, Never>] = []
+    private var releaseAuthorizationStatusContinuation: CheckedContinuation<Void, Never>?
 
     init(pending: [CalendarNotificationRequest] = []) {
         self.pending = pending
@@ -233,7 +237,18 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
     }
 
     func currentAuthorizationStatus() async -> CalendarNotificationAuthorizationStatus {
-        authorizationStatus
+        if suspendNextAuthorizationStatus {
+            suspendNextAuthorizationStatus = false
+            await withCheckedContinuation { continuation in
+                releaseAuthorizationStatusContinuation = continuation
+                authorizationStatusIsSuspended = true
+                let waiters = authorizationStatusStartedContinuations
+                authorizationStatusStartedContinuations.removeAll()
+                waiters.forEach { $0.resume() }
+            }
+            authorizationStatusIsSuspended = false
+        }
+        return authorizationStatus
     }
 
     func pendingRequests() async -> [CalendarNotificationRequest] { pending }
@@ -261,15 +276,31 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
         suspendNextAdd = true
     }
 
+    func suspendOneAuthorizationStatus() {
+        suspendNextAuthorizationStatus = true
+    }
+
     func waitForSuspendedAdd() async {
         await withCheckedContinuation { continuation in
             addStartedContinuation = continuation
         }
     }
 
+    func waitForSuspendedAuthorizationStatus() async {
+        guard !authorizationStatusIsSuspended else { return }
+        await withCheckedContinuation { continuation in
+            authorizationStatusStartedContinuations.append(continuation)
+        }
+    }
+
     func releaseSuspendedAdd() {
         releaseAddContinuation?.resume()
         releaseAddContinuation = nil
+    }
+
+    func releaseSuspendedAuthorizationStatus() {
+        releaseAuthorizationStatusContinuation?.resume()
+        releaseAuthorizationStatusContinuation = nil
     }
 }
 
@@ -724,6 +755,72 @@ func runPendingCalendarCommandTests() async {
             center.removedIdentifiers.allSatisfy { $0.hasPrefix("timezoner.event.") },
             "Calendar permission loss removes only TimeZoner-owned requests"
         )
+    }
+
+    // A completed disable is the last user intent, even if an earlier enable is still awaiting
+    // notification authorization status. Keep this separate from paused fetch/add coverage: the
+    // stale mutation occurs before reconciliation is enqueued.
+    do {
+        let suiteName = "PendingCalendarCommandTests.lifecycle.enable-status-disable.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let settings = SettingsStore(userDefaults: defaults, keys: .default)
+        let preferences = CalendarPreferenceStore(userDefaults: defaults, storageKey: "calendar.preferences")
+        let provider = PendingCalendarCommandReaderFake()
+        provider.descriptors = [pendingCalendarCommandDescriptor("work")]
+        provider.snapshots = [pendingCalendarCommandEvent(
+            id: "enable-status-race",
+            title: "Enable status race",
+            start: startDate.addingTimeInterval(60 * 60)
+        )]
+        let foreign = CalendarNotificationRequest(
+            identifier: "com.example.foreign-enable-status-race",
+            title: "Foreign",
+            body: "Foreign",
+            fireDate: startDate,
+            userInfo: CalendarNotificationUserInfo(
+                occurrenceID: "foreign-enable-status-race",
+                title: "Foreign",
+                startTimestamp: startDate.timeIntervalSince1970
+            )
+        )
+        let center = PendingCalendarAlertCenterFake(pending: [foreign])
+        center.suspendOneAuthorizationStatus()
+        let lifecycle = CalendarAlertLifecycleCoordinator(
+            settings: settings,
+            preferenceStore: preferences,
+            calendarClock: CalendarClock(now: { startDate }),
+            scheduler: CalendarNotificationScheduler(
+                eventReader: provider,
+                preferenceStore: preferences,
+                notificationCenter: center
+            ),
+            notificationCenter: center
+        )
+
+        let enable = Task { @MainActor in
+            await lifecycle.setGlobalAlertsEnabled(true)
+        }
+        await center.waitForSuspendedAuthorizationStatus()
+
+        await lifecycle.setGlobalAlertsEnabled(false)
+        expectPendingCalendarCommand(settings.alertsEnabled, false, "a completed disable persists off while the earlier enable status check is suspended")
+        expectPendingCalendarCommand(
+            await center.pendingRequests().map(\.identifier),
+            [foreign.identifier],
+            "a completed disable removes no foreign request while the earlier enable status check is suspended"
+        )
+
+        center.releaseSuspendedAuthorizationStatus()
+        await enable.value
+
+        expectPendingCalendarCommand(settings.alertsEnabled, false, "a stale enable cannot restore alerts after the later disable completes")
+        expectPendingCalendarCommand(
+            await center.pendingRequests().map(\.identifier),
+            [foreign.identifier],
+            "a stale enable cannot schedule a TimeZoner request or remove a foreign request"
+        )
+        expectPendingCalendarCommand(center.added, [], "a stale enable never reaches notification scheduling")
     }
 
     do {

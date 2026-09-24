@@ -141,4 +141,45 @@ func runSettingsStoreTests() {
         expectTrueS(s.notificationLeadMinutes == [60, 10], "invalid lead input cannot mutate the committed schedule")
         expectTrueS(drafts.value(at: 1) == "10", "invalid first-lead input cannot mutate the sibling draft")
     }
+
+    // ── Test 7: Empty completed lead fields disable only that slot ─────────
+    do {
+        let clearFirst = SettingsStore(userDefaults: defaults, keys: keys)
+        clearFirst.setNotificationLeadMinutes([30, 10])
+        let firstDrafts = CalendarNotificationLeadDrafts(committedLeadMinutes: clearFirst.notificationLeadMinutes)
+        firstDrafts.edit("", at: 0)
+        expectTrueS(firstDrafts.commit(at: 0, settings: clearFirst), "submitting an empty first lead accepts an intentional disable")
+        expectTrueS(clearFirst.notificationLeadMinutes == [10], "clearing the first lead preserves the ten-minute sibling")
+        expectTrueS(firstDrafts.value(at: 1) == "10", "clearing the first lead keeps its sibling draft stable")
+
+        let clearSecond = SettingsStore(userDefaults: defaults, keys: keys)
+        clearSecond.setNotificationLeadMinutes([30, 10])
+        let secondDrafts = CalendarNotificationLeadDrafts(committedLeadMinutes: clearSecond.notificationLeadMinutes)
+        secondDrafts.edit("", at: 1)
+        expectTrueS(secondDrafts.commit(at: 1, settings: clearSecond), "submitting an empty second lead accepts an intentional disable")
+        expectTrueS(clearSecond.notificationLeadMinutes == [30], "clearing the second lead preserves the thirty-minute sibling")
+        expectTrueS(secondDrafts.value(at: 0) == "30", "clearing the second lead keeps its sibling draft stable")
+
+        let clearBoth = SettingsStore(userDefaults: defaults, keys: keys)
+        clearBoth.setNotificationLeadMinutes([30, 10])
+        let bothDrafts = CalendarNotificationLeadDrafts(committedLeadMinutes: clearBoth.notificationLeadMinutes)
+        bothDrafts.edit("", at: 0)
+        expectTrueS(bothDrafts.commit(at: 0, settings: clearBoth), "clearing the first of two leads commits before clearing the second")
+        bothDrafts.edit("\n\t ", at: 1)
+        expectTrueS(bothDrafts.commit(at: 1, settings: clearBoth), "whitespace-only completed lead input disables the second lead")
+        expectTrueS(clearBoth.notificationLeadMinutes.isEmpty, "clearing both completed leads disables all custom alerts")
+
+        let duplicate = SettingsStore(userDefaults: defaults, keys: keys)
+        duplicate.setNotificationLeadMinutes([30, 10])
+        let duplicateDrafts = CalendarNotificationLeadDrafts(committedLeadMinutes: duplicate.notificationLeadMinutes)
+        duplicateDrafts.edit("10", at: 0)
+        expectTrueS(duplicateDrafts.commit(at: 0, settings: duplicate), "a duplicate completed lead still normalizes the persisted schedule")
+        expectTrueS(duplicate.notificationLeadMinutes == [10], "duplicate completed leads normalize to one scheduler value")
+        duplicateDrafts.edit("", at: 1)
+        expectTrueS(duplicateDrafts.commit(at: 1, settings: duplicate), "clearing one duplicate completed lead is accepted")
+        expectTrueS(duplicate.notificationLeadMinutes == [10], "clearing one duplicate keeps the remaining lead enabled")
+
+        let reopened = CalendarNotificationLeadDrafts(committedLeadMinutes: duplicate.notificationLeadMinutes)
+        expectTrueS(reopened.value(at: 0) == "10" && reopened.value(at: 1).isEmpty, "reopening drafts reflects the persisted one-lead schedule")
+    }
 }

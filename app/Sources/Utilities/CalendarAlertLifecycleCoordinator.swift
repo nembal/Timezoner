@@ -20,6 +20,8 @@ public final class CalendarAlertLifecycleCoordinator {
     private var reconciliationPending = false
     private var isApplyingAlertSetting = false
     private var reconciliationGeneration: UInt = 0
+    private var alertIntentGeneration: UInt = 0
+    private var globalAlertsDesiredState: Bool
     private var operationTail: (id: UInt, task: Task<Void, Never>)?
     private var operationID: UInt = 0
 
@@ -37,6 +39,7 @@ public final class CalendarAlertLifecycleCoordinator {
         self.scheduler = scheduler
         self.notificationCenter = notificationCenter
         self.calendarAuthorizationStatus = calendarAuthorizationStatus
+        self.globalAlertsDesiredState = settings.alertsEnabled
         observeTriggers()
     }
 
@@ -51,7 +54,12 @@ public final class CalendarAlertLifecycleCoordinator {
             return
         }
 
-        guard await notificationCenter.currentAuthorizationStatus().permitsAlerts else {
+        let launchIntentGeneration = alertIntentGeneration
+        let authorizationStatus = await notificationCenter.currentAuthorizationStatus()
+        guard isCurrentAlertIntent(launchIntentGeneration) else { return }
+
+        guard authorizationStatus.permitsAlerts else {
+            recordGlobalAlertsIntent(false)
             applyStoredAlertsEnabled(false)
             showsNotificationSettingsRecovery = true
             await invalidateAndRemoveTimeZonerRequests()
@@ -64,6 +72,7 @@ public final class CalendarAlertLifecycleCoordinator {
 
     /// The sole permission-request path: an explicit false-to-true user intent.
     public func setGlobalAlertsEnabled(_ isEnabled: Bool) async {
+        let intentGeneration = recordGlobalAlertsIntent(isEnabled)
         guard isEnabled else {
             applyStoredAlertsEnabled(false)
             showsNotificationSettingsRecovery = false
@@ -84,9 +93,19 @@ public final class CalendarAlertLifecycleCoordinator {
             granted = false
         }
 
-        guard requestGeneration == reconciliationGeneration else { return }
+        guard isCurrentEnableIntent(
+            requestGeneration: requestGeneration,
+            intentGeneration: intentGeneration
+        ) else { return }
 
-        guard granted, await notificationCenter.currentAuthorizationStatus().permitsAlerts else {
+        let authorizationStatus = await notificationCenter.currentAuthorizationStatus()
+        guard isCurrentEnableIntent(
+            requestGeneration: requestGeneration,
+            intentGeneration: intentGeneration
+        ) else { return }
+
+        guard granted, authorizationStatus.permitsAlerts else {
+            recordGlobalAlertsIntent(false)
             applyStoredAlertsEnabled(false)
             showsNotificationSettingsRecovery = true
             await invalidateAndRemoveTimeZonerRequests()
@@ -114,6 +133,7 @@ public final class CalendarAlertLifecycleCoordinator {
     private func observeTriggers() {
         settings.onAlertsEnabledChange = { [weak self] enabled in
             guard let self, !self.isApplyingAlertSetting else { return }
+            self.recordGlobalAlertsIntent(enabled)
             if enabled {
                 self.requestReconciliation()
             } else {
@@ -214,6 +234,24 @@ public final class CalendarAlertLifecycleCoordinator {
     private func invalidateReconciliationGeneration() {
         reconciliationGeneration &+= 1
         reconciliationPending = false
+    }
+
+    @discardableResult
+    private func recordGlobalAlertsIntent(_ isEnabled: Bool) -> UInt {
+        globalAlertsDesiredState = isEnabled
+        alertIntentGeneration &+= 1
+        return alertIntentGeneration
+    }
+
+    private func isCurrentAlertIntent(_ intentGeneration: UInt) -> Bool {
+        intentGeneration == alertIntentGeneration && globalAlertsDesiredState
+    }
+
+    private func isCurrentEnableIntent(
+        requestGeneration: UInt,
+        intentGeneration: UInt
+    ) -> Bool {
+        requestGeneration == reconciliationGeneration && isCurrentAlertIntent(intentGeneration)
     }
 
     /// Appends work to a single FIFO operation chain. Do not replace this with a cancellation-only
