@@ -153,6 +153,14 @@ public struct CalendarEventSnapshot: Identifiable, Equatable, Sendable {
     }
 }
 
+/// Shared visual treatment for a calendar event after its current-account participation is known.
+/// A tentative response remains readable, while carrying less visual weight than a confirmed event.
+public enum CalendarEventPresentationStyle {
+    public static func opacity(for event: CalendarEventSnapshot) -> Double {
+        event.participationStatus == .tentative ? 0.6 : 1
+    }
+}
+
 /// A copied attendee value used while adapting EventKit data without retaining EKParticipant instances.
 public struct CalendarEventAttendee: Equatable, Sendable {
     public let displayName: String?

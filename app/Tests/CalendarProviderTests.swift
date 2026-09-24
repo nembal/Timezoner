@@ -28,6 +28,32 @@ private func expectTrueCalendar(_ condition: Bool, _ label: String, line: Int = 
     }
 }
 
+/// Exercises the value-only handoff that EventKit performs before snapshot construction.
+private func snapshotFromParticipantValues(
+    id: String,
+    title: String,
+    organizer: CalendarEventParticipantParticipation?,
+    attendees: [CalendarEventParticipantParticipation]
+) -> CalendarEventSnapshot? {
+    let start = Date(timeIntervalSince1970: 1_726_000_123.25)
+    return CalendarEventSnapshotMapper.snapshot(from: CalendarEventMappingInput(
+        calendarItemIdentifier: id,
+        calendarID: "work",
+        calendarTitle: "Work",
+        title: title,
+        startDate: start,
+        endDate: start.addingTimeInterval(60 * 60),
+        isAllDay: false,
+        attendees: [],
+        availability: .busy,
+        currentAccountParticipationStatus: CalendarCurrentAccountParticipationMapper.status(
+            organizer: organizer,
+            attendees: attendees
+        ),
+        isCancelled: false
+    ))
+}
+
 func runCalendarProviderTests() {
     print("Running CalendarProviderTests...")
 
@@ -106,6 +132,73 @@ func runCalendarProviderTests() {
         currentAccountTentative,
         .tentative,
         "current account attendee tentative is preserved for reduced-opacity rendering"
+    )
+
+    let nonOrganizerCurrentAccountDeclined = snapshotFromParticipantValues(
+        id: "current-account-declined",
+        title: "Current account declined",
+        organizer: CalendarEventParticipantParticipation(
+            isCurrentAccount: false,
+            participationStatus: .accepted
+        ),
+        attendees: [
+            CalendarEventParticipantParticipation(
+                isCurrentAccount: false,
+                participationStatus: .accepted
+            ),
+            CalendarEventParticipantParticipation(
+                isCurrentAccount: true,
+                participationStatus: .declined
+            )
+        ]
+    )
+    expectNilCalendar(
+        nonOrganizerCurrentAccountDeclined,
+        "a declined current-account attendee is omitted from snapshots"
+    )
+
+    let differentAttendeeDeclined = snapshotFromParticipantValues(
+        id: "other-attendee-declined",
+        title: "Other attendee declined",
+        organizer: CalendarEventParticipantParticipation(
+            isCurrentAccount: false,
+            participationStatus: .accepted
+        ),
+        attendees: [
+            CalendarEventParticipantParticipation(
+                isCurrentAccount: false,
+                participationStatus: .declined
+            ),
+            CalendarEventParticipantParticipation(
+                isCurrentAccount: true,
+                participationStatus: .accepted
+            )
+        ]
+    )
+    expectEqualCalendar(
+        differentAttendeeDeclined?.participationStatus,
+        .accepted,
+        "another attendee decline retains the accepted current-account snapshot"
+    )
+
+    let currentAccountTentativeSnapshot = snapshotFromParticipantValues(
+        id: "current-account-tentative",
+        title: "Current account tentative",
+        organizer: CalendarEventParticipantParticipation(
+            isCurrentAccount: false,
+            participationStatus: .accepted
+        ),
+        attendees: [
+            CalendarEventParticipantParticipation(
+                isCurrentAccount: true,
+                participationStatus: .tentative
+            )
+        ]
+    )
+    expectEqualCalendar(
+        currentAccountTentativeSnapshot?.participationStatus,
+        .tentative,
+        "a tentative current-account attendee remains in the snapshot"
     )
 
     // Missing titles remain useful and occurrence IDs distinguish recurring instances.
@@ -191,5 +284,5 @@ func runCalendarProviderTests() {
     ))
     expectEqualCalendar(attendees?.attendeeNames, ["Ada Lovelace", "grace@example.com"], "attendee names prefer display name then email fallback")
     expectEqualCalendar(attendees?.availability, .tentative, "tentative availability remains tentative")
-    expectEqualCalendar(attendees?.participationStatus, .pending, "organizer participation status is preserved")
+    expectEqualCalendar(attendees?.participationStatus, .pending, "current-account participation status is preserved")
 }

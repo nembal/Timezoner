@@ -509,6 +509,7 @@ public struct CalendarTimeGrid: View {
         .background(color.opacity(CalendarGridColor.fillOpacity), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(event.title), all-day, \(event.calendarTitle). Does not set a time.")
+        .opacity(CalendarEventPresentationStyle.opacity(for: event))
     }
 
     private func timedEventButton(segment: CalendarTimedSegment, frame: CalendarGridTimedFrame) -> some View {
@@ -546,6 +547,7 @@ public struct CalendarTimeGrid: View {
         .buttonStyle(.plain)
         .accessibilityLabel(eventAccessibilityLabel(segment.event))
         .accessibilityHint("Sets TimeZoner to this event start")
+        .opacity(CalendarEventPresentationStyle.opacity(for: segment.event))
     }
 
     private func overlapMenu(group: CalendarGridTimedGroup, frame: CalendarGridTimedFrame) -> some View {

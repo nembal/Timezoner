@@ -61,6 +61,28 @@ func runCalendarAccessibilityTests() {
         availability: .busy,
         participationStatus: .accepted
     )
+    let tentativeResponseEvent = CalendarEventSnapshot(
+        id: "tentative-response",
+        calendarID: "work",
+        calendarTitle: "Work",
+        title: "Tentative design review",
+        startDate: event.startDate,
+        endDate: event.endDate,
+        isAllDay: false,
+        attendeeNames: [],
+        availability: .busy,
+        participationStatus: .tentative
+    )
+    expectCalendarAccessibility(
+        CalendarEventPresentationStyle.opacity(for: tentativeResponseEvent),
+        0.6,
+        "a tentative current-account response uses reduced event opacity"
+    )
+    expectCalendarAccessibility(
+        CalendarEventPresentationStyle.opacity(for: event),
+        1,
+        "a non-tentative response keeps full event opacity"
+    )
     let segments = (0 ..< 4).map { laneIndex in
         CalendarTimedSegment(
             id: "four-way-overlap|\(laneIndex)",

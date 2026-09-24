@@ -266,6 +266,7 @@ public struct AgendaView: View {
                 .fill(Theme.border.opacity(0.55))
                 .frame(height: 1)
         }
+        .opacity(CalendarEventPresentationStyle.opacity(for: event))
     }
 
     private func eventTextContent(_ event: CalendarEventSnapshot) -> some View {
