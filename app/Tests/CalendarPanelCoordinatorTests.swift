@@ -195,11 +195,11 @@ func runCalendarPanelCoordinatorTests() {
         expectCalendarPanel(main.isVisible && popover.isPresented, "a focused fallback popover keeps the pair visible")
 
         popover.isFocused = false
-        coordinator.panelDidResignKey()
+        coordinator.applicationDidResignActive()
         scheduler.runAll()
 
-        expectCalendarPanel(!popover.isPresented, "an unfocused fallback popover closes after panel resignation")
-        expectCalendarPanel(!main.isVisible && !agenda.isVisible, "an unfocused fallback popover does not keep the pair visible")
+        expectCalendarPanel(!popover.isPresented, "an unfocused fallback popover closes after app deactivation")
+        expectCalendarPanel(!main.isVisible && !agenda.isVisible, "app deactivation does not leave an unfocused fallback pair visible")
     }
 
     do {

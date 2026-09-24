@@ -318,6 +318,12 @@ public final class CalendarPanelPairController {
         }
     }
 
+    /// The app can deactivate while an application-defined popover is key, which does not
+    /// guarantee either floating panel will emit another resign-key callback.
+    public func applicationDidResignActive() {
+        panelDidResignKey()
+    }
+
     public func handleEscape() {
         hide()
     }

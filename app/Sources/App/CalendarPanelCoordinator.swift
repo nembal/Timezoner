@@ -161,6 +161,13 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
                 self?.syncAgendaVisibility()
             })
         }
+        observerTokens.append(center.addObserver(
+            forName: NSApplication.didResignActiveNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.pair.applicationDidResignActive()
+        })
     }
 
     private func updateAttachment(_ operation: () -> Void) {
