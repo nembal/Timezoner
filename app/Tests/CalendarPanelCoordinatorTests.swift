@@ -160,6 +160,7 @@ func runCalendarPanelCoordinatorTests() {
         coordinator.resizeMain(to: CGSize(width: 500, height: 500))
         expectCalendarPanel(main.frame.width == 500, "resizeMain changes the explicit main surface")
         expectCalendarPanel(main.frame.midX == mainCenter, "resizeMain retains the main surface center")
+        expectCalendarPanel(main.frame.maxY == 600, "resizeMain retains the main surface top edge")
         expectCalendarPanel(agenda.frame.maxY == main.frame.maxY, "resizeMain recomputes agenda attachment")
 
         coordinator.hide()
@@ -371,5 +372,107 @@ func runCalendarPanelCoordinatorTests() {
 
         expectCalendarPanel(coordinator.focusAgenda() == nil, "a hidden paired surface does not claim agenda keyboard focus")
         expectCalendarPanel(!agenda.isKey && popover.focusCount == 0, "hidden agenda focus leaves both agenda presentations untouched")
+    }
+
+    do {
+        let scheduler = CalendarPanelDeferredSchedulerFake()
+        let mainFrame = CGRect(x: 300, y: 100, width: 400, height: 500)
+        let main = CalendarPanelSurfaceFake(frame: mainFrame)
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let pair = CalendarPanelPairController(main: main, agenda: agenda, agendaPopover: popover,
+            visibleFrame: { visible }, scheduleDeferredDismissal: scheduler.schedule)
+        pair.show(showAgenda: true)
+        let frames = CalendarWorkspaceLayout.calculate(main: main.frame, agenda: agenda.frame,
+            placement: .right, visibleFrame: visible)
+        pair.beginWorkspace(frames, applyFrames: true, focusCalendar: true)
+        expectCalendarPanel(main.isVisible && agenda.isVisible && !popover.isPresented,
+                            "workspace has two real windows")
+        expectCalendarPanel(main.frame == frames.main && agenda.frame == frames.calendar,
+                            "workspace uses the pair frame solution")
+        pair.syncAgendaVisibility(showAgenda: false)
+        expectCalendarPanel(agenda.isVisible, "normal agenda preference cannot hide workspace calendar")
+        main.isKey = false; agenda.isKey = true
+        pair.panelDidResignKey(); scheduler.runAll()
+        expectCalendarPanel(main.isVisible && agenda.isVisible, "calendar key focus retains both windows")
+        pair.setOwnedPopoverPresented(true)
+        agenda.isKey = false
+        pair.panelDidResignKey(); scheduler.runAll()
+        expectCalendarPanel(main.isVisible && agenda.isVisible, "calendar settings retains both windows")
+        let restoration = CalendarWorkspaceRestoration(main: mainFrame,
+            agenda: AgendaPlacementResult(location: .right,
+                frame: CGRect(x: 710, y: 20, width: 220, height: 580)))
+        pair.endWorkspace(restoration, showAgenda: false)
+        expectCalendarPanel(main.frame == mainFrame && !agenda.isVisible,
+                            "return honors a changed normal agenda preference")
+        expectCalendarPanel(pair.workspaceFrames == nil, "normal attachment resumes after return")
+    }
+
+    do {
+        let scheduler = CalendarPanelDeferredSchedulerFake()
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 300, y: 100, width: 400, height: 500))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let pair = CalendarPanelPairController(
+            main: main,
+            agenda: agenda,
+            agendaPopover: popover,
+            visibleFrame: { visible },
+            scheduleDeferredDismissal: scheduler.schedule
+        )
+
+        pair.show(showAgenda: true)
+        let normalFrame = main.frame
+        main.isKey = false
+        agenda.isKey = false
+        pair.setTransitionInProgress(true)
+        pair.resizeMain(to: CGSize(width: 600, height: 300))
+        pair.syncAgendaVisibility(showAgenda: false)
+        pair.panelDidResignKey()
+        scheduler.runAll()
+        expectCalendarPanel(main.frame == normalFrame && main.isVisible && agenda.isVisible,
+                            "transition guard preserves a normal pair and its geometry")
+
+        pair.setTransitionInProgress(false)
+        pair.syncAgendaVisibility(showAgenda: false)
+        expectCalendarPanel(!agenda.isVisible, "normal agenda visibility resumes after a transition")
+
+        pair.resizeMain(to: CGSize(width: 500, height: 400))
+        expectCalendarPanel(main.frame.midX == 500 && main.frame.maxY == 600,
+                            "normal resize keeps horizontal center and top edge")
+
+        let frames = CalendarWorkspaceLayout.calculate(
+            main: main.frame,
+            agenda: agenda.frame,
+            placement: .right,
+            visibleFrame: visible
+        )
+        pair.beginWorkspace(frames, focusCalendar: false)
+        main.isKey = false
+        agenda.isKey = false
+        pair.show(showAgenda: false)
+        expectCalendarPanel(agenda.isKey && agenda.isVisible,
+                            "show refocuses the calendar while the workspace is active")
+    }
+
+    do {
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 300, y: 100, width: 400, height: 500))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let pair = CalendarPanelPairController(
+            main: main,
+            agenda: agenda,
+            agendaPopover: popover,
+            visibleFrame: { visible }
+        )
+
+        pair.show(showAgenda: true)
+        main.isKey = false
+        pair.focusTimeZoner()
+        expectCalendarPanel(main.isKey, "focusTimeZoner restores focus to a visible main panel")
+
+        pair.hide()
+        pair.focusTimeZoner()
+        expectCalendarPanel(!main.isKey, "focusTimeZoner leaves a hidden main panel unfocused")
     }
 }
