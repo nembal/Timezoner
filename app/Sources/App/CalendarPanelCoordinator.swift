@@ -84,7 +84,7 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     private var observerTokens: [NSObjectProtocol] = []
     private var accessibilityDisplayObserver: NSObjectProtocol?
     private var isUpdatingAttachment = false
-    private var savedNormalLayout: CalendarNormalLayoutSnapshot?
+    private var workspaceSession = CalendarWorkspaceSession()
     private var transitionGate = CalendarWorkspaceTransitionGate()
 
     init(
@@ -199,39 +199,56 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
 
     func restoreTimeZonerImmediately() {
         settleWorkspaceTransition()
-        guard let target = target(for: .timezoner) else { return }
-        closeOwnedPopovers()
-        prepareContent(for: target)
-        completeFrames(target, focus: false)
+        if let target = target(for: .timezoner) {
+            closeOwnedPopovers()
+            prepareContent(for: target)
+            completeFrames(target, focus: false)
+        }
         mainPanel.persistsNormalPosition = true
         refreshCalendar()
-        NotificationCenter.default.post(name: .focusChatField, object: nil)
+        CalendarWorkspaceFocusOrder.restoreTimeZonerChat(
+            mainPanelIsVisible: mainPanel.isVisible,
+            makeMainPanelKey: { [mainPanel] in mainPanel.makeKey() },
+            postFocusChat: {
+                NotificationCenter.default.post(name: .focusChatField, object: nil)
+            }
+        )
     }
 
     func settleWorkspaceTransition() {
-        guard let destination = transitionGate.cancel() else { return }
-        // A display can disappear while a transition is in flight. Recalculate from the saved
-        // normal snapshot against the current visible frame instead of reusing a stale target.
-        guard let settled = target(for: destination) else { return }
+        let cancellation = CalendarWorkspaceTransitionCancellation(
+            cancelling: &transitionGate,
+            currentPresentationDestination: presentation.destination
+        )
+        if let cancellationDestination = cancellation.targetDestination,
+           let settled = target(for: cancellationDestination) {
+            // A display can disappear while a transition is in flight. Recalculate from the
+            // current visible frame instead of reusing a stale animator target.
+            prepareContent(for: settled)
+            NSAnimationContext.runAnimationGroup { context in
+                // Replacing an animator target in a zero-duration transaction cancels the
+                // in-flight frame animation. A direct setter alone does not clear AppKit's
+                // animator state.
+                context.duration = 0
+                mainPanel.animator().setFrame(settled.main, display: true)
+                agendaPanel.animator().setFrame(settled.calendar, display: true)
+            }
+            completeFrames(settled, focus: false)
+        }
 
-        prepareContent(for: settled)
-        NSAnimationContext.runAnimationGroup { context in
-            // Replacing an animator target in a zero-duration transaction cancels the in-flight
-            // frame animation. A direct setter alone does not clear AppKit's animator state.
-            context.duration = 0
-            mainPanel.animator().setFrame(settled.main, display: true)
-            agendaPanel.animator().setFrame(settled.calendar, display: true)
-        }
-        completeFrames(settled, focus: false)
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            presentation.workspaceContentOpacity = 1
-            presentation.workspaceContentOffset = 0
-            presentation.isWorkspaceTransitioning = false
-        }
-        pair.setTransitionInProgress(false)
-        mainPanel.persistsNormalPosition = destination == .timezoner
+        cancellation.releaseInteractionGates(
+            resetSwiftUI: {
+                var transaction = Transaction()
+                transaction.disablesAnimations = true
+                withTransaction(transaction) {
+                    presentation.workspaceContentOpacity = 1
+                    presentation.workspaceContentOffset = 0
+                    presentation.isWorkspaceTransitioning = false
+                }
+            },
+            resetPair: { pair.setTransitionInProgress(false) }
+        )
+        mainPanel.persistsNormalPosition = cancellation.persistenceDestination == .timezoner
     }
 
     func setOwnedPopoverPresented(_ isPresented: Bool) {
@@ -324,22 +341,13 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
 
     private func target(for destination: CalendarDestination) -> NativeWorkspaceTarget? {
         if destination == .calendar {
-            if savedNormalLayout == nil {
-                savedNormalLayout = CalendarNormalLayoutSnapshot(
-                    main: mainPanel.frame,
-                    agenda: agendaPanel.isVisible ? agendaPanel.frame : nil,
-                    placement: pair.placement,
-                    screenID: screenIdentifier(for: mainPanel.screen)?.stringValue,
-                    visibleFrame: visibleFrame(),
-                    cityCount: cityCount()
-                )
-            }
-            guard let saved = savedNormalLayout else { return nil }
-            let frames = CalendarWorkspaceLayout.calculate(
-                main: saved.main,
-                agenda: saved.agenda,
-                placement: saved.placement,
-                visibleFrame: visibleFrame()
+            let frames = workspaceSession.calendarTarget(
+                main: mainPanel.frame,
+                agenda: agendaPanel.isVisible ? agendaPanel.frame : nil,
+                placement: pair.placement,
+                visibleFrame: visibleFrame(),
+                screenID: screenIdentifier(for: mainPanel.screen)?.stringValue,
+                cityCount: cityCount()
             )
             return NativeWorkspaceTarget(
                 destination: .calendar,
@@ -350,14 +358,12 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
             )
         }
 
-        guard let saved = savedNormalLayout else { return nil }
         let visible = visibleFrame()
-        let restored = CalendarWorkspaceLayout.restore(
-            saved,
+        guard let restored = workspaceSession.timeZonerRestoration(
             visibleFrame: visible,
             screenID: screenIdentifier(for: mainPanel.screen)?.stringValue,
             cityCount: cityCount()
-        )
+        ) else { return nil }
         return NativeWorkspaceTarget(
             destination: .timezoner,
             main: restored.main,
@@ -399,7 +405,7 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
                 pair.beginWorkspace(frames, applyFrames: true, focusCalendar: focus)
             } else if let restored = target.restoration {
                 pair.endWorkspace(restored, showAgenda: presentation.showAgendaWing, focusMain: focus)
-                savedNormalLayout = nil
+                workspaceSession.finishTimeZonerRestoration()
             }
         }
         updateHuggingForFinalFrames()

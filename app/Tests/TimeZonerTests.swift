@@ -19,6 +19,7 @@ struct TestRunner {
         runCalendarWorkspaceContractsTests()
         runCalendarWorkspaceSettingsOwnershipTests()
         runCalendarWorkspaceLayoutTests()
+        runCalendarWorkspaceSessionTests()
         runCalendarWorkspaceTransitionTests()
         runCalendarPanelHostTests()
         runCalendarWorkspaceRailTests()
