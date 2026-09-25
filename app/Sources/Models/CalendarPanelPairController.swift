@@ -259,11 +259,3 @@ public protocol CalendarPanelControlling: AnyObject {
     func setOwnedPopoverPresented(_ isPresented: Bool)
     func handleEscape()
 }
-
-/// Task 5A keeps pre-native-lifecycle conformers source-compatible. Task 5B replaces these
-/// defaults with real forwards on the AppKit proxy and coordinator.
-public extension CalendarPanelControlling {
-    func focusTimeZoner() {}
-    func toggleSettings() {}
-    func restoreTimeZonerImmediately() {}
-}
