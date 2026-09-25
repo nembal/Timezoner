@@ -97,151 +97,188 @@ public struct TimezoneMapView: View {
             .animation(.easeInOut(duration: 0.15), value: hoveredOffset)
 
             if mapPresentation.isMapExpanded, let geoData = geoData {
-                Canvas { context, size in
-                    let hlOffsets = MapColorLogic.offsetSeconds(for: highlightedIanaIds, at: timeState.referenceDate)
-                    let userOffsets = MapColorLogic.offsetSeconds(for: userIanaIds, at: timeState.referenceDate)
-                    let offsetLookup = MapColorLogic.buildOffsetLookup(for: geoData.features, at: timeState.referenceDate)
+                VStack(spacing: 0) {
+                    Canvas { context, size in
+                        let hlOffsets = MapColorLogic.offsetSeconds(for: highlightedIanaIds, at: timeState.referenceDate)
+                        let userOffsets = MapColorLogic.offsetSeconds(for: userIanaIds, at: timeState.referenceDate)
+                        let offsetLookup = MapColorLogic.buildOffsetLookup(for: geoData.features, at: timeState.referenceDate)
 
-                    // Use cached paths if available, otherwise build on the fly (first frame)
-                    let useCache = !cachedPaths.isEmpty
-                    let projection = useCache ? nil : MapProjection(size: size)
+                        // Use cached paths if available, otherwise build on the fly (first frame)
+                        let useCache = !cachedPaths.isEmpty
+                        let projection = useCache ? nil : MapProjection(size: size)
 
-                    for i in 0..<geoData.features.count {
-                        let tzid = geoData.features[i].properties.tzid
+                        for i in 0..<geoData.features.count {
+                            let tzid = geoData.features[i].properties.tzid
 
-                        let state = MapColorLogic.visualState(
-                            for: tzid,
-                            userZoneIds: userIanaIds,
-                            highlightedZoneIds: highlightedIanaIds,
-                            highlightedOffsetSeconds: hlOffsets,
-                            userOffsetSeconds: userOffsets,
-                            offsetLookup: offsetLookup
-                        )
+                            let state = MapColorLogic.visualState(
+                                for: tzid,
+                                userZoneIds: userIanaIds,
+                                highlightedZoneIds: highlightedIanaIds,
+                                highlightedOffsetSeconds: hlOffsets,
+                                userOffsetSeconds: userOffsets,
+                                offsetLookup: offsetLookup
+                            )
 
-                        let isInHoveredBand: Bool = {
-                            guard let hOffset = hoveredOffset else { return false }
-                            guard let featureOffset = offsetLookup[tzid] else { return false }
-                            return featureOffset == hOffset
-                        }()
-                        let fill: Color
-                        let border: Color
-                        let borderWidth: CGFloat
-                        let darkOutline: Bool
+                            let isInHoveredBand: Bool = {
+                                guard let hOffset = hoveredOffset else { return false }
+                                guard let featureOffset = offsetLookup[tzid] else { return false }
+                                return featureOffset == hOffset
+                            }()
+                            let fill: Color
+                            let border: Color
+                            let borderWidth: CGFloat
+                            let darkOutline: Bool
 
-                        if state == .highlighted {
-                            fill = Theme.accent.opacity(0.55)
-                            border = Theme.accent
-                            borderWidth = 1.5
-                            darkOutline = true
-                        } else if state == .highlightBand {
-                            fill = Theme.accent.opacity(0.40)
-                            border = Theme.accent.opacity(0.35)
-                            borderWidth = 0.5
-                            darkOutline = false
-                        } else if state == .userZone {
-                            fill = Theme.accent.opacity(0.38)
-                            border = Theme.accent.opacity(0.75)
-                            borderWidth = 1.5
-                            darkOutline = true
-                        } else if state == .userBand {
-                            fill = Theme.accent.opacity(0.30)
-                            border = Theme.accent.opacity(0.25)
-                            borderWidth = 0.5
-                            darkOutline = false
-                        } else if isInHoveredBand {
-                            fill = Theme.hover.opacity(0.32)
-                            border = Theme.hover.opacity(0.35)
-                            borderWidth = 0.5
-                            darkOutline = false
-                        } else {
-                            fill = Theme.mapLand
-                            border = Theme.border.opacity(0.4)
-                            borderWidth = 0.5
-                            darkOutline = false
-                        }
-
-                        // Use cached CGPaths when available, compute only on first frame
-                        let featurePaths: [CGPath]
-                        if useCache, i < cachedPaths.count {
-                            featurePaths = cachedPaths[i].paths
-                        } else {
-                            featurePaths = projection!.pathsForFeature(geoData.features[i])
-                        }
-
-                        // If hovering this band, layer a blue tint + outline on top of the
-                        // base fill so even selected/highlighted zones show hover feedback.
-                        let drawHoverOverlay = isInHoveredBand && state != .defaultLand
-                        for cgPath in featurePaths {
-                            let swiftPath = Path(cgPath)
-                            context.fill(swiftPath, with: .color(fill))
-                            if darkOutline {
-                                context.stroke(swiftPath, with: .color(Theme.mapOutline), lineWidth: borderWidth + 1)
+                            if state == .highlighted {
+                                fill = Theme.accent.opacity(0.55)
+                                border = Theme.accent
+                                borderWidth = 1.5
+                                darkOutline = true
+                            } else if state == .highlightBand {
+                                fill = Theme.accent.opacity(0.40)
+                                border = Theme.accent.opacity(0.35)
+                                borderWidth = 0.5
+                                darkOutline = false
+                            } else if state == .userZone {
+                                fill = Theme.accent.opacity(0.38)
+                                border = Theme.accent.opacity(0.75)
+                                borderWidth = 1.5
+                                darkOutline = true
+                            } else if state == .userBand {
+                                fill = Theme.accent.opacity(0.30)
+                                border = Theme.accent.opacity(0.25)
+                                borderWidth = 0.5
+                                darkOutline = false
+                            } else if isInHoveredBand {
+                                fill = Theme.hover.opacity(0.32)
+                                border = Theme.hover.opacity(0.35)
+                                borderWidth = 0.5
+                                darkOutline = false
+                            } else {
+                                fill = Theme.mapLand
+                                border = Theme.border.opacity(0.4)
+                                borderWidth = 0.5
+                                darkOutline = false
                             }
-                            context.stroke(swiftPath, with: .color(border), lineWidth: borderWidth)
-                            if drawHoverOverlay {
-                                context.fill(swiftPath, with: .color(Theme.hover.opacity(0.22)))
-                                context.stroke(swiftPath, with: .color(Theme.hover.opacity(0.6)), lineWidth: 0.75)
+
+                            // Use cached CGPaths when available, compute only on first frame
+                            let featurePaths: [CGPath]
+                            if useCache, i < cachedPaths.count {
+                                featurePaths = cachedPaths[i].paths
+                            } else {
+                                featurePaths = projection!.pathsForFeature(geoData.features[i])
+                            }
+
+                            // If hovering this band, layer a blue tint + outline on top of the
+                            // base fill so even selected/highlighted zones show hover feedback.
+                            let drawHoverOverlay = isInHoveredBand && state != .defaultLand
+                            for cgPath in featurePaths {
+                                let swiftPath = Path(cgPath)
+                                context.fill(swiftPath, with: .color(fill))
+                                if darkOutline {
+                                    context.stroke(swiftPath, with: .color(Theme.mapOutline), lineWidth: borderWidth + 1)
+                                }
+                                context.stroke(swiftPath, with: .color(border), lineWidth: borderWidth)
+                                if drawHoverOverlay {
+                                    context.fill(swiftPath, with: .color(Theme.hover.opacity(0.22)))
+                                    context.stroke(swiftPath, with: .color(Theme.hover.opacity(0.6)), lineWidth: 0.75)
+                                }
+                            }
+                        }
+
+                        var nightPath = Path()
+                        let nightProjection = projection ?? MapProjection(size: size)
+                        for band in SolarDayNightOverlay.nightBands(
+                            at: timeState.referenceDate,
+                            latitudeRange: nightProjection.minLat...nightProjection.maxLat
+                        ) {
+                            for span in band.spans {
+                                let topLeft = nightProjection.project(longitude: span.minimum,
+                                                                      latitude: band.maximumLatitude)
+                                let bottomRight = nightProjection.project(longitude: span.maximum,
+                                                                          latitude: band.minimumLatitude)
+                                nightPath.addRect(CGRect(x: topLeft.x,
+                                                         y: topLeft.y,
+                                                         width: max(bottomRight.x - topLeft.x, 0),
+                                                         height: max(bottomRight.y - topLeft.y, 0)))
+                            }
+                        }
+                        context.fill(nightPath, with: .color(.black.opacity(0.17)))
+
+                        // City dots
+                        let dotProjection = projection ?? MapProjection(size: size)
+                        for zone in zones {
+                            guard let coord = CityCoordinates.lookup(zone.timeZoneId) else { continue }
+                            let point = dotProjection.project(longitude: coord.longitude, latitude: coord.latitude)
+                            let isHL = highlightedZoneIds.contains(zone.id)
+                            let radius: CGFloat = isHL ? 4.5 : 3.5
+                            let dotRect = CGRect(x: point.x - radius, y: point.y - radius,
+                                                 width: radius * 2, height: radius * 2)
+                            let outlineRect = CGRect(x: point.x - radius - 1, y: point.y - radius - 1,
+                                                     width: (radius + 1) * 2, height: (radius + 1) * 2)
+                            context.fill(Path(ellipseIn: outlineRect), with: .color(Theme.mapCityHalo))
+                            context.fill(Path(ellipseIn: dotRect), with: .color(Theme.accent))
+                            if isHL {
+                                let glowRect = CGRect(x: point.x - 7, y: point.y - 7, width: 14, height: 14)
+                                context.fill(Path(ellipseIn: glowRect), with: .color(Theme.accent.opacity(0.25)))
                             }
                         }
                     }
-
-                    // City dots
-                    let dotProjection = projection ?? MapProjection(size: size)
-                    for zone in zones {
-                        guard let coord = CityCoordinates.lookup(zone.timeZoneId) else { continue }
-                        let point = dotProjection.project(longitude: coord.longitude, latitude: coord.latitude)
-                        let isHL = highlightedZoneIds.contains(zone.id)
-                        let radius: CGFloat = isHL ? 4.5 : 3.5
-                        let dotRect = CGRect(x: point.x - radius, y: point.y - radius,
-                                             width: radius * 2, height: radius * 2)
-                        let outlineRect = CGRect(x: point.x - radius - 1, y: point.y - radius - 1,
-                                                 width: (radius + 1) * 2, height: (radius + 1) * 2)
-                        context.fill(Path(ellipseIn: outlineRect), with: .color(Theme.mapCityHalo))
-                        context.fill(Path(ellipseIn: dotRect), with: .color(Theme.accent))
-                        if isHL {
-                            let glowRect = CGRect(x: point.x - 7, y: point.y - 7, width: 14, height: 14)
-                            context.fill(Path(ellipseIn: glowRect), with: .color(Theme.accent.opacity(0.25)))
+                    .frame(height: 300)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(key: MapSizeKey.self, value: geo.size)
+                        }
+                    )
+                    .onPreferenceChange(MapSizeKey.self) { newSize in
+                        if mapSize != newSize {
+                            mapSize = newSize
+                            rebuildPathCache()
                         }
                     }
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let location):
+                            let tzid = hitTest(at: location)
+                            hoveredTzid = tzid
+                            if let tzid = tzid, let tz = TimeZone(identifier: tzid) {
+                                hoveredOffset = tz.secondsFromGMT(for: timeState.referenceDate)
+                            } else {
+                                hoveredOffset = nil
+                            }
+                        case .ended:
+                            hoveredTzid = nil
+                            hoveredOffset = nil
+                        }
+                    }
+                    .onTapGesture { location in
+                        guard let tzid = hitTest(at: location) else { return }
+                        guard !userIanaIds.contains(tzid) else { return }
+                        let label = labelFromIana(tzid)
+                        onAddZone?(label, tzid)
+                    }
+
+                    GeometryReader { proxy in
+                        ZStack(alignment: .topLeading) {
+                            ForEach(Array(MapHourScale.labels(at: timeState.referenceDate).enumerated()), id: \.offset) { index, label in
+                                if index > 0 && index.isMultiple(of: 3) {
+                                    Text(label.text)
+                                        .font(.system(size: 9, weight: .regular, design: .monospaced))
+                                        .foregroundStyle(Theme.textTertiary)
+                                        .position(x: proxy.size.width * label.xFraction, y: 10)
+                                }
+                            }
+                        }
+                        .allowsHitTesting(false)
+                    }
+                    .frame(height: 20)
                 }
                 .frame(height: 320)
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(key: MapSizeKey.self, value: geo.size)
-                    }
-                )
-                .onPreferenceChange(MapSizeKey.self) { newSize in
-                    if mapSize != newSize {
-                        mapSize = newSize
-                        rebuildPathCache()
-                    }
-                }
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .strokeBorder(Theme.border, lineWidth: 1)
                 )
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let location):
-                        let tzid = hitTest(at: location)
-                        hoveredTzid = tzid
-                        if let tzid = tzid, let tz = TimeZone(identifier: tzid) {
-                            hoveredOffset = tz.secondsFromGMT(for: timeState.referenceDate)
-                        } else {
-                            hoveredOffset = nil
-                        }
-                    case .ended:
-                        hoveredTzid = nil
-                        hoveredOffset = nil
-                    }
-                }
-                .onTapGesture { location in
-                    guard let tzid = hitTest(at: location) else { return }
-                    guard !userIanaIds.contains(tzid) else { return }
-                    let label = labelFromIana(tzid)
-                    onAddZone?(label, tzid)
-                }
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
