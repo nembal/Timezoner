@@ -87,6 +87,7 @@ private final class CalendarPanelNativeLifecycleFixture {
     private let visibleFrame: () -> CGRect
 
     private(set) var savedNormalLayout: CalendarNormalLayoutSnapshot?
+    private(set) var activeNormalRestoration: CalendarWorkspaceRestoration?
     private(set) var persistsNormalPosition = true
     private(set) var focusedPanel: CalendarPanelIdentity?
     var workspaceFrames: CalendarWorkspaceFrames? { pair.workspaceFrames }
@@ -150,6 +151,36 @@ private final class CalendarPanelNativeLifecycleFixture {
             cityCount: cityCount
         )
         pair.endWorkspace(restored, showAgenda: showAgenda)
+        savedNormalLayout = nil
+        persistsNormalPosition = true
+        focusedPanel = .timezoner
+    }
+
+    func beginNormalReturnTransition(visibleFrame: CGRect, screenID: String?, cityCount: Int) {
+        guard let snapshot = savedNormalLayout else { return }
+        activeNormalRestoration = CalendarWorkspaceLayout.restore(
+            snapshot,
+            visibleFrame: visibleFrame,
+            screenID: screenID,
+            cityCount: cityCount
+        )
+    }
+
+    func settleNormalReturnTransition(
+        visibleFrame: CGRect,
+        screenID: String?,
+        cityCount: Int,
+        showAgenda: Bool
+    ) {
+        guard let snapshot = savedNormalLayout else { return }
+        let restored = CalendarWorkspaceLayout.restore(
+            snapshot,
+            visibleFrame: visibleFrame,
+            screenID: screenID,
+            cityCount: cityCount
+        )
+        pair.endWorkspace(restored, showAgenda: showAgenda)
+        activeNormalRestoration = nil
         savedNormalLayout = nil
         persistsNormalPosition = true
         focusedPanel = .timezoner
@@ -623,6 +654,45 @@ func runCalendarPanelCoordinatorTests() {
                             "city-count and display changes restore a clamped normal frame")
         expectCalendarPanel(lifecycle.savedNormalLayout == nil && lifecycle.workspaceFrames == nil,
                             "restoration clears the workspace snapshot and pair geometry")
+    }
+
+    do {
+        let scheduler = CalendarPanelDeferredSchedulerFake()
+        let disconnectedDisplay = CGRect(x: -1_200, y: 40, width: 1_920, height: 900)
+        let currentDisplay = CGRect(x: 0, y: 0, width: 1_200, height: 800)
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: -940, y: 260, width: 700, height: 580))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: -230, y: 260, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let lifecycle = CalendarPanelNativeLifecycleFixture(
+            main: main,
+            agenda: agenda,
+            popover: popover,
+            visibleFrame: { disconnectedDisplay },
+            scheduleDeferredDismissal: scheduler.schedule
+        )
+
+        lifecycle.showNormalAgenda()
+        lifecycle.enterWorkspace(screenID: "disconnected", cityCount: 4)
+        lifecycle.beginNormalReturnTransition(
+            visibleFrame: disconnectedDisplay,
+            screenID: "disconnected",
+            cityCount: 4
+        )
+        let staleMain = lifecycle.activeNormalRestoration?.main
+        lifecycle.settleNormalReturnTransition(
+            visibleFrame: currentDisplay,
+            screenID: "built-in",
+            cityCount: 4,
+            showAgenda: true
+        )
+        expectCalendarPanel(
+            currentDisplay.contains(main.frame) && main.frame != staleMain,
+            "a display change during normal restoration discards the stale target and reclamps on the current display"
+        )
+        expectCalendarPanel(
+            lifecycle.activeNormalRestoration == nil && lifecycle.savedNormalLayout == nil,
+            "settled display restoration clears only after applying the current-display target"
+        )
     }
 
     do {

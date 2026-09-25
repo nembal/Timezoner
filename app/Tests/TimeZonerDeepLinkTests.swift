@@ -150,6 +150,30 @@ func runTimeZonerDeepLinkTests() {
         print("  FAIL: an explicit timezone command restores normal editing before adding a city")
     }
 
+    let enteringWorkspaceDefaultsName = "TimeZonerDeepLinkTests.workspace-entry.\(UUID().uuidString)"
+    let enteringWorkspaceDefaults = UserDefaults(suiteName: enteringWorkspaceDefaultsName)!
+    defer { enteringWorkspaceDefaults.removePersistentDomain(forName: enteringWorkspaceDefaultsName) }
+    let enteringWorkspacePresentation = CalendarPresentationState(defaults: enteringWorkspaceDefaults)
+    enteringWorkspacePresentation.isWorkspaceTransitioning = true
+    var enteringWorkspaceOrder: [String] = []
+    TimeZonerDeepLinkPresentationRouter.route(
+        .open,
+        presentation: enteringWorkspacePresentation,
+        restoreTimeZonerPanel: {
+            enteringWorkspaceOrder.append("restore")
+            enteringWorkspacePresentation.isWorkspaceTransitioning = false
+        },
+        apply: { _ in enteringWorkspaceOrder.append("apply") }
+    )
+    if enteringWorkspacePresentation.destination == .timezoner
+        && !enteringWorkspacePresentation.isWorkspaceTransitioning
+        && enteringWorkspaceOrder == ["restore", "apply"] {
+        testsPassed += 1
+    } else {
+        testsFailed += 1
+        print("  FAIL: a deep link during calendar entry settles normal panels before applying")
+    }
+
     let controller = ReferenceMomentController(timeState: TimeState())
     let selectedEvent = CalendarEventSnapshot(
         id: "deep-link-event",

@@ -86,7 +86,6 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     private var isUpdatingAttachment = false
     private var savedNormalLayout: CalendarNormalLayoutSnapshot?
     private var transitionGate = CalendarWorkspaceTransitionGate()
-    private var activeNativeTarget: NativeWorkspaceTarget?
 
     init(
         mainPanel: FloatingPanel,
@@ -211,12 +210,10 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
 
     func settleWorkspaceTransition() {
         guard let destination = transitionGate.cancel() else { return }
-        let settled = activeNativeTarget?.destination == destination
-            ? activeNativeTarget
-            : target(for: destination)
-        guard let settled else { return }
+        // A display can disappear while a transition is in flight. Recalculate from the saved
+        // normal snapshot against the current visible frame instead of reusing a stale target.
+        guard let settled = target(for: destination) else { return }
 
-        activeNativeTarget = nil
         prepareContent(for: settled)
         NSAnimationContext.runAnimationGroup { context in
             // Replacing an animator target in a zero-duration transaction cancels the in-flight
@@ -275,7 +272,6 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
             return
         }
 
-        activeNativeTarget = target
         pair.setTransitionInProgress(true)
         presentation.isWorkspaceTransitioning = true
         mainPanel.persistsNormalPosition = false
@@ -314,7 +310,6 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
                     guard self.transitionGate.isCurrent(request.id) else { return }
 
                     let next = self.transitionGate.finish(request.id)
-                    self.activeNativeTarget = nil
                     self.presentation.isWorkspaceTransitioning = false
                     self.pair.setTransitionInProgress(false)
                     self.mainPanel.persistsNormalPosition = destination == .timezoner

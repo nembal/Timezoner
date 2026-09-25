@@ -59,9 +59,10 @@ public enum TimeZonerDeepLinkPresentationRouter {
         restoreTimeZonerPanel: () -> Void,
         apply: (TimeZonerDeepLink) -> Void
     ) {
-        if presentation.restoreTimeZonerSurface() {
-            restoreTimeZonerPanel()
-        }
+        _ = presentation.restoreTimeZonerSurface()
+        // The value state can still say TimeZoner while its native panels are fading into
+        // Calendar. Always let the owner synchronously settle that transition first.
+        restoreTimeZonerPanel()
         apply(deepLink)
     }
 }
