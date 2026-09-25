@@ -596,13 +596,12 @@ extension CalendarPanelCoordinator: FloatingPanelInteractionDelegate {
     }
 
     nonisolated func floatingPanel(_ panel: FloatingPanel, didChangeHugging hugging: Bool) {
-        Task { @MainActor [weak self, weak panel] in
-            guard let self, let panel, !self.presentation.isWorkspaceTransitioning else { return }
-            if panel === self.mainPanel {
-                self.presentation.mainPanelHugsMenuBar = hugging
-            } else if panel === self.agendaPanel {
-                self.presentation.agendaPanelHugsMenuBar = hugging
-            }
+        Task { @MainActor [weak self] in
+            guard let self, !self.presentation.isWorkspaceTransitioning else { return }
+            // This callback may have been emitted mid-animation but delivered after the
+            // coordinator's final transaction. Never apply its stale bool; both corners must
+            // instead reflect the actual settled frames and their current visible tops.
+            self.updateHuggingForFinalFrames()
         }
     }
 }
