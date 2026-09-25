@@ -16,10 +16,8 @@ public enum CalendarRangeNavigationDirection: Equatable, Sendable {
 public enum CalendarNavigationIconControl: Equatable, Sendable {
     case expandCalendar, expandTimeZoner
 
-    @available(*, deprecated, message: "Use .expandCalendar")
     public static let openWeek: Self = .expandCalendar
 
-    @available(*, deprecated, message: "Use .expandTimeZoner")
     public static let backToTimeZoner: Self = .expandTimeZoner
 
     public var systemImageName: String { "arrow.up.left.and.arrow.down.right" }
