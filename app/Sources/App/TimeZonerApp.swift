@@ -25,6 +25,9 @@ private final class CalendarPanelControllerProxy: CalendarPanelControlling {
     func resizeMain(to size: CGSize) { target?.resizeMain(to: size) }
     func enterCalendarMode() { target?.enterCalendarMode() }
     func returnToTimeZoner() { target?.returnToTimeZoner() }
+    func restoreTimeZonerImmediately() { target?.restoreTimeZonerImmediately() }
+    func focusTimeZoner() { target?.focusTimeZoner() }
+    func toggleSettings() { target?.toggleSettings() }
     func setOwnedPopoverPresented(_ isPresented: Bool) { target?.setOwnedPopoverPresented(isPresented) }
     func handleEscape() { target?.handleEscape() }
 }
@@ -104,7 +107,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 return await self.calendarStore.event(matching: occurrenceID, near: startDate)
             },
             prepareTimeZonerSurface: { [weak self] in
-                self?.restoreTimeZonerSurfaceForNotification()
+                self?.prepareCurrentWorkspaceForNotification()
             },
             showPairedPanels: { [weak self] in
                 self?.panelCoordinator?.show()
@@ -265,7 +268,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             mainPanel: mainPanel,
             agendaPanel: agendaPanel,
             agendaPopover: agendaPopover,
-            presentation: presentation
+            presentation: presentation,
+            cityCount: { [zoneStore] in zoneStore.zones.count },
+            prepareCalendar: { [weak self] in
+                guard let self else { return }
+                self.presentation.enterCalendar(
+                    now: self.calendarStore.currentDate,
+                    calendar: self.calendarStore.localCalendar
+                )
+            },
+            refreshCalendar: { [weak self] in
+                guard let self,
+                      self.calendarStore.authorizationStatus == .fullAccess else { return }
+                self.calendarStore.refreshPresentationInterval()
+            }
         )
         panelProxy.target = coordinator
         panelCoordinator = coordinator
@@ -275,7 +291,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         CalendarPanelRootView(
             presentation: presentation,
             agenda: makeAgendaView(panelProxy: panelProxy),
-            calendar: makeCalendarModeView(panelProxy: panelProxy)
+            calendar: makeCalendarModeView(panelProxy: panelProxy),
+            onToggleSettings: panelProxy.toggleSettings,
+            onFocusCalendar: { _ = panelProxy.focusAgenda() }
         )
     }
 
@@ -311,11 +329,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             settingsButton: CalendarSettingsButton(
                 owner: .calendar,
                 presentation: presentation,
-                onActivate: { [weak self] in
-                    guard let self else { return }
-                    self.presentation.isSettingsPresented.toggle()
-                    panelProxy.setOwnedPopoverPresented(self.presentation.hasOwnedPopover)
-                },
+                onActivate: panelProxy.toggleSettings,
                 onOwnedPopoverChanged: { isPresented in
                     panelProxy.setOwnedPopoverPresented(isPresented)
                 }
@@ -361,18 +375,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.open(url)
     }
 
-    /// Notification activation must leave full Calendar mode before its selected-event context
-    /// can be rendered and focused in the TimeZoner surface.
-    private func restoreTimeZonerSurfaceForNotification() {
-        guard presentation.restoreTimeZonerSurface() else { return }
-        if presentation.showAgendaWing,
-           calendarStore.authorizationStatus == .fullAccess {
-            calendarStore.refreshPresentationInterval()
-        }
-        panelCoordinator?.returnToTimeZoner()
+    /// Notification activation keeps an already-open calendar workspace intact so the selected
+    /// event and compact TimeZoner rail remain visible together.
+    private func prepareCurrentWorkspaceForNotification() {
+        panelCoordinator?.syncAgendaVisibility()
     }
 
     private func focusSelectedEventContext() {
+        panelCoordinator?.focusTimeZoner()
         NotificationCenter.default.post(name: .focusSelectedEventContext, object: nil)
     }
 
@@ -394,10 +404,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func openCalendarMode(panelProxy: CalendarPanelControllerProxy) {
-        guard calendarStore.authorizationStatus == .fullAccess else { return }
-        presentation.enterCalendar(now: calendarStore.currentDate, calendar: calendarStore.localCalendar)
         panelProxy.enterCalendarMode()
-        calendarStore.refresh(interval: presentation.activeInterval(calendar: calendarStore.localCalendar))
     }
 
     private func showPanel() {

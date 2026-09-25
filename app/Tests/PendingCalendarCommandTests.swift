@@ -577,8 +577,7 @@ func runPendingCalendarCommandTests() async {
         let router = CalendarNotificationCommandRouter(
             resolveEvent: { _, _ in fresh },
             prepareTimeZonerSurface: {
-                operations.append("restore")
-                presentation.returnToTimeZoner()
+                operations.append("prepare")
             },
             showPairedPanels: { operations.append("show") },
             selectEvent: { _, _ in operations.append("fresh") },
@@ -587,8 +586,8 @@ func runPendingCalendarCommandTests() async {
         )
 
         await router.route(command!)
-        expectPendingCalendarCommand(presentation.destination, .timezoner, "fresh alert routing restores TimeZoner before selecting the event")
-        expectPendingCalendarCommand(operations, ["restore", "show", "fresh", "focus"], "fresh alert routing restores, presents, selects, then focuses the selected context")
+        expectPendingCalendarCommand(presentation.destination, .calendar, "fresh alert routing keeps the calendar workspace beside the selected event")
+        expectPendingCalendarCommand(operations, ["prepare", "show", "fresh", "focus"], "fresh alert routing prepares, presents, selects, then focuses the selected context")
     }
 
     do {
@@ -601,8 +600,7 @@ func runPendingCalendarCommandTests() async {
         let router = CalendarNotificationCommandRouter(
             resolveEvent: { _, _ in nil },
             prepareTimeZonerSurface: {
-                operations.append("restore")
-                presentation.returnToTimeZoner()
+                operations.append("prepare")
             },
             showPairedPanels: { operations.append("show") },
             selectEvent: { _, _ in operations.append("fresh") },
@@ -611,8 +609,8 @@ func runPendingCalendarCommandTests() async {
         )
 
         await router.route(command!)
-        expectPendingCalendarCommand(presentation.destination, .timezoner, "fallback alert routing restores TimeZoner before selecting stored event context")
-        expectPendingCalendarCommand(operations, ["restore", "show", "fallback", "focus"], "fallback alert routing restores, presents, selects, then focuses the selected context")
+        expectPendingCalendarCommand(presentation.destination, .calendar, "fallback alert routing keeps the calendar workspace beside stored event context")
+        expectPendingCalendarCommand(operations, ["prepare", "show", "fallback", "focus"], "fallback alert routing prepares, presents, selects, then focuses the selected context")
     }
 
     expectPendingCalendarCommand(

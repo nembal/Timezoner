@@ -68,21 +68,29 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     private let agendaPopover: NSPopover
     private let presentation: CalendarPresentationState
     private let pair: CalendarPanelPairController
+    private let cityCount: () -> Int
+    private let prepareCalendar: () -> Void
+    private let refreshCalendar: () -> Void
     private var observerTokens: [NSObjectProtocol] = []
     private var isUpdatingAttachment = false
-    private var savedNormalFrame: CGRect?
-    private var savedNormalScreenIdentifier: NSNumber?
+    private var savedNormalLayout: CalendarNormalLayoutSnapshot?
 
     init(
         mainPanel: FloatingPanel,
         agendaPanel: FloatingPanel,
         agendaPopover: NSPopover,
-        presentation: CalendarPresentationState
+        presentation: CalendarPresentationState,
+        cityCount: @escaping () -> Int,
+        prepareCalendar: @escaping () -> Void,
+        refreshCalendar: @escaping () -> Void
     ) {
         self.mainPanel = mainPanel
         self.agendaPanel = agendaPanel
         self.agendaPopover = agendaPopover
         self.presentation = presentation
+        self.cityCount = cityCount
+        self.prepareCalendar = prepareCalendar
+        self.refreshCalendar = refreshCalendar
 
         let mainSurface = FloatingPanelSurfaceAdapter(panel: mainPanel)
         let agendaSurface = FloatingPanelSurfaceAdapter(panel: agendaPanel)
@@ -109,7 +117,7 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
         agendaPopover.delegate = self
         presentation.mainPanelHugsMenuBar = mainPanel.isHuggingMenuBar
         presentation.agendaPanelHugsMenuBar = agendaPanel.isHuggingMenuBar
-        observeMainPanel()
+        observePanels()
     }
 
     deinit {
@@ -118,7 +126,10 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
 
     func show() {
         NSApp.activate(ignoringOtherApps: true)
-        pair.show(showAgenda: presentation.destination == .timezoner && presentation.showAgendaWing)
+        pair.show(showAgenda: CalendarWorkspacePolicy.calendarVisible(
+            destination: presentation.destination,
+            showAgenda: presentation.showAgendaWing
+        ))
     }
 
     func hide() {
@@ -126,6 +137,7 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
         presentation.attendeePopoverEventID = nil
         pair.setOwnedPopoverPresented(false)
         pair.hide()
+        presentation.focusedPanel = nil
     }
 
     func toggle() {
@@ -139,7 +151,10 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     func syncAgendaVisibility() {
         updateAttachment {
             pair.syncAgendaVisibility(
-                showAgenda: presentation.destination == .timezoner && presentation.showAgendaWing
+                showAgenda: CalendarWorkspacePolicy.calendarVisible(
+                    destination: presentation.destination,
+                    showAgenda: presentation.showAgendaWing
+                )
             )
         }
     }
@@ -157,59 +172,93 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     }
 
     func enterCalendarMode() {
-        guard savedNormalFrame == nil else { return }
-        savedNormalFrame = mainPanel.frame
-        savedNormalScreenIdentifier = screenIdentifier(for: mainPanel.screen)
+        guard savedNormalLayout == nil else { return }
+        savedNormalLayout = CalendarNormalLayoutSnapshot(
+            main: mainPanel.frame,
+            agenda: agendaPanel.isVisible ? agendaPanel.frame : nil,
+            placement: pair.placement,
+            screenID: screenIdentifier(for: mainPanel.screen)?.stringValue,
+            visibleFrame: visibleFrame(),
+            cityCount: cityCount()
+        )
+        closeOwnedPopovers()
+        mainPanel.persistsNormalPosition = false
+        let frames = CalendarWorkspaceLayout.calculate(
+            main: mainPanel.frame,
+            agenda: agendaPanel.isVisible ? agendaPanel.frame : nil,
+            placement: pair.placement,
+            visibleFrame: visibleFrame()
+        )
+        prepareCalendar()
         updateAttachment {
-            pair.syncAgendaVisibility(showAgenda: false)
-            mainPanel.setFrame(
-                CalendarPanelFrameCalculator.calendarFrame(
-                    normalFrame: mainPanel.frame,
-                    visibleFrame: visibleFrame()
-                ),
-                display: true,
-                animate: false
-            )
+            pair.beginWorkspace(frames)
         }
+        refreshCalendar()
     }
 
     func returnToTimeZoner() {
-        guard let savedNormalFrame else { return }
+        restoreTimeZonerImmediately()
+    }
+
+    func restoreTimeZonerImmediately() {
+        guard let snapshot = savedNormalLayout else { return }
+        closeOwnedPopovers()
+        let restored = CalendarWorkspaceLayout.restore(
+            snapshot,
+            visibleFrame: visibleFrame(),
+            screenID: screenIdentifier(for: mainPanel.screen)?.stringValue,
+            cityCount: cityCount()
+        )
+        presentation.returnToTimeZoner()
         updateAttachment {
-            let screenDidChange = savedNormalScreenIdentifier != screenIdentifier(for: mainPanel.screen)
-            mainPanel.setFrame(
-                CalendarPanelFrameCalculator.restoredNormalFrame(
-                    savedNormalFrame,
-                    visibleFrame: visibleFrame(),
-                    screenDidChange: screenDidChange
-                ),
-                display: true,
-                animate: false
-            )
-            self.savedNormalFrame = nil
-            self.savedNormalScreenIdentifier = nil
-            pair.syncAgendaVisibility(showAgenda: presentation.showAgendaWing)
+            pair.endWorkspace(restored, showAgenda: presentation.showAgendaWing)
         }
+        savedNormalLayout = nil
+        mainPanel.persistsNormalPosition = true
+        refreshCalendar()
+        NotificationCenter.default.post(name: .focusChatField, object: nil)
     }
 
     func setOwnedPopoverPresented(_ isPresented: Bool) {
         pair.setOwnedPopoverPresented(isPresented)
     }
 
+    func focusTimeZoner() {
+        pair.focusTimeZoner()
+    }
+
+    func toggleSettings() {
+        let opening = !presentation.isSettingsPresented
+        if opening {
+            switch CalendarWorkspacePolicy.settingsOwner(destination: presentation.destination) {
+            case .timezoner:
+                mainPanel.makeKey()
+            case .calendar:
+                agendaPanel.makeKey()
+            }
+        }
+        presentation.isSettingsPresented = opening
+        pair.setOwnedPopoverPresented(presentation.hasOwnedPopover)
+    }
+
     func handleEscape() {
         hide()
     }
 
-    private func observeMainPanel() {
+    private func observePanels() {
         let center = NotificationCenter.default
-        for name in [
+        let names = [
             NSWindow.didMoveNotification,
             NSWindow.didResizeNotification,
             NSWindow.didChangeScreenNotification,
-        ] {
-            observerTokens.append(center.addObserver(forName: name, object: mainPanel, queue: .main) { [weak self] _ in
-                self?.syncAgendaVisibility()
-            })
+        ]
+        for panel in [mainPanel, agendaPanel] {
+            for name in names {
+                observerTokens.append(center.addObserver(forName: name, object: panel, queue: .main) { [weak self, weak panel] _ in
+                    guard let panel else { return }
+                    self?.panelFrameChanged(panel, screenChanged: name == NSWindow.didChangeScreenNotification)
+                })
+            }
         }
         observerTokens.append(center.addObserver(
             forName: NSApplication.didResignActiveNotification,
@@ -218,6 +267,58 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
         ) { [weak self] _ in
             self?.pair.applicationDidResignActive()
         })
+        observerTokens.append(center.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.screenParametersChanged()
+        })
+    }
+
+    private func panelFrameChanged(_ panel: FloatingPanel, screenChanged: Bool) {
+        guard !isUpdatingAttachment else { return }
+        guard let frames = pair.workspaceFrames else {
+            if panel === mainPanel { syncAgendaVisibility() }
+            return
+        }
+        let oldFrame = panel === mainPanel ? frames.main : frames.calendar
+        let screen = panel.screen?.visibleFrame ?? visibleFrame()
+        let adjusted: CalendarWorkspaceFrames
+        if screenChanged {
+            adjusted = CalendarWorkspaceLayout.calculate(
+                main: mainPanel.frame,
+                agenda: agendaPanel.frame,
+                placement: .right,
+                visibleFrame: screen
+            )
+        } else {
+            adjusted = CalendarWorkspaceLayout.translated(
+                frames,
+                by: CGSize(
+                    width: panel.frame.minX - oldFrame.minX,
+                    height: panel.frame.minY - oldFrame.minY
+                ),
+                visibleFrame: screen
+            )
+        }
+        updateAttachment {
+            pair.beginWorkspace(adjusted, focusCalendar: false)
+        }
+    }
+
+    private func screenParametersChanged() {
+        guard pair.workspaceFrames != nil else { return }
+        let visible = visibleFrame()
+        let adjusted = CalendarWorkspaceLayout.calculate(
+            main: mainPanel.frame,
+            agenda: agendaPanel.frame,
+            placement: .right,
+            visibleFrame: visible
+        )
+        updateAttachment {
+            pair.beginWorkspace(adjusted, focusCalendar: false)
+        }
     }
 
     private func updateAttachment(_ operation: () -> Void) {
@@ -237,9 +338,19 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     private func screenIdentifier(for screen: NSScreen?) -> NSNumber? {
         screen?.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber
     }
+
+    private func closeOwnedPopovers() {
+        presentation.isSettingsPresented = false
+        presentation.eventDetailPopoverTarget = nil
+        pair.setOwnedPopoverPresented(false)
+    }
 }
 
 extension CalendarPanelCoordinator: FloatingPanelInteractionDelegate {
+    func floatingPanelDidBecomeKey(_ panel: FloatingPanel) {
+        presentation.focusedPanel = panel === mainPanel ? .timezoner : .calendar
+    }
+
     func floatingPanelDidResignKey(_ panel: FloatingPanel) {
         pair.panelDidResignKey()
     }
@@ -249,8 +360,10 @@ extension CalendarPanelCoordinator: FloatingPanelInteractionDelegate {
     }
 
     func floatingPanelDidChangeOrdering(_ panel: FloatingPanel) {
-        guard panel === mainPanel else { return }
-        syncAgendaVisibility()
+        if !mainPanel.isVisible && !agendaPanel.isVisible {
+            presentation.focusedPanel = nil
+        }
+        if panel === mainPanel { syncAgendaVisibility() }
     }
 
     func floatingPanel(_ panel: FloatingPanel, didChangeHugging hugging: Bool) {

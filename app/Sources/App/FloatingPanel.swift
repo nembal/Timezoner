@@ -8,6 +8,7 @@ enum FloatingPanelRole {
 }
 
 protocol FloatingPanelInteractionDelegate: AnyObject {
+    func floatingPanelDidBecomeKey(_ panel: FloatingPanel)
     func floatingPanelDidResignKey(_ panel: FloatingPanel)
     func floatingPanelDidPressEscape(_ panel: FloatingPanel)
     func floatingPanelDidChangeOrdering(_ panel: FloatingPanel)
@@ -21,6 +22,7 @@ class FloatingPanel: NSPanel {
     private let role: FloatingPanelRole
     weak var interactionDelegate: FloatingPanelInteractionDelegate?
     private(set) var isHuggingMenuBar = true
+    var persistsNormalPosition = true
 
     init(contentView: NSView, role: FloatingPanelRole = .main) {
         self.role = role
@@ -69,6 +71,11 @@ class FloatingPanel: NSPanel {
         interactionDelegate?.floatingPanelDidResignKey(self)
     }
 
+    override func becomeKey() {
+        super.becomeKey()
+        interactionDelegate?.floatingPanelDidBecomeKey(self)
+    }
+
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
         if event.keyCode == 53 {
             interactionDelegate?.floatingPanelDidPressEscape(self)
@@ -100,7 +107,7 @@ class FloatingPanel: NSPanel {
 
     @objc private func windowDidMove(_ notification: Notification) {
         checkIfHuggingMenuBar()
-        if role == .main {
+        if role == .main && persistsNormalPosition {
             savePosition()
         }
     }

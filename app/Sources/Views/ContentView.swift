@@ -147,7 +147,7 @@ public struct ContentView: View {
         CalendarSettingsButton(
             owner: .timezoner,
             presentation: presentation,
-            onActivate: { setSettingsPresented(!presentation.isSettingsPresented) },
+            onActivate: { panelController?.toggleSettings() },
             onOwnedPopoverChanged: { isPresented in
                 panelController?.setOwnedPopoverPresented(isPresented)
             }
@@ -183,6 +183,12 @@ public struct ContentView: View {
         }
         .onAppear {
             ensureDefaultSource()
+            if presentation.destination == .timezoner {
+                panelController?.resizeMain(to: CGSize(
+                    width: idealWidth,
+                    height: CalendarPanelMetrics.preferredHeight
+                ))
+            }
             consumePendingDeepLink()
         }
         .onChange(of: deepLinkRouter.pendingCommand) {
@@ -213,7 +219,12 @@ public struct ContentView: View {
             .hidden()
         }
         .background {
-            Button("") { setSettingsPresented(!presentation.isSettingsPresented) }
+            Button("") {
+                guard CalendarWorkspacePolicy.settingsOwner(destination: presentation.destination) == .timezoner else {
+                    return
+                }
+                panelController?.toggleSettings()
+            }
                 .keyboardShortcut(",", modifiers: .command)
                 .hidden()
         }
@@ -257,26 +268,19 @@ public struct ContentView: View {
     }
 
     private func focusAgendaFromKeyboard() {
-        guard presentation.destination == .timezoner, presentation.showAgendaWing else { return }
+        guard CalendarWorkspacePolicy.calendarVisible(
+            destination: presentation.destination,
+            showAgenda: presentation.showAgendaWing
+        ) else { return }
         panelController?.focusAgenda()
     }
 
     private func returnFromCalendarMode() {
-        guard presentation.restoreTimeZonerSurface() else { return }
-        finalizeTimeZonerSurfaceRestoration()
-    }
-
-    private func finalizeTimeZonerSurfaceRestoration() {
-        if presentation.showAgendaWing,
-           calendarStore.authorizationStatus == .fullAccess {
-            calendarStore.refreshPresentationInterval()
-        }
         panelController?.returnToTimeZoner()
     }
 
-    private func setSettingsPresented(_ isPresented: Bool) {
-        presentation.isSettingsPresented = isPresented
-        panelController?.setOwnedPopoverPresented(presentation.hasOwnedPopover)
+    private func finalizeTimeZonerSurfaceRestoration() {
+        panelController?.restoreTimeZonerImmediately()
     }
 
     private func consumePendingDeepLink() {
