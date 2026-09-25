@@ -258,23 +258,23 @@ func runCalendarRangeTests() {
     )
     expectCalendarRangeEqual(
         [
-            CalendarNavigationIconControl.openWeek.systemImageName,
-            CalendarNavigationIconControl.openWeek.accessibilityLabel,
-            CalendarNavigationIconControl.openWeek.helpText,
-            CalendarNavigationIconControl.openWeek.accessibilityHint
+            CalendarNavigationIconControl.expandCalendar.systemImageName,
+            CalendarNavigationIconControl.expandCalendar.accessibilityLabel,
+            CalendarNavigationIconControl.expandCalendar.helpText,
+            CalendarNavigationIconControl.expandCalendar.accessibilityHint
         ],
-        ["calendar", "Open week", "Open week", "Shows your calendar week."],
-        "the compact Open week control keeps its calendar icon and accessible presentation"
+        ["arrow.up.left.and.arrow.down.right", "Expand calendar", "Expand calendar", "Shows the calendar with your time zones beside it."],
+        "the calendar expansion control keeps its common expansion icon and accessible presentation"
     )
     expectCalendarRangeEqual(
         [
-            CalendarNavigationIconControl.backToTimeZoner.systemImageName,
-            CalendarNavigationIconControl.backToTimeZoner.accessibilityLabel,
-            CalendarNavigationIconControl.backToTimeZoner.helpText,
-            CalendarNavigationIconControl.backToTimeZoner.accessibilityHint
+            CalendarNavigationIconControl.expandTimeZoner.systemImageName,
+            CalendarNavigationIconControl.expandTimeZoner.accessibilityLabel,
+            CalendarNavigationIconControl.expandTimeZoner.helpText,
+            CalendarNavigationIconControl.expandTimeZoner.accessibilityHint
         ],
-        ["chevron.left", "Back to TimeZoner", "Back to TimeZoner", "Returns to the TimeZoner view."],
-        "the compact return control keeps its chevron icon and accessible presentation"
+        ["arrow.up.left.and.arrow.down.right", "Expand TimeZoner", "Expand TimeZoner", "Restores the full TimeZoner view and compact agenda."],
+        "the TimeZoner expansion control keeps its common expansion icon and accessible presentation"
     )
 
     let springForwardWeek = CalendarDateIntervalCalculator.interval(

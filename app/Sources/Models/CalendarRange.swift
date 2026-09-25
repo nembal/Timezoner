@@ -14,30 +14,26 @@ public enum CalendarRangeNavigationDirection: Equatable, Sendable {
 /// Shared accessible presentation for compact Calendar navigation controls. Views keep their
 /// actions local while this value contract prevents an icon-only affordance from losing its name.
 public enum CalendarNavigationIconControl: Equatable, Sendable {
-    case openWeek
-    case backToTimeZoner
+    case expandCalendar, expandTimeZoner
 
-    public var systemImageName: String {
-        switch self {
-        case .openWeek: "calendar"
-        case .backToTimeZoner: "chevron.left"
-        }
-    }
+    @available(*, deprecated, message: "Use .expandCalendar")
+    public static let openWeek: Self = .expandCalendar
+
+    @available(*, deprecated, message: "Use .expandTimeZoner")
+    public static let backToTimeZoner: Self = .expandTimeZoner
+
+    public var systemImageName: String { "arrow.up.left.and.arrow.down.right" }
 
     public var accessibilityLabel: String {
-        switch self {
-        case .openWeek: "Open week"
-        case .backToTimeZoner: "Back to TimeZoner"
-        }
+        self == .expandCalendar ? "Expand calendar" : "Expand TimeZoner"
     }
 
     public var helpText: String { accessibilityLabel }
 
     public var accessibilityHint: String {
-        switch self {
-        case .openWeek: "Shows your calendar week."
-        case .backToTimeZoner: "Returns to the TimeZoner view."
-        }
+        self == .expandCalendar
+            ? "Shows the calendar with your time zones beside it."
+            : "Restores the full TimeZoner view and compact agenda."
     }
 }
 
