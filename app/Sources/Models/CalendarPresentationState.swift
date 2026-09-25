@@ -71,6 +71,8 @@ public final class CalendarPresentationState: EventSelectionPresenting {
 
     public private(set) var isMapExpanded: Bool
     public var isSettingsPresented = false
+    /// Native key-window lifecycle callbacks establish focus; construction and destination changes do not.
+    public var focusedPanel: CalendarPanelIdentity?
     /// The active presenter remains distinct when one event appears in multiple visible rows.
     public var eventDetailPopoverTarget: CalendarEventDetailPopoverTarget?
     /// Compatibility lookup for callers that only need the event identity. New presentation code
