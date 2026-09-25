@@ -127,6 +127,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             },
             focusSelectedEventContext: { [weak self] in
                 self?.focusSelectedEventContext()
+            },
+            fallbackPermission: { [weak self] in
+                CalendarWorkspacePolicy.mayReadEvents(
+                    status: self?.calendarStore.authorizationStatus ?? .denied
+                )
             }
         )
     }()

@@ -613,6 +613,97 @@ func runPendingCalendarCommandTests() async {
         expectPendingCalendarCommand(operations, ["prepare", "show", "fallback", "focus"], "fallback alert routing prepares, presents, selects, then focuses the selected context")
     }
 
+    for resolverThrows in [false, true] {
+        var operations: [String] = []
+        let router = CalendarNotificationCommandRouter(
+            resolveEvent: { _, _ in
+                operations.append("resolve")
+                if resolverThrows {
+                    throw PendingCalendarCommandTestError.eventReadFailed
+                }
+                return nil
+            },
+            prepareTimeZonerSurface: { operations.append("prepare") },
+            showPairedPanels: { operations.append("show") },
+            selectEvent: { _, _ in operations.append("fresh") },
+            selectFallback: { _, _, _, _ in operations.append("fallback") },
+            focusSelectedEventContext: { operations.append("focus") },
+            fallbackPermission: {
+                operations.append("permission")
+                return false
+            }
+        )
+
+        await router.route(command!)
+        expectPendingCalendarCommand(
+            operations,
+            ["prepare", "show", "resolve", "permission"],
+            "a calendar lookup \(resolverThrows ? "error" : "miss") without current permission prepares and presents but never selects or focuses fallback context"
+        )
+    }
+
+    do {
+        var operations: [String] = []
+        var selectedFallback: PendingCalendarCommand?
+        let router = CalendarNotificationCommandRouter(
+            resolveEvent: { _, _ in
+                operations.append("resolve")
+                return nil
+            },
+            prepareTimeZonerSurface: { operations.append("prepare") },
+            showPairedPanels: { operations.append("show") },
+            selectEvent: { _, _ in operations.append("fresh") },
+            selectFallback: { occurrenceID, title, startDate, _ in
+                operations.append("fallback")
+                selectedFallback = PendingCalendarCommand(
+                    occurrenceID: occurrenceID,
+                    title: title,
+                    startDate: startDate
+                )
+            },
+            focusSelectedEventContext: { operations.append("focus") },
+            fallbackPermission: {
+                operations.append("permission")
+                return true
+            }
+        )
+
+        await router.route(command!)
+        expectPendingCalendarCommand(selectedFallback, command, "a genuinely deleted event keeps the in-memory fallback selection when Calendar access remains current")
+        expectPendingCalendarCommand(
+            operations,
+            ["prepare", "show", "resolve", "permission", "fallback", "focus"],
+            "a genuinely deleted event checks current permission before its fallback selection and focus handoff"
+        )
+    }
+
+    do {
+        let fresh = pendingCalendarCommandEvent(id: "permission-checked-fresh", title: "Fresh event", start: startDate)
+        var operations: [String] = []
+        let router = CalendarNotificationCommandRouter(
+            resolveEvent: { _, _ in
+                operations.append("resolve")
+                return fresh
+            },
+            prepareTimeZonerSurface: { operations.append("prepare") },
+            showPairedPanels: { operations.append("show") },
+            selectEvent: { _, _ in operations.append("fresh") },
+            selectFallback: { _, _, _, _ in operations.append("fallback") },
+            focusSelectedEventContext: { operations.append("focus") },
+            fallbackPermission: {
+                operations.append("permission")
+                return false
+            }
+        )
+
+        await router.route(command!)
+        expectPendingCalendarCommand(
+            operations,
+            ["prepare", "show", "resolve", "fresh", "focus"],
+            "a resolved event retains select-event and focus behavior without consulting fallback permission"
+        )
+    }
+
     expectPendingCalendarCommand(
         CalendarNotificationForegroundPolicy.presentation(
             requestIdentifier: "timezoner.event.planning|1750000000.30",

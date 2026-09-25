@@ -124,6 +124,7 @@ public final class CalendarNotificationCommandRouter {
     public typealias EventSelector = @MainActor (CalendarEventSnapshot, TimeZone) -> Void
     public typealias FallbackSelector = @MainActor (String, String, Date, TimeZone) -> Void
     public typealias SelectedContextFocusHandoff = @MainActor () -> Void
+    public typealias FallbackPermission = @MainActor () -> Bool
 
     private let resolveEvent: EventResolver
     private let prepareTimeZonerSurface: TimeZonerSurfacePreparer
@@ -131,6 +132,7 @@ public final class CalendarNotificationCommandRouter {
     private let selectEvent: EventSelector
     private let selectFallback: FallbackSelector
     private let focusSelectedEventContext: SelectedContextFocusHandoff
+    private let fallbackPermission: FallbackPermission
     private let sourceZone: () -> TimeZone
 
     public init(
@@ -140,6 +142,7 @@ public final class CalendarNotificationCommandRouter {
         selectEvent: @escaping EventSelector,
         selectFallback: @escaping FallbackSelector,
         focusSelectedEventContext: @escaping SelectedContextFocusHandoff = {},
+        fallbackPermission: @escaping FallbackPermission = { true },
         sourceZone: @escaping () -> TimeZone = { .current }
     ) {
         self.resolveEvent = resolveEvent
@@ -148,17 +151,17 @@ public final class CalendarNotificationCommandRouter {
         self.selectEvent = selectEvent
         self.selectFallback = selectFallback
         self.focusSelectedEventContext = focusSelectedEventContext
+        self.fallbackPermission = fallbackPermission
         self.sourceZone = sourceZone
     }
 
     public func route(_ command: PendingCalendarCommand) async {
         prepareTimeZonerSurface()
         showPairedPanels()
-        let zone = sourceZone()
 
         do {
             if let event = try await resolveEvent(command.occurrenceID, command.startDate) {
-                selectEvent(event, zone)
+                selectEvent(event, sourceZone())
                 focusSelectedEventContext()
                 return
             }
@@ -166,6 +169,8 @@ public final class CalendarNotificationCommandRouter {
             // Calendar access can have been revoked between delivery and response routing.
         }
 
+        guard fallbackPermission() else { return }
+        let zone = sourceZone()
         selectFallback(command.occurrenceID, command.title, command.startDate, zone)
         focusSelectedEventContext()
     }
