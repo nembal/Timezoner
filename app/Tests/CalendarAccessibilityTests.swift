@@ -43,6 +43,11 @@ func runCalendarAccessibilityTests() {
         "Calendar alerts for Work, Google",
         "the alerts checkbox names both the calendar and account source"
     )
+    expectCalendarAccessibility(
+        CalendarWorkspaceToolbar.calendarRangeAccessibilityLabel,
+        "Calendar range",
+        "the visually hidden range picker retains an explicit accessible name"
+    )
 
     var calendar = Calendar(identifier: .gregorian)
     calendar.locale = Locale(identifier: "en_US_POSIX")

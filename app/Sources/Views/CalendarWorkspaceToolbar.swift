@@ -1,6 +1,8 @@
 import SwiftUI
 
 public struct CalendarWorkspaceToolbar: View {
+    public static let calendarRangeAccessibilityLabel = "Calendar range"
+
     public let calendarStore: CalendarStore
     public let presentation: CalendarPresentationState
     public let settingsButton: CalendarSettingsButton<SettingsPopover>
@@ -22,16 +24,20 @@ public struct CalendarWorkspaceToolbar: View {
 
             HStack(spacing: compact ? 4 : 8) {
                 if compact {
-                    Picker("Calendar range", selection: selection) {
+                    Picker(Self.calendarRangeAccessibilityLabel, selection: selection) {
                         rangeOptions
                     }
                     .pickerStyle(.menu)
+                    .labelsHidden()
+                    .accessibilityLabel(Self.calendarRangeAccessibilityLabel)
                     .frame(width: 76, height: 28)
                 } else {
-                    Picker("Calendar range", selection: selection) {
+                    Picker(Self.calendarRangeAccessibilityLabel, selection: selection) {
                         rangeOptions
                     }
                     .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .accessibilityLabel(Self.calendarRangeAccessibilityLabel)
                     .frame(width: 184, height: 28)
                 }
 
