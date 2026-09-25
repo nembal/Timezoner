@@ -179,7 +179,11 @@ public final class CalendarPanelPairController {
         }
     }
 
-    public func endWorkspace(_ restored: CalendarWorkspaceRestoration, showAgenda: Bool) {
+    public func endWorkspace(
+        _ restored: CalendarWorkspaceRestoration,
+        showAgenda: Bool,
+        focusMain: Bool = true
+    ) {
         workspaceFrames = nil
         main.setFrame(restored.main)
         agenda.setFrame(restored.agenda.frame ?? CGRect(
@@ -199,7 +203,9 @@ public final class CalendarPanelPairController {
             agendaPopover.dismiss()
             agenda.show()
         }
-        main.focus()
+        if focusMain {
+            main.focus()
+        }
     }
 
     public func focusTimeZoner() {
@@ -244,6 +250,7 @@ public final class CalendarPanelPairController {
     }
 }
 
+@MainActor
 public protocol CalendarPanelControlling: AnyObject {
     func show()
     func hide()
@@ -256,6 +263,7 @@ public protocol CalendarPanelControlling: AnyObject {
     func enterCalendarMode()
     func returnToTimeZoner()
     func restoreTimeZonerImmediately()
+    func settleWorkspaceTransition()
     func setOwnedPopoverPresented(_ isPresented: Bool)
     func handleEscape()
 }

@@ -59,7 +59,10 @@ public struct ContentView: View {
     private var normalContent: some View {
         CalendarPanelChrome(
             isHugging: presentation.mainPanelHugsMenuBar,
-            isFocused: presentation.focusedPanel == .timezoner
+            isFocused: presentation.focusedPanel == .timezoner,
+            contentOpacity: presentation.workspaceContentOpacity,
+            contentOffset: presentation.workspaceContentOffset,
+            interactionEnabled: !presentation.isWorkspaceTransitioning
         ) {
             normalHeader
         } content: {
@@ -204,8 +207,14 @@ public struct ContentView: View {
                 selectedEventContextFocused = true
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: zoneStore.zones.count)
-        .animation(.easeInOut(duration: 0.25), value: isTimeAdjusted)
+        .animation(
+            presentation.isWorkspaceTransitioning ? nil : .easeInOut(duration: 0.25),
+            value: zoneStore.zones.count
+        )
+        .animation(
+            presentation.isWorkspaceTransitioning ? nil : .easeInOut(duration: 0.25),
+            value: isTimeAdjusted
+        )
         .onKeyPress(.escape) {
             panelController?.handleEscape()
             return .handled

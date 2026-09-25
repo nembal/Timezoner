@@ -180,6 +180,19 @@ func runCalendarPanelCoordinatorTests() {
     let visible = CGRect(x: 0, y: 0, width: 1_000, height: 800)
 
     do {
+        let suiteName = "CalendarPanelTransitionDefaults.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = CalendarPresentationState(defaults: defaults)
+        expectCalendarPanel(presentation.workspaceContentOpacity == 1,
+                            "workspace content starts fully visible")
+        expectCalendarPanel(presentation.workspaceContentOffset == 0,
+                            "workspace content starts without travel offset")
+        expectCalendarPanel(!presentation.isWorkspaceTransitioning,
+                            "workspace content starts interactive")
+    }
+
+    do {
         let main = CGRect(x: 300, y: 100, width: 400, height: 500)
         let result = AgendaPlacementCalculator.calculate(
             mainFrame: main,
@@ -610,5 +623,55 @@ func runCalendarPanelCoordinatorTests() {
                             "city-count and display changes restore a clamped normal frame")
         expectCalendarPanel(lifecycle.savedNormalLayout == nil && lifecycle.workspaceFrames == nil,
                             "restoration clears the workspace snapshot and pair geometry")
+    }
+
+    do {
+        let scheduler = CalendarPanelDeferredSchedulerFake()
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 200, y: 100, width: 600, height: 500))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let pair = CalendarPanelPairController(main: main, agenda: agenda, agendaPopover: popover,
+            visibleFrame: { visible }, scheduleDeferredDismissal: scheduler.schedule)
+
+        pair.show(showAgenda: true)
+        expectCalendarPanel(popover.isPresented, "normal cramped layout starts in a popover")
+        pair.setTransitionInProgress(true)
+        main.isKey = false
+        pair.panelDidResignKey()
+        scheduler.runAll()
+        expectCalendarPanel(main.isVisible, "internal transition focus cannot dismiss the pair")
+
+        let target = CalendarWorkspaceLayout.calculate(main: main.frame, agenda: nil,
+            placement: .popover, visibleFrame: visible)
+        pair.beginWorkspace(target, applyFrames: true, focusCalendar: false)
+        expectCalendarPanel(agenda.isVisible && !popover.isPresented,
+                            "workspace promotes the actual calendar panel once")
+
+        pair.setTransitionInProgress(false)
+        pair.panelDidResignKey()
+        scheduler.runAll()
+        expectCalendarPanel(!main.isVisible && !agenda.isVisible,
+                            "ordinary blur behavior resumes after transition")
+    }
+
+    do {
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 300, y: 100, width: 400, height: 500))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let pair = CalendarPanelPairController(
+            main: main,
+            agenda: agenda,
+            agendaPopover: popover,
+            visibleFrame: { visible }
+        )
+        let restored = CalendarWorkspaceRestoration(
+            main: main.frame,
+            agenda: AgendaPlacementResult(location: .right,
+                frame: CGRect(x: 710, y: 20, width: 220, height: 580))
+        )
+
+        pair.endWorkspace(restored, showAgenda: false, focusMain: false)
+        expectCalendarPanel(!main.isKey,
+                            "transition settlement can restore geometry without stealing final focus")
     }
 }

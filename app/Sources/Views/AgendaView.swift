@@ -261,7 +261,10 @@ public struct AgendaView: View {
     public var body: some View {
         CalendarPanelChrome(
             isHugging: presentation.agendaPanelHugsMenuBar,
-            isFocused: presentation.focusedPanel == .calendar
+            isFocused: presentation.focusedPanel == .calendar,
+            contentOpacity: presentation.workspaceContentOpacity,
+            contentOffset: presentation.workspaceContentOffset,
+            interactionEnabled: !presentation.isWorkspaceTransitioning
         ) {
             header
         } content: {

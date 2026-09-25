@@ -14,6 +14,7 @@ struct TimeZonerApp {
     }
 }
 
+@MainActor
 private final class CalendarPanelControllerProxy: CalendarPanelControlling {
     weak var target: (any CalendarPanelControlling)?
 
@@ -26,6 +27,7 @@ private final class CalendarPanelControllerProxy: CalendarPanelControlling {
     func enterCalendarMode() { target?.enterCalendarMode() }
     func returnToTimeZoner() { target?.returnToTimeZoner() }
     func restoreTimeZonerImmediately() { target?.restoreTimeZonerImmediately() }
+    func settleWorkspaceTransition() { target?.settleWorkspaceTransition() }
     func focusTimeZoner() { target?.focusTimeZoner() }
     func toggleSettings() { target?.toggleSettings() }
     func setOwnedPopoverPresented(_ isPresented: Bool) { target?.setOwnedPopoverPresented(isPresented) }
@@ -378,6 +380,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// Notification activation keeps an already-open calendar workspace intact so the selected
     /// event and compact TimeZoner rail remain visible together.
     private func prepareCurrentWorkspaceForNotification() {
+        panelCoordinator?.settleWorkspaceTransition()
         panelCoordinator?.syncAgendaVisibility()
     }
 

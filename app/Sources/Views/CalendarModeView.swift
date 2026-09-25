@@ -32,7 +32,10 @@ public struct CalendarModeView: View {
     public var body: some View {
         CalendarPanelChrome(
             isHugging: presentation.agendaPanelHugsMenuBar,
-            isFocused: presentation.focusedPanel == .calendar
+            isFocused: presentation.focusedPanel == .calendar,
+            contentOpacity: presentation.workspaceContentOpacity,
+            contentOffset: presentation.workspaceContentOffset,
+            interactionEnabled: !presentation.isWorkspaceTransitioning
         ) {
             CalendarWorkspaceToolbar(
                 calendarStore: calendarStore,
@@ -42,7 +45,6 @@ public struct CalendarModeView: View {
         } content: {
             content
         }
-        .onAppear(perform: refreshActiveInterval)
     }
 
     /// The calendar's timed-event action changes only the shared reference moment. Returning to
@@ -122,14 +124,6 @@ public struct CalendarModeView: View {
             onShowEventDetails: showEventDetails,
             onEventDetailPopoverChanged: updateEventDetailPopover
         )
-    }
-
-    private func refreshActiveInterval() {
-        guard presentation.destination == .calendar,
-              calendarStore.authorizationStatus == .fullAccess else {
-            return
-        }
-        calendarStore.refresh(interval: activeInterval)
     }
 
     private func selectTimedEvent(_ event: CalendarEventSnapshot) {

@@ -23,7 +23,10 @@ public struct TimeZonerRailView: View {
     public var body: some View {
         CalendarPanelChrome(
             isHugging: presentation.mainPanelHugsMenuBar,
-            isFocused: presentation.focusedPanel == .timezoner
+            isFocused: presentation.focusedPanel == .timezoner,
+            contentOpacity: presentation.workspaceContentOpacity,
+            contentOffset: presentation.workspaceContentOffset,
+            interactionEnabled: !presentation.isWorkspaceTransitioning
         ) {
             HStack(spacing: 8) {
                 Button("Now") { referenceMoment.goLive() }

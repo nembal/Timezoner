@@ -92,6 +92,11 @@ public final class CalendarPresentationState: EventSelectionPresenting {
     public var accessDestination: AccessDestination = .none
     public var mainPanelHugsMenuBar = true
     public var agendaPanelHugsMenuBar = true
+    /// Native panel transitions animate the shared chrome through these values. They are kept
+    /// outside the destination so SwiftUI never supplies a competing implicit root animation.
+    public var workspaceContentOpacity: Double = 1
+    public var workspaceContentOffset: CGFloat = 0
+    public var isWorkspaceTransitioning = false
     public private(set) var destination: CalendarDestination = .timezoner
     public private(set) var range: CalendarRangeSelection = .week
     public private(set) var anchor: Date
