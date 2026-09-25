@@ -45,9 +45,16 @@ func runSettingsStoreTests() {
         expectTrueS(s.appearance == SettingsStore.AppearancePref.system, "default appearance is system")
         expectTrueS(s.launchAtLogin == false, "default launchAtLogin is false")
         expectTrueS(s.hotkey == SettingsStore.defaultHotkey, "default hotkey is ⌘⌥T")
-        expectTrueS(s.showAgendaWing == false, "default agenda wing is hidden")
+        expectTrueS(s.showAgendaWing, "default agenda wing is visible")
         expectTrueS(s.alertsEnabled == false, "default global calendar alerts are disabled")
         expectTrueS(s.notificationLeadMinutes == [30, 10], "default notification leads are thirty and ten minutes")
+    }
+
+    do {
+        defaults.set(false, forKey: keys.showAgendaWing)
+        let hidden = SettingsStore(userDefaults: defaults, keys: keys)
+        expectTrueS(!hidden.showAgendaWing, "explicit hidden preference survives the new default")
+        defaults.removeObject(forKey: keys.showAgendaWing)
     }
 
     // ── Test 2: Round-trip through UserDefaults ────────────────

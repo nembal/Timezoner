@@ -63,6 +63,7 @@ private func calendarPresentationEvent(
     )
 }
 
+@MainActor
 func runCalendarPresentationStateTests() {
     print("Running CalendarPresentationStateTests...")
 
@@ -445,4 +446,41 @@ func runCalendarPresentationStateTests() {
     )
     expectCalendarPresentation(CalendarGridColor.fillOpacity, 0.10, "calendar fill uses the quiet ten-percent opacity")
     expectCalendarPresentation(CalendarGridColor.leadingIndicatorWidth, 2, "calendar marker keeps a two-point leading indicator")
+
+    let workspacePermissionSuite = "WorkspacePermission.\(UUID().uuidString)"
+    let workspacePermissionDefaults = UserDefaults(suiteName: workspacePermissionSuite)!
+    defer { workspacePermissionDefaults.removePersistentDomain(forName: workspacePermissionSuite) }
+    let workspacePermissionSettings = SettingsStore(
+        userDefaults: workspacePermissionDefaults
+    )
+    let workspacePermissionPresentation = CalendarPresentationState(
+        settings: workspacePermissionSettings,
+        defaults: workspacePermissionDefaults
+    )
+    let workspacePermissionReference = ReferenceMomentController(
+        timeState: TimeState(),
+        presentation: workspacePermissionPresentation
+    )
+    workspacePermissionPresentation.enterCalendar(
+        now: Date(timeIntervalSince1970: 1_750_000_000),
+        calendar: .current
+    )
+    CalendarPermissionLossCoordinator.handle(
+        referenceMoment: workspacePermissionReference,
+        presentation: workspacePermissionPresentation
+    )
+    expectCalendarPresentation(
+        workspacePermissionPresentation.destination,
+        .calendar,
+        "revocation retains the workspace"
+    )
+    expectCalendarPresentationTrue(
+        workspacePermissionPresentation.showAgendaWing,
+        "revocation preserves visibility intent"
+    )
+    expectCalendarPresentation(
+        workspacePermissionPresentation.accessDestination,
+        .recovery,
+        "revocation exposes recovery"
+    )
 }

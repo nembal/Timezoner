@@ -10,7 +10,6 @@ public enum CalendarPermissionLossCoordinator {
     ) {
         referenceMoment.clearSelectedEvent()
         presentation.attendeePopoverEventID = nil
-        presentation.showAgendaWing = false
         presentation.presentRecovery()
     }
 }

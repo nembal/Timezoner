@@ -13,6 +13,7 @@ private final class CalendarStoreProviderFake: CalendarEventReading {
     var calendarError: Error?
     var requestAccessError: Error?
     var requestAccessHandler: (() -> Void)?
+    private(set) var accessRequestCount = 0
     private(set) var eventRequests: [EventRequest] = []
 
     let changes: AsyncStream<Void>
@@ -35,6 +36,7 @@ private final class CalendarStoreProviderFake: CalendarEventReading {
     }
 
     func requestAccess() async throws -> Bool {
+        accessRequestCount += 1
         if let requestAccessError {
             throw requestAccessError
         }
@@ -690,7 +692,7 @@ func runCalendarStoreTests() async {
         expectCalendarStore(referenceMoment.selectedEvent, nil, "permission loss clears the selected event context through the app callback seam")
         expectCalendarStoreTrue(presentation.isMapExpanded, "permission loss restores the pre-selection map expansion when no manual toggle occurred")
         expectCalendarStore(presentation.attendeePopoverEventID, nil, "permission loss clears calendar-owned highlight state")
-        expectCalendarStore(presentation.showAgendaWing, false, "permission loss hides the persisted agenda wing")
+        expectCalendarStoreTrue(presentation.showAgendaWing, "permission loss preserves the persisted agenda wing")
         expectCalendarStore(presentation.accessDestination, .recovery, "permission loss routes the shared presentation state to recovery")
         expectCalendarStore(notificationRemovalCount, 1, "permission loss invokes the notification-removal callback alongside UI cleanup")
 
@@ -707,6 +709,17 @@ func runCalendarStoreTests() async {
         expectCalendarStoreTrue(presentation.isMapExpanded, "permission loss preserves the manual map state after restoration was cancelled")
         expectCalendarStore(presentation.attendeePopoverEventID, nil, "later permission loss clears the calendar highlight again")
         expectCalendarStore(notificationRemovalCount, 2, "a later permission loss invokes notification removal again")
+    }
+
+    do {
+        let deniedProvider = CalendarStoreProviderFake(authorizationStatus: .denied)
+        let deniedSignals = CalendarStoreClockSignals()
+        let deniedClock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: deniedSignals)
+        let deniedStore = CalendarStore(provider: deniedProvider, clock: deniedClock)
+        deniedStore.refreshPresentationInterval()
+        await Task.yield()
+        expectCalendarStore(deniedProvider.accessRequestCount, 0, "visible recovery cannot request permission")
+        expectCalendarStoreTrue(deniedProvider.eventRequests.isEmpty, "denied calendar cannot fetch events")
     }
 
     do {

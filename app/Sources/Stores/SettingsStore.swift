@@ -120,7 +120,7 @@ public final class SettingsStore {
         if userDefaults.object(forKey: keys.showAgendaWing) != nil {
             self.showAgendaWing = userDefaults.bool(forKey: keys.showAgendaWing)
         } else {
-            self.showAgendaWing = false
+            self.showAgendaWing = true
         }
 
         if userDefaults.object(forKey: keys.alertsEnabled) != nil {

@@ -325,38 +325,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func refreshPersistedAgendaIfNeeded() {
-        guard presentation.showAgendaWing else {
+        guard presentation.showAgendaWing else { return }
+        guard CalendarWorkspacePolicy.mayReadEvents(status: calendarStore.authorizationStatus) else {
             return
         }
-
-        guard calendarStore.authorizationStatus == .fullAccess else {
-            presentation.showAgendaWing = false
-            return
-        }
-
         calendarStore.refreshPresentationInterval()
     }
 
     private func setAgendaWingRequested(_ requested: Bool) {
-        switch CalendarAgendaWingRequest.outcome(
-            requested: requested,
-            authorizationStatus: calendarStore.authorizationStatus
-        ) {
-        case .hide:
-            presentation.showAgendaWing = false
-            presentation.dismissAccessDestination()
-        case .show:
-            presentation.showAgendaWing = true
-            calendarStore.refresh(interval: CalendarStore.agendaInterval(
-                for: calendarStore.currentDate,
-                calendar: calendarStore.localCalendar
-            ))
-        case .explainAccess:
-            presentation.showAgendaWing = false
-            presentation.presentAccessExplanation()
-        case .recoverAccess:
-            presentation.showAgendaWing = false
-            presentation.presentRecovery()
+        presentation.showAgendaWing = requested
+        presentation.dismissAccessDestination()
+        if requested && CalendarWorkspacePolicy.mayReadEvents(status: calendarStore.authorizationStatus) {
+            calendarStore.refreshPresentationInterval()
         }
         panelCoordinator?.syncAgendaVisibility()
     }
