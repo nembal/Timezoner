@@ -112,18 +112,30 @@ func runCalendarWorkspaceSessionTests() {
 
     do {
         var session = CalendarWorkspaceSession()
-        workspaceExpect(
-            session.timeZonerRestoration(
-                visibleFrame: originalVisibleFrame,
-                screenID: "external",
-                cityCount: 4
-            ) == nil,
-            "a targetless normal return has no restoration to apply"
+        _ = session.calendarTarget(
+            main: normalMain,
+            agenda: normalAgenda,
+            placement: .right,
+            visibleFrame: originalVisibleFrame,
+            screenID: "external",
+            cityCount: 4
         )
+        let savedSnapshot = session.normalLayoutSnapshot
+
+        var gate = CalendarWorkspaceTransitionGate()
+        let cancellation = CalendarWorkspaceTransitionCancellation(
+            cancelling: &gate,
+            currentPresentationDestination: .calendar
+        )
+        workspaceExpect(
+            cancellation.targetDestination == nil,
+            "a targetless gate cancellation has no TimeZoner restoration to apply"
+        )
+
         session.finishTimeZonerRestoration()
         workspaceExpect(
-            session.normalLayoutSnapshot == nil,
-            "targetless cancellation cannot manufacture or corrupt normal layout state"
+            session.normalLayoutSnapshot == savedSnapshot,
+            "targetless cancellation cannot clear an existing normal layout snapshot"
         )
     }
 
