@@ -678,6 +678,41 @@ func runPendingCalendarCommandTests() async {
     }
 
     do {
+        var operations: [String] = []
+        var selectedFallback: PendingCalendarCommand?
+        let router = CalendarNotificationCommandRouter(
+            resolveEvent: { _, _ in
+                operations.append("resolve")
+                throw PendingCalendarCommandTestError.eventReadFailed
+            },
+            prepareTimeZonerSurface: { operations.append("prepare") },
+            showPairedPanels: { operations.append("show") },
+            selectEvent: { _, _ in operations.append("fresh") },
+            selectFallback: { occurrenceID, title, startDate, _ in
+                operations.append("fallback")
+                selectedFallback = PendingCalendarCommand(
+                    occurrenceID: occurrenceID,
+                    title: title,
+                    startDate: startDate
+                )
+            },
+            focusSelectedEventContext: { operations.append("focus") },
+            fallbackPermission: {
+                operations.append("permission")
+                return true
+            }
+        )
+
+        await router.route(command!)
+        expectPendingCalendarCommand(selectedFallback, command, "an unreadable event keeps the in-memory fallback selection when Calendar access remains current")
+        expectPendingCalendarCommand(
+            operations,
+            ["prepare", "show", "resolve", "permission", "fallback", "focus"],
+            "an unreadable event checks current permission before its fallback selection and focus handoff"
+        )
+    }
+
+    do {
         let fresh = pendingCalendarCommandEvent(id: "permission-checked-fresh", title: "Fresh event", start: startDate)
         var operations: [String] = []
         let router = CalendarNotificationCommandRouter(
