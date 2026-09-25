@@ -229,9 +229,10 @@ func runCalendarPresentationStateTests() {
         end: calendarPresentationDate(calendar, year: 2024, month: 5, day: 16, hour: 15)
     )
     referenceMoment.selectEvent(selected, sourceZone: .current)
-    presentation.returnToTimeZoner()
-    expectCalendarPresentation(presentation.destination, .timezoner, "timed-event selection returns to TimeZoner")
+    expectCalendarPresentation(presentation.destination, .calendar, "timed-event selection stays in calendar")
     expectCalendarPresentation(timeState.referenceDate, selected.startDate, "timed-event selection sets the shared reference moment")
+    presentation.returnToTimeZoner()
+    expectCalendarPresentation(presentation.destination, .timezoner, "explicit return restores TimeZoner")
 
     let normalFrame = CGRect(x: 120, y: 230, width: 520, height: 410)
     let visibleFrame = CGRect(x: 0, y: 0, width: 1_000, height: 800)

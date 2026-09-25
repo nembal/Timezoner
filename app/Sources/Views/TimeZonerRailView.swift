@@ -65,7 +65,7 @@ public struct TimeZonerRailView: View {
     }
 
     private var context: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: 1) {
             Text(referenceMoment.selectedEvent?.title ?? "Current time")
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(Theme.textPrimary)

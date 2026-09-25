@@ -44,6 +44,7 @@ func runCalendarWorkspaceRailTests() {
     )
     CalendarWorkspaceEventActivation.select(allDay, referenceMoment: reference)
     workspaceExpect(reference.timeState.referenceDate == start, "all-day activation cannot change rail instant")
+    workspaceExpect(reference.selectedEvent?.id == event.id, "timed activation sets selected event context")
 
     reference.goLive()
     workspaceExpect(presentation.destination == .calendar && reference.selectedEvent == nil,
