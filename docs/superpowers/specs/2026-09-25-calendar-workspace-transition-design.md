@@ -41,7 +41,7 @@ The solution changes panel composition and ownership, rather than compensating w
 
 | State | Main `FloatingPanel` | Calendar `FloatingPanel` |
 | --- | --- | --- |
-| TimeZoner | Existing horizontal cards, input, Now, calendar visibility button, settings, map | Agenda with Today/Tomorrow, title/date, expand control |
+| TimeZoner | Existing horizontal cards, input, Now, calendar visibility button, settings, map | Compact calendar with Today/Tomorrow, date, expand control |
 | Calendar workspace | Compact vertical city rail; Now and expand control; selected-event context | Today / 3 Day / Week grid; navigation, jump to Today, settings |
 
 The calendar window remains the same `NSPanel` in both states. The main window remains the same `NSPanel` in both states. No system fullscreen, third window, or duplicated store is introduced. “Full-size calendar” means the app's normal floating-panel scale, not macOS fullscreen.
@@ -54,7 +54,7 @@ Keep the existing input and city management. The header order remains input → 
 
 Without Calendar access, the visible agenda shows its explanation or recovery content. The user must activate Enable Calendar Access themselves. The calendar toggle can hide that content without granting or revoking permission. Permission denial does not silently change the user's agenda-visibility choice.
 
-The agenda has a two-line title block within the shared nav slot: `Agenda` and the local date. Its trailing control is `arrow.up.left.and.arrow.down.right`, with label/help `Expand calendar` and hint `Shows the calendar with your time zones beside it.` The calendar icon remains only on the main TimeZoner toolbar.
+The compact calendar has no redundant `Agenda` title. Its shared nav slot shows only the local date at the established panel-title scale, with the trailing `arrow.up.left.and.arrow.down.right` control. That control uses label/help `Expand calendar` and hint `Shows the calendar with your time zones beside it.` The calendar icon remains only on the main TimeZoner toolbar.
 
 ### Calendar workspace
 
@@ -100,7 +100,17 @@ All measurements are points. Put them in one shared metric type consumed by the 
 
 The main and agenda headers share their top edge, nav vertical center, trailing icon target center, and content-start line. The large calendar has the same geometry. Its settings and normal TimeZoner settings share a semantic slot, not a claimed fixed screen coordinate across differently sized panels.
 
-Retain the current adaptive Theme and quiet per-calendar tints. Focus is signaled by a slightly stronger border on the key panel (accent at 0.22 versus normal border), never by fading content. Keep native window shadows for this slice; avoid extra per-frame shadow animation. Both panels use the same background and clipping treatment.
+Retain the current adaptive Theme, existing button construction, timezone-card surfaces, typography, borders, spacing, hover behavior, and restrained accent treatment. The generated preview is layout reference only: it does not authorize colorful timezone cards, stronger gradients, larger type, or redesigned controls. Normal horizontal cards and compact rail cards use the same neutral `Theme.cardBg` family as the shipped TimeZoner cards. Calendar identity stays limited to the existing quiet event tint and thin muted calendar-color edge or dot; it never recolors a timezone card.
+
+Focus is signaled by a slightly stronger border on the key panel (accent at 0.22 versus normal border), never by fading content. Keep native window shadows for this slice; avoid extra per-frame shadow animation. Both panels use the same background and clipping treatment.
+
+## Timezone map temporal cues
+
+The current shipped map has no day/night renderer; the generated preview introduced that idea. Add one restrained, non-interactive night overlay to the existing equirectangular map, driven by `TimeState.referenceDate`. Use a small deterministic solar-position calculation to shade the night side with a single neutral black opacity around 0.16–0.18. Draw the overlay after land/zone fills and before city dots so existing selected-zone, hover, and city treatments remain legible. It adds no independent clock, animation timer, preference, gesture, new theme color, or network/ephemeris dependency.
+
+Add a small, non-interactive hour scale along the bottom edge of the normal TimeZoner map. Labels use the existing secondary/tertiary text color and map typography; they must remain quieter than city labels and timezone cards.
+
+The scale derives 24 nominal UTC offsets `-12...+11` at their standard 15-degree meridians from `-180...165`. It uses compact 24-hour labels `00...23`; the visible map shows every third interior label and omits the `-180/180` seam label so text is never shifted away from its longitude or clipped. It recalculates from `TimeState.referenceDate`, so live time, typed times, card edits, deep links, and selected calendar events all move the scale and solar overlay through the same single reference moment. It adds no independent timeline state, hover interaction, scrubbing, tick marks over the map, or colorful treatment. The day/night overlay remains the dominant temporal cue.
 
 ## Geometry and restoration
 
@@ -142,8 +152,8 @@ Calendar permission loss discards calendar snapshots and selected event context 
 
 ## Verification and delivery
 
-Deterministic tests cover defaults/access, frame computation/restoration, zero/many cities, negative display coordinates, transition tokens/coalescing, reduced motion, owned-popover focus transfers, settings ownership, timed/all-day activation, and notification/deep-link routing.
+Deterministic tests cover defaults/access, frame computation/restoration, zero/many cities, negative display coordinates, transition tokens/coalescing, reduced motion, owned-popover focus transfers, settings ownership, timed/all-day activation, notification/deep-link routing, reference-moment-driven map-hour labels across midnight, and day/night geometry at equinox/solstice and the date line.
 
-Native visual verification covers both light/dark appearances; menu-bar-hugged and floating pairs; 1, 2, 4, and 8 cities; short/long event titles; all three calendar ranges; normal agenda right/left/popover entry; repeated switches; Escape during motion; settings in both layouts; permission recovery; and Reduce Motion. Record actual observations and screenshots, not inferred passes. Preserve existing manual Calendar/notification acceptance rows that this change does not exercise.
+Native visual verification covers both light/dark appearances; menu-bar-hugged and floating pairs; 1, 2, 4, and 8 cities; short/long event titles; all three calendar ranges; normal compact-calendar right/left/popover entry; repeated switches; Escape during motion; settings in both layouts; permission recovery; Reduce Motion; neutral timezone-card styling; the date-only compact calendar header; and map-hour label legibility over the day/night cycle. Record actual observations and screenshots, not inferred passes. Preserve existing manual Calendar/notification acceptance rows that this change does not exercise.
 
 This is one cohesive UI change. It should be implemented in small reviewed tasks, then built and installed only after the implementation is authorized. The original Calendar Companion verification is not a substitute for visually checking this transition.

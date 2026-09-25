@@ -21,6 +21,9 @@
 - Newly unset agenda visibility defaults to on; an explicitly saved off preference stays off. Alerts remain opt-in and unchanged.
 - Rendering the agenda or access explanation never requests permission or fetches events without full Calendar access.
 - Both workspace panels remain visible; changing focus never hides either panel or dims their text.
+- Preserve the shipped TimeZoner card, button, typography, border, spacing, hover, and Theme treatment; generated previews are layout references and do not authorize colorful timezone cards or redesigned controls.
+- The compact calendar header shows the local date and expand control only; it has no redundant `Agenda` title.
+- The normal map gains a restrained reference-moment-driven solar night overlay and quiet 24-band hour scale; neither adds interaction, persistence, a timer, or colorful styling.
 - Use the executable `TimeZonerTests` target; automated tests use fakes and never prompt for system permission.
 - No event editor, new account system, month view, background agent, new notification behavior, push, release, or external publication.
 
@@ -30,7 +33,7 @@
 2. A narrow screen, negative display origin, or removed display must keep both workspace panels reachable and restore the normal frame sensibly; pin with `runCalendarWorkspaceLayoutTests()` in Task 2 and pair-drag tests in Task 5.
 3. Fresh defaults, an explicitly hidden agenda, and Calendar access loss/grant must retain user intent without unsolicited permission or fetch calls; pin with settings/policy/provider-fake tests in Task 1.
 4. Focus transfer into either panel or settings/event details must not dismiss the pair, and settings must have one correct anchor; pin with owner-binding and panel fake tests in Tasks 3 and 5.
-5. Zero/many cities, selected/all-day events, notification activation, and city-adding deep links must keep one reference moment and avoid obsolete frame restoration; pin with rail/activation tests in Task 4 and routing/restoration tests in Task 5.
+5. Zero/many cities, selected/all-day events, notification activation, city-adding deep links, and map temporal cues must keep one reference moment without restyling timezone cards; pin with rail/activation tests in Task 4, routing/restoration tests in Task 5, and deterministic solar/hour tests in Task H.
 
 ---
 
@@ -44,17 +47,64 @@ The user previously chose subagent-driven implementation with Terra xhigh builde
 
 Run commands from the feature worktree unless a step says otherwise. The full executable test suite is the supported entry point; it has no single-test filter. Use `./scripts/build.sh` for the packaged app because it applies the CLT/SPM toolchain wrapper. Do not reset Calendar permissions as a testing shortcut.
 
+## Parallel execution topology (authoritative)
+
+The detailed work packages below are not a serial `1 → 2 → 3` queue. Execute them in the following dependency waves. Every coding workstream uses its own Worktrunk checkout under `/Users/team/dev/worktrees/`, one Terra xhigh builder, and one fresh Terra reviewer. Do not use Astra implementation agents. The coordinator integrates only reviewed commits into `codex/calendar-companion`, reruns the full executable suite after every wave, and creates the next wave's branches from that integrated commit.
+
+```text
+Wave 0: F0 stable contracts                                      [serial, short]
+           ├───────────────┬────────────────┬────────────────┐
+Wave 1:   P policy        L layout         M motion core    H map temporal cues
+           └───────┬───────┘                │                │
+Wave 2:          C chrome       S settings owner       E icon contracts
+                  ├─────────────────────┬─────────────────────┐
+Wave 3:          R rail         U toolbar              K pair core
+                  └─────────────────────┴──────┬──────────────┘
+Wave 4:                         V SwiftUI composition  <──────┘
+Wave 5:                         N native panel lifecycle
+Wave 6:                         A native animation/cancellation
+Wave 7:                         Q installed verification/docs
+```
+
+| ID | Detailed material | Exclusive production-file ownership | Worktrunk branch |
+| --- | --- | --- | --- |
+| F0 | Task 0 | `CalendarWorkspaceContracts.swift`, pair-controller relocation, contract tests | `codex/tz-calendar-contracts` |
+| P | Task 1 | settings default, permission policy call paths; no UI | `codex/tz-calendar-policy` |
+| L | Task 2 | `CalendarWorkspaceLayout.swift` | `codex/tz-calendar-layout` |
+| M | Task 6A | `CalendarWorkspaceTransition.swift` pure gate/timing | `codex/tz-calendar-motion-core` |
+| H | Task H | map solar/hour utilities, `TimezoneMapView`, map tests | `codex/tz-map-temporal-cues` |
+| C | Task 3A | `CalendarPanelChrome`, `DragHandle`; no settings/state | `codex/tz-calendar-chrome` |
+| S | Task 3B | settings ownership model/button and focus state | `codex/tz-calendar-settings-owner` |
+| E | Task 4B.1 | range expand-icon metadata and tests; dependency-free contract for R/U/V | `codex/tz-calendar-icon-contracts` |
+| R | Task 4A | rail presentation and `TimeZonerRailView`; consumes reviewed E symbols | `codex/tz-calendar-rail` |
+| U | Task 4B.2 | calendar toolbar view; consumes reviewed C/S/E components | `codex/tz-calendar-toolbar` |
+| K | Task 5A | pure pair controller/protocols and fake tests | `codex/tz-calendar-pair-core` |
+| V | Task 4C | `ContentView`, `AgendaView`, `CalendarModeView`, grid/root composition, `ChatField` | `codex/tz-calendar-composition` |
+| N | Task 5B | `CalendarPanelCoordinator`, `FloatingPanel`, `TimeZonerApp`, routing | `codex/tz-calendar-native-panels` |
+| A | Task 6B | coordinator animation/cancellation, pair/protocol extension, and opacity adoption | `codex/tz-calendar-native-transition` |
+| Q | Task 7 | native QA, README, verification record | `codex/tz-calendar-verification` |
+
+Within a wave, builders must not edit another row's production files. `app/Tests/TimeZonerTests.swift` is the only permitted additive merge point: each builder may register its suite locally, and the wave integrator resolves those one-line additions while cherry-picking. If an unexpected shared production-file edit is required, stop that workstream and send it to the coordinator instead of widening scope.
+
+After every wave: cherry-pick in the table's order, run `cd app && swift run TimeZonerTests`, run `git diff --check`, and record the integrated SHA for the next wave. Run `./scripts/build.sh` after Waves 2, 4, 5, and 6. The N and A branches must be created from the immediately preceding integrated SHA because their AppKit state changes are intentionally sequential.
+
 ## File map
 
 | File | Responsibility |
 | --- | --- |
-| `app/Sources/Models/CalendarWorkspaceState.swift` (new) | Panel identity, visible/read/settings policy, compact context/card data, transition gate/timing |
-| `app/Sources/Models/CalendarWorkspaceLayout.swift` (new) | Shared metrics, pair geometry, normal snapshot/restoration |
+| `app/Sources/Models/CalendarWorkspaceContracts.swift` (new) | Stable panel identity, visibility/read policy, and shared metrics; serial Wave 0 contract |
+| `app/Sources/Models/CalendarWorkspaceSettingsOwnership.swift` (new) | Destination-aware settings ownership |
+| `app/Sources/Models/CalendarWorkspaceRailPresentation.swift` (new) | Compact rail values and in-place event activation |
+| `app/Sources/Models/CalendarWorkspaceTransition.swift` (new) | Pure transition timing, tokens, coalescing, and cancellation |
+| `app/Sources/Models/CalendarWorkspaceLayout.swift` (new) | Pair geometry, normal snapshot/restoration, and pair translation |
+| `app/Sources/Models/CalendarPanelPairController.swift` (new by relocation) | Pair protocols and deterministic cross-window policy; K/A own later behavior changes |
 | `app/Sources/Views/CalendarPanelChrome.swift` (new) | Fixed drag/nav/content slots and icon button styling |
 | `app/Sources/Views/CalendarSettingsButton.swift` (new) | Single reusable settings anchor with destination-aware binding |
 | `app/Sources/Views/TimeZonerRailView.swift` (new) | Read-only vertical cards, fixed context slot, Now/expand nav |
 | `app/Sources/Views/CalendarWorkspaceToolbar.swift` (new) | Full/compact range navigation plus settings slot |
 | `app/Sources/Views/CalendarPanelRootView.swift` (new) | Agenda versus full-calendar composition in the calendar window |
+| `app/Sources/Utilities/MapHourScale.swift` (new) | Pure 24-band reference-moment hour labels |
+| `app/Sources/Utilities/SolarDayNightOverlay.swift` (new) | Pure solar position and clipped night-band geometry |
 | `app/Sources/Models/CalendarPresentationState.swift` | Shared focus/transition values and paired-panel policies; retain range ownership |
 | `app/Sources/Models/CalendarRange.swift` | Replace calendar/back glyph metadata with two expand controls |
 | `app/Sources/Stores/SettingsStore.swift` | Default-on only for unset agenda preference |
@@ -64,32 +114,133 @@ Run commands from the feature worktree unless a step says otherwise. The full ex
 | `app/Sources/Views/CalendarTimeGrid.swift` | One horizontal scroll container for narrow full-grid presentation |
 | `app/Sources/Views/ChatField.swift` | Fixed nav height and cancellable/explicit focus behavior |
 | `app/Sources/Views/DragHandle.swift` | Fixed shared strip height and temporary drag disabling |
+| `app/Sources/Views/TimezoneMapView.swift` | Existing map plus neutral solar overlay/hour scale; no card or control restyle |
 | `app/Sources/App/CalendarPanelCoordinator.swift` | Persistent panels, frame snapshots, synchronized transition, focus/restoration |
 | `app/Sources/App/FloatingPanel.swift` | Key-window notification and suppression of normal-origin persistence in workspace |
 | `app/Sources/App/TimeZonerApp.swift` | Composition, access defaults, workspace-aware notification/deep-link integration |
-| `app/Tests/CalendarWorkspaceStateTests.swift` (new) | Policy, rail values, settings owner, activation behavior |
+| `app/Tests/CalendarWorkspaceContractsTests.swift` (new) | Stable policy and metric contracts |
+| `app/Tests/CalendarWorkspaceSettingsOwnershipTests.swift` (new) | Single settings owner behavior |
+| `app/Tests/CalendarWorkspaceRailTests.swift` (new) | Rail values and in-place activation behavior |
 | `app/Tests/CalendarWorkspaceLayoutTests.swift` (new) | Pure geometry and restoration |
 | `app/Tests/CalendarWorkspaceTransitionTests.swift` (new) | Motion timing, coalescing, stale-callback rejection |
+| `app/Tests/TimezoneMapTests.swift` | Deterministic hour wrapping and solar equinox/solstice/date-line coverage |
 | Existing settings/panel/presentation/range/store/deep-link/notification tests | Real call-path regression coverage |
-| `app/Tests/TimeZonerTests.swift` | Register the three new suites |
+| `app/Tests/TimeZonerTests.swift` | Additive registration point resolved by each wave integrator |
 | `docs/verification/calendar-workspace-transition-2026-09-25.md` (new), `README.md` | Observed native verification and user-facing behavior |
 
-Do not split unrelated provider or notification files. `CalendarPresentationState.swift` already contains the panel protocols; extend those seams rather than inventing a second app controller.
+Do not split unrelated provider or notification files. During F0, move the existing panel surface protocols and `CalendarPanelPairController` block from `CalendarPresentationState.swift` into a dedicated `CalendarPanelPairController.swift` without behavior changes; this gives K exclusive ownership of pair-core logic and prevents P/S/N/A from colliding in the state file.
 
-### Task 1: Default-visible agenda with permission-safe intent
+### Task 0 (F0): Freeze stable workspace contracts and pair-controller ownership
 
 **Files:**
-- Create: `app/Sources/Models/CalendarWorkspaceState.swift`
-- Create: `app/Tests/CalendarWorkspaceStateTests.swift`
+- Create: `app/Sources/Models/CalendarWorkspaceContracts.swift`
+- Create: `app/Sources/Models/CalendarPanelPairController.swift`
+- Create: `app/Tests/CalendarWorkspaceContractsTests.swift`
+- Modify: `app/Sources/Models/CalendarPresentationState.swift` (move pair protocols/controller only; no behavior change)
+- Modify: `app/Tests/TimeZonerTests.swift`
+
+**Interfaces:**
+- Produces `CalendarPanelIdentity`, `CalendarWorkspacePolicy`, and `CalendarPanelMetrics` exactly as consumed by every later wave.
+- Relocates, without changing signatures or behavior, `CalendarPanelSurface`, `CalendarPanelPopoverSurface`, `CalendarPanelPairController`, and `CalendarPanelControlling` so K owns one focused file.
+
+- [ ] **Step 1: Write the contract tests and register the suite**
+
+```swift
+import Foundation
+import TimeZonerLib
+
+func workspaceExpect(_ condition: Bool, _ label: String, line: Int = #line) {
+    if condition { testsPassed += 1 }
+    else { testsFailed += 1; print("  FAIL [line \(line)] \(label)") }
+}
+
+func runCalendarWorkspaceContractsTests() {
+    workspaceExpect(CalendarWorkspacePolicy.calendarVisible(
+        destination: .timezoner, showAgenda: true), "normal visible preference shows calendar")
+    workspaceExpect(!CalendarWorkspacePolicy.calendarVisible(
+        destination: .timezoner, showAgenda: false), "normal explicit hide works")
+    workspaceExpect(CalendarWorkspacePolicy.calendarVisible(
+        destination: .calendar, showAgenda: false), "workspace always retains calendar")
+    workspaceExpect(CalendarPanelMetrics.horizontalInset == 20, "shared outer inset")
+    workspaceExpect(CalendarPanelMetrics.navHeight == 40, "shared nav height")
+    workspaceExpect(CalendarPanelMetrics.normalWidth(cityCount: 4) == 768,
+                    "normal width retains existing card formula")
+}
+```
+
+- [ ] **Step 2: Run the suite to verify it fails**
+
+Run: `cd app && swift run TimeZonerTests`
+
+Expected: missing `CalendarWorkspacePolicy` and `CalendarPanelMetrics` compilation errors.
+
+- [ ] **Step 3: Create the stable contract file**
+
+```swift
+import Foundation
+
+public enum CalendarPanelIdentity: Equatable, Sendable { case timezoner, calendar }
+
+public enum CalendarWorkspacePolicy {
+    public static func calendarVisible(destination: CalendarDestination, showAgenda: Bool) -> Bool {
+        destination == .calendar || showAgenda
+    }
+    public static func mayReadEvents(status: CalendarAuthorizationStatus) -> Bool {
+        status == .fullAccess
+    }
+    public static func settingsOwner(destination: CalendarDestination) -> CalendarPanelIdentity {
+        destination == .calendar ? .calendar : .timezoner
+    }
+}
+
+public enum CalendarPanelMetrics {
+    public static let horizontalInset: CGFloat = 20
+    public static let dragHeight: CGFloat = 20
+    public static let topInset: CGFloat = 6
+    public static let navHeight: CGFloat = 40
+    public static let contentGap: CGFloat = 12
+    public static let bottomInset: CGFloat = 16
+    public static let iconTarget: CGFloat = 28
+    public static let cornerRadius: CGFloat = 12
+    public static let gap: CGFloat = 10
+    public static let railWidth: CGFloat = 240
+    public static let calendarWidth: CGFloat = 760
+    public static let preferredHeight: CGFloat = 580
+    public static let narrowThreshold: CGFloat = 570
+    public static let compactToolbarThreshold: CGFloat = 600
+    public static func normalWidth(cityCount: Int) -> CGFloat {
+        let count = CGFloat(max(cityCount, 2))
+        return count * 155 + max(count - 1, 0) * 36 + 40
+    }
+}
+```
+
+- [ ] **Step 4: Move pair-controller declarations mechanically and verify no behavior diff**
+
+Start `CalendarPanelPairController.swift` with `import Foundation`, then move the complete existing declarations named in Interfaces into it, preserving access levels and method bodies byte-for-byte. Run `git diff --word-diff=porcelain` and confirm the only semantic addition is the required standalone-file import; pair-controller declarations remain a mechanical relocation.
+
+- [ ] **Step 5: Run, commit, and integrate F0 before branching Wave 1**
+
+Run: `cd app && swift run TimeZonerTests`
+
+Expected: all tests pass.
+
+```bash
+git add app/Sources/Models/CalendarWorkspaceContracts.swift app/Sources/Models/CalendarPanelPairController.swift app/Sources/Models/CalendarPresentationState.swift app/Tests/CalendarWorkspaceContractsTests.swift app/Tests/TimeZonerTests.swift
+git commit -m "refactor: freeze calendar workspace contracts"
+```
+
+### Task 1 (P): Default-visible calendar with permission-safe intent
+
+**Files:**
 - Modify: `app/Sources/Stores/SettingsStore.swift` (`showAgendaWing` initialization)
 - Modify: `app/Sources/Models/CalendarPresentationState.swift` (`CalendarPermissionLossCoordinator`)
 - Modify: `app/Sources/App/TimeZonerApp.swift` (`refreshPersistedAgendaIfNeeded`, `setAgendaWingRequested`)
-- Modify: `app/Tests/SettingsStoreTests.swift`, `app/Tests/CalendarStoreTests.swift`, `app/Tests/CalendarPresentationStateTests.swift`, `app/Tests/TimeZonerTests.swift`
+- Modify: `app/Tests/SettingsStoreTests.swift`, `app/Tests/CalendarStoreTests.swift`, `app/Tests/CalendarPresentationStateTests.swift`
 
 **Interfaces:**
-- Consumes existing `CalendarDestination`, `CalendarAuthorizationStatus`, `SettingsStore`, and `CalendarStore.refreshPresentationInterval()`.
-- Produces `CalendarPanelIdentity: Equatable, Sendable` with `.timezoner` and `.calendar`.
-- Produces `CalendarWorkspacePolicy.calendarVisible(destination:showAgenda:) -> Bool`, `mayReadEvents(status:) -> Bool`, `settingsOwner(destination:) -> CalendarPanelIdentity`.
+- Consumes the reviewed F0 `CalendarWorkspacePolicy`, plus existing `SettingsStore` and `CalendarStore.refreshPresentationInterval()`.
+- Produces only default/access behavior; it must not edit F0 contract files or UI files.
 - Permission loss clears private calendar content, but does not write `showAgendaWing` or change `destination`.
 
 - [ ] **Step 1: Add failing defaults and policy tests**
@@ -103,72 +254,13 @@ expectTrueS(!hidden.showAgendaWing, "explicit hidden preference survives the new
 defaults.removeObject(forKey: keys.showAgendaWing)
 ```
 
-Create the shared assertion helper and first suite. Register `runCalendarWorkspaceStateTests()` in `TimeZonerTests.main()` after presentation tests:
-
-```swift
-import Foundation
-import TimeZonerLib
-
-func workspaceExpect(_ condition: Bool, _ label: String, line: Int = #line) {
-    if condition { testsPassed += 1 }
-    else {
-        testsFailed += 1
-        print("  FAIL [line \(line)] \(label)")
-    }
-}
-
-@MainActor
-func runCalendarWorkspaceStateTests() {
-    workspaceExpect(CalendarWorkspacePolicy.calendarVisible(
-        destination: .timezoner, showAgenda: true), "normal default shows agenda")
-    workspaceExpect(!CalendarWorkspacePolicy.calendarVisible(
-        destination: .timezoner, showAgenda: false), "normal explicit hide works")
-    workspaceExpect(CalendarWorkspacePolicy.calendarVisible(
-        destination: .calendar, showAgenda: false), "workspace retains full calendar")
-    for status in [CalendarAuthorizationStatus.notDetermined, .denied, .restricted, .writeOnly] {
-        workspaceExpect(!CalendarWorkspacePolicy.mayReadEvents(status: status),
-                        "unavailable access never permits a read")
-    }
-    workspaceExpect(CalendarWorkspacePolicy.mayReadEvents(status: .fullAccess),
-                    "full access permits automatic refresh")
-    workspaceExpect(CalendarWorkspacePolicy.settingsOwner(destination: .timezoner) == .timezoner,
-                    "normal settings belongs to main")
-    workspaceExpect(CalendarWorkspacePolicy.settingsOwner(destination: .calendar) == .calendar,
-                    "workspace settings belongs to calendar")
-}
-```
-
 - [ ] **Step 2: Run the failing test suite**
 
 Run: `cd app && swift run TimeZonerTests`
 
-Expected: missing `CalendarWorkspacePolicy` compilation errors; after adding the type, the new default assertion fails until the initialization changes.
+Expected: the changed default assertion fails until the initialization changes; F0 contract tests remain green.
 
-- [ ] **Step 3: Implement the policy and unset default**
-
-Create the model with this code:
-
-```swift
-import Foundation
-
-public enum CalendarPanelIdentity: Equatable, Sendable {
-    case timezoner, calendar
-}
-
-public enum CalendarWorkspacePolicy {
-    public static func calendarVisible(destination: CalendarDestination, showAgenda: Bool) -> Bool {
-        destination == .calendar || showAgenda
-    }
-
-    public static func mayReadEvents(status: CalendarAuthorizationStatus) -> Bool {
-        status == .fullAccess
-    }
-
-    public static func settingsOwner(destination: CalendarDestination) -> CalendarPanelIdentity {
-        destination == .calendar ? .calendar : .timezoner
-    }
-}
-```
+- [ ] **Step 3: Implement the unset default and permission-safe call paths**
 
 Change only the unset-preference branch to `self.showAgendaWing = true`. Remove `presentation.showAgendaWing = false` from `CalendarPermissionLossCoordinator.handle`. Keep clearing event/details and presenting recovery. Replace the two AppDelegate methods with:
 
@@ -195,7 +287,7 @@ Keep `CalendarAgendaWingRequest` compatibility until all existing callers/tests 
 
 - [ ] **Step 4: Pin revocation and no-implicit-request behavior to real state/store paths**
 
-Append to the workspace state suite:
+Append to `CalendarPresentationStateTests` using its existing assertion helper:
 
 ```swift
 let suite = "WorkspacePermission.\(UUID().uuidString)"
@@ -206,9 +298,9 @@ let presentation = CalendarPresentationState(settings: settings, defaults: defau
 let reference = ReferenceMomentController(timeState: TimeState(), presentation: presentation)
 presentation.enterCalendar(now: Date(timeIntervalSince1970: 1_750_000_000), calendar: .current)
 CalendarPermissionLossCoordinator.handle(referenceMoment: reference, presentation: presentation)
-workspaceExpect(presentation.destination == .calendar, "revocation retains the workspace")
-workspaceExpect(presentation.showAgendaWing, "revocation preserves visibility intent")
-workspaceExpect(presentation.accessDestination == .recovery, "revocation exposes recovery")
+expectCalendarPresentation(presentation.destination, .calendar, "revocation retains the workspace")
+expectCalendarPresentationTrue(presentation.showAgendaWing, "revocation preserves visibility intent")
+expectCalendarPresentation(presentation.accessDestination, .recovery, "revocation exposes recovery")
 ```
 
 In `CalendarStoreTests`, add `private(set) var accessRequestCount = 0` to the existing fake and increment it at the start of `requestAccess()`. Add a test block inside the existing async suite using its existing deterministic signal helper to construct the store:
@@ -220,8 +312,8 @@ let deniedClock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }
 let deniedStore = CalendarStore(provider: deniedProvider, clock: deniedClock)
 deniedStore.refreshPresentationInterval()
 await Task.yield()
-workspaceExpect(deniedProvider.accessRequestCount == 0, "visible recovery cannot request permission")
-workspaceExpect(deniedProvider.eventRequests.isEmpty, "denied calendar cannot fetch events")
+expectCalendarStore(deniedProvider.accessRequestCount, 0, "visible recovery cannot request permission")
+expectCalendarStoreTrue(deniedProvider.eventRequests.isEmpty, "denied calendar cannot fetch events")
 ```
 
 Update earlier assertions that required permission loss to set `showAgendaWing` false; preserve their private-data cleanup assertions. Existing explicit-grant/refresh tests remain mandatory.
@@ -233,11 +325,11 @@ Run: `cd app && swift run TimeZonerTests`
 Expected: all tests pass; no system prompt. Then:
 
 ```bash
-git add app/Sources/Models/CalendarWorkspaceState.swift app/Sources/Stores/SettingsStore.swift app/Sources/Models/CalendarPresentationState.swift app/Sources/App/TimeZonerApp.swift app/Tests/CalendarWorkspaceStateTests.swift app/Tests/SettingsStoreTests.swift app/Tests/CalendarStoreTests.swift app/Tests/CalendarPresentationStateTests.swift app/Tests/TimeZonerTests.swift
+git add app/Sources/Stores/SettingsStore.swift app/Sources/Models/CalendarPresentationState.swift app/Sources/App/TimeZonerApp.swift app/Tests/SettingsStoreTests.swift app/Tests/CalendarStoreTests.swift app/Tests/CalendarPresentationStateTests.swift
 git commit -m "feat: show calendar agenda by default safely"
 ```
 
-### Task 2: Shared metrics and deterministic two-panel geometry
+### Task 2 (L): Deterministic two-panel geometry
 
 **Files:**
 - Create: `app/Sources/Models/CalendarWorkspaceLayout.swift`
@@ -246,7 +338,7 @@ git commit -m "feat: show calendar agenda by default safely"
 
 **Interfaces:**
 - Consumes existing `AgendaPlacement`, `AgendaPlacementCalculator`, and `CalendarPanelFrameCalculator.restoredNormalFrame(_:visibleFrame:screenDidChange:)`.
-- Produces `CalendarPanelMetrics`, `CalendarWorkspaceFrames(main:calendar:arrangement:)`, `CalendarNormalLayoutSnapshot`, `CalendarWorkspaceRestoration`, and the three calculator functions shown below.
+- Consumes reviewed F0 `CalendarPanelMetrics` and produces `CalendarWorkspaceFrames(main:calendar:arrangement:)`, `CalendarNormalLayoutSnapshot`, `CalendarWorkspaceRestoration`, and the three calculator functions shown below.
 - Frame calculations use AppKit's bottom-left coordinate convention and injected `CGRect`s only; no `NSScreen`, `Date()`, or city store reads.
 
 - [ ] **Step 1: Write the failing geometry suite and register it**
@@ -299,33 +391,12 @@ func runCalendarWorkspaceLayoutTests() {
 }
 ```
 
-Register `runCalendarWorkspaceLayoutTests()` after the state suite. Run: `cd app && swift run TimeZonerTests`. Expected: undefined layout types.
+Register `runCalendarWorkspaceLayoutTests()` after the contracts suite. Run: `cd app && swift run TimeZonerTests`. Expected: undefined layout types.
 
-- [ ] **Step 2: Implement metrics and data contracts**
+- [ ] **Step 2: Implement geometry data contracts using F0 metrics**
 
 ```swift
 import Foundation
-
-public enum CalendarPanelMetrics {
-    public static let horizontalInset: CGFloat = 20
-    public static let dragHeight: CGFloat = 20
-    public static let topInset: CGFloat = 6
-    public static let navHeight: CGFloat = 40
-    public static let contentGap: CGFloat = 12
-    public static let bottomInset: CGFloat = 16
-    public static let iconTarget: CGFloat = 28
-    public static let cornerRadius: CGFloat = 12
-    public static let gap: CGFloat = 10
-    public static let railWidth: CGFloat = 240
-    public static let calendarWidth: CGFloat = 760
-    public static let preferredHeight: CGFloat = 580
-    public static let narrowThreshold: CGFloat = 570
-    public static let compactToolbarThreshold: CGFloat = 600
-    public static func normalWidth(cityCount: Int) -> CGFloat {
-        let count = CGFloat(max(cityCount, 2))
-        return count * 155 + max(count - 1, 0) * 36 + 40
-    }
-}
 
 public struct CalendarWorkspaceFrames: Equatable, Sendable {
     public enum Arrangement: Equatable, Sendable { case sideBySide, stacked }
@@ -449,24 +520,27 @@ git add app/Sources/Models/CalendarWorkspaceLayout.swift app/Tests/CalendarWorks
 git commit -m "feat: define calendar workspace geometry"
 ```
 
-### Task 3: Shared chrome and single-owner settings
+### Task 3A/3B (C/S): Shared chrome and single-owner settings
+
+Run 3A and 3B concurrently after Wave 1 integration. 3A owns only `CalendarPanelChrome.swift` and `DragHandle.swift`; 3B owns the settings-ownership model/button and the focused-panel state. `ChatField.swift` belongs to V, not C or S.
 
 **Files:**
 - Create: `app/Sources/Views/CalendarPanelChrome.swift`
 - Create: `app/Sources/Views/CalendarSettingsButton.swift`
-- Modify: `app/Sources/Models/CalendarWorkspaceState.swift`, `app/Sources/Models/CalendarPresentationState.swift`
-- Modify: `app/Sources/Views/DragHandle.swift`, `app/Sources/Views/ChatField.swift`
-- Modify: `app/Tests/CalendarWorkspaceStateTests.swift`
+- Create: `app/Sources/Models/CalendarWorkspaceSettingsOwnership.swift`
+- Modify: `app/Sources/Models/CalendarPresentationState.swift`
+- Modify: `app/Sources/Views/DragHandle.swift`
+- Create: `app/Tests/CalendarWorkspaceSettingsOwnershipTests.swift`
 
 **Interfaces:**
 - Consumes `CalendarPanelMetrics` and `CalendarWorkspacePolicy.settingsOwner(destination:)`.
 - Produces `CalendarPanelChrome<Header: View, Content: View>(isHugging:isFocused:contentOpacity:contentOffset:interactionEnabled:header:content:)` and `CalendarToolbarIcon(systemName:label:hint:action:)`.
 - Produces `CalendarSettingsButton<Content: View>(owner:presentation:onActivate:onOwnedPopoverChanged:content:)` and `CalendarSettingsOwnership.isPresented(owner:presentation:)` / `setPresented(_:owner:presentation:onOwnedPopoverChanged:)`.
-- Adds `CalendarPresentationState.focusedPanel: CalendarPanelIdentity?`, initially `nil`. Only native key-window notifications set it.
+- Adds `CalendarPresentationState.focusedPanel: CalendarPanelIdentity?`, initially `nil`. Only native key-window lifecycle callbacks set it.
 
 - [ ] **Step 1: Write a settings-anchor regression before the component**
 
-Append within `runCalendarWorkspaceStateTests()`, where its isolated `presentation` is already in `.calendar`:
+Create `runCalendarWorkspaceSettingsOwnershipTests()` with an isolated presentation already in `.calendar`:
 
 ```swift
 var owned = false
@@ -489,7 +563,7 @@ Run: `cd app && swift run TimeZonerTests`. Expected: undefined `CalendarSettings
 
 - [ ] **Step 2: Implement settings ownership and focused-panel state**
 
-Add `public var focusedPanel: CalendarPanelIdentity?` to `CalendarPresentationState`. Append this helper to the workspace state file:
+Add `public var focusedPanel: CalendarPanelIdentity?` to `CalendarPresentationState`. Create the settings-ownership model with:
 
 ```swift
 @MainActor
@@ -587,7 +661,7 @@ public struct CalendarToolbarIcon: View {
 }
 ```
 
-Change `DragHandle.body`'s frame height to `CalendarPanelMetrics.dragHeight`; retain its actual manual AppKit drag mechanism. In `ChatField`, replace vertical padding with `.frame(height: CalendarPanelMetrics.navHeight)` and preserve its horizontal padding/background. A font or padding constant is verified by native rendering, not a test that merely compares that constant with itself.
+Change `DragHandle.body`'s frame height to `CalendarPanelMetrics.dragHeight`; retain its actual manual AppKit drag mechanism. `ChatField` is intentionally deferred to V so C has no composition-file overlap. A font or padding constant is verified by native rendering, not a test that merely compares that constant with itself.
 
 - [ ] **Step 4: Implement the reusable settings anchor**
 
@@ -631,18 +705,24 @@ The `SettingsPopover` supplied to this component remains the existing one, initi
 Run: `cd app && swift run TimeZonerTests`; then `./scripts/build.sh` from the worktree root. Expected: all tests pass; app compiles. Native alignment is checked after the components are adopted in Task 4.
 
 ```bash
-git add app/Sources/Models/CalendarWorkspaceState.swift app/Sources/Models/CalendarPresentationState.swift app/Sources/Views/CalendarPanelChrome.swift app/Sources/Views/CalendarSettingsButton.swift app/Sources/Views/DragHandle.swift app/Sources/Views/ChatField.swift app/Tests/CalendarWorkspaceStateTests.swift
-git commit -m "refactor: share calendar panel chrome and settings ownership"
+git add app/Sources/Views/CalendarPanelChrome.swift app/Sources/Views/DragHandle.swift
+git commit -m "refactor: share calendar panel chrome"
+git add app/Sources/Models/CalendarWorkspaceSettingsOwnership.swift app/Sources/Models/CalendarPresentationState.swift app/Sources/Views/CalendarSettingsButton.swift app/Tests/CalendarWorkspaceSettingsOwnershipTests.swift app/Tests/TimeZonerTests.swift
+git commit -m "feat: bind calendar settings to one panel owner"
 ```
 
-### Task 4: Compose the compact rail and calendar controls
+### Task 4A/4B/4C (R/E/U/V): Rail, toolbar, and final SwiftUI composition
+
+Run E concurrently with C and S in Wave 2 because it owns only `CalendarRange.swift` and its tests. After C/S/E are reviewed and integrated, run R, U, and K concurrently in Wave 3: R consumes only E's icon identity, while U consumes C's shared chrome control plus S's settings component and E's range metadata. After R, U, K, and H are integrated, create V from that integrated SHA. R owns the rail model/view, E owns range icon metadata, U owns the toolbar view, and V exclusively owns the existing composition views and first `TimeZonerApp` root wiring.
 
 **Files:**
 - Create: `app/Sources/Views/TimeZonerRailView.swift`, `app/Sources/Views/CalendarWorkspaceToolbar.swift`, `app/Sources/Views/CalendarPanelRootView.swift`
-- Modify: `app/Sources/Models/CalendarWorkspaceState.swift`, `app/Sources/Models/CalendarRange.swift`
+- Create: `app/Sources/Models/CalendarWorkspaceRailPresentation.swift`
+- Modify: `app/Sources/Models/CalendarRange.swift`
 - Modify: `app/Sources/Views/ContentView.swift`, `app/Sources/Views/AgendaView.swift`, `app/Sources/Views/CalendarModeView.swift`, `app/Sources/Views/CalendarTimeGrid.swift`, `app/Sources/Views/ChatField.swift`
 - Modify: `app/Sources/App/TimeZonerApp.swift`
-- Modify: `app/Tests/CalendarWorkspaceStateTests.swift`, `app/Tests/CalendarRangeTests.swift`, `app/Tests/CalendarPresentationStateTests.swift`
+- Create: `app/Tests/CalendarWorkspaceRailTests.swift`
+- Modify: `app/Tests/CalendarRangeTests.swift`, `app/Tests/CalendarPresentationStateTests.swift`
 
 **Interfaces:**
 - Produces `CalendarRailCardPresentation(zone:date:)` with `title`, `time`, `date`, `offset`, `accessibilityLabel` strings.
@@ -652,9 +732,11 @@ git commit -m "refactor: share calendar panel chrome and settings ownership"
 - Produces `CalendarPanelRootView(presentation:agenda:calendar:)` with concrete `AgendaView` and `CalendarModeView` values.
 - Rename icon metadata cases to `.expandCalendar` and `.expandTimeZoner`; actions are unchanged until the native routing task.
 
+#### Task 4A (R): Rail presentation and component
+
 - [ ] **Step 1: Write event-activation and zero/many-city value tests**
 
-Append inside `runCalendarWorkspaceStateTests()`:
+Create `runCalendarWorkspaceRailTests()` using the shared `workspaceExpect` helper:
 
 ```swift
 let start = Date(timeIntervalSince1970: 1_750_000_000)
@@ -679,13 +761,15 @@ workspaceExpect(presentation.destination == .calendar && reference.selectedEvent
                 "Now clears context without exiting workspace")
 ```
 
-Replace the old test that manually called `returnToTimeZoner()` after selection and claimed selection returns. Keep separate explicit-return coverage. Update the icon tuple expectations in `CalendarRangeTests` to the exact metadata in Step 3. Run `cd app && swift run TimeZonerTests`; expect undefined rail/activation types and the old icon metadata mismatch.
+Replace the old test that manually called `returnToTimeZoner()` after selection and claimed selection returns. Keep separate explicit-return coverage. Do not edit `CalendarRangeTests`; E already owns and integrates the icon metadata. Run `cd app && swift run TimeZonerTests`; expect undefined rail/activation types.
 
 - [ ] **Step 2: Implement rail values and event activation**
 
-Append to `CalendarWorkspaceState.swift`:
+Create `CalendarWorkspaceRailPresentation.swift`:
 
 ```swift
+import Foundation
+
 public struct CalendarRailCardPresentation: Equatable, Sendable {
     public let title: String
     public let time: String
@@ -707,7 +791,9 @@ public enum CalendarWorkspaceEventActivation {
 }
 ```
 
-In `CalendarModeView.selectTimedEvent`, use only `CalendarWorkspaceEventActivation.select(event, referenceMoment: referenceMoment)`. Delete the return callback from the initializer and stored properties. All-day details continue through the existing `showEventDetails` path.
+R implements only the pure activation helper. V later changes `CalendarModeView.selectTimedEvent` to use it and removes the return callback; keeping that existing view out of R prevents branch overlap.
+
+#### Task 4B.1 (E): Expand-control identities
 
 - [ ] **Step 3: Change both expand-control identities**
 
@@ -729,7 +815,20 @@ public enum CalendarNavigationIconControl: Equatable, Sendable {
 }
 ```
 
-Use `CalendarToolbarIcon` for Agenda's expand action, replacing `.openWeek` with `.expandCalendar`. Keep the action closure itself named `onOpenWeek` for now to avoid an unrelated API rename. Remove the calendar view's back control entirely. Update both existing tuple tests to the new case names and strings; do not merely delete accessibility expectations.
+Update both existing tuple tests to the new case names and strings; do not merely delete accessibility expectations. V later adopts `.expandCalendar` in `AgendaView` and removes the calendar view's back control, keeping those existing view files out of E.
+
+- [ ] **Step 3A: Run and commit the icon-contract workstream**
+
+Run: `cd app && swift run TimeZonerTests`
+
+Expected: all tests pass.
+
+```bash
+git add app/Sources/Models/CalendarRange.swift app/Tests/CalendarRangeTests.swift
+git commit -m "refactor: name both calendar expansion controls"
+```
+
+#### Task 4A (R), continued
 
 - [ ] **Step 4: Implement the read-only compact rail**
 
@@ -841,6 +940,19 @@ The context slot's `.lineLimit(2)` plus metadata must fit 44 points at the speci
 
 Focus context only when that notification arrives, not on every event selection.
 
+- [ ] **Step 4A.1: Run and commit the rail workstream**
+
+Run: `cd app && swift run TimeZonerTests`
+
+Expected: all tests pass.
+
+```bash
+git add app/Sources/Models/CalendarWorkspaceRailPresentation.swift app/Sources/Views/TimeZonerRailView.swift app/Tests/CalendarWorkspaceRailTests.swift app/Tests/TimeZonerTests.swift
+git commit -m "feat: add compact timezone rail"
+```
+
+#### Task 4B.2 (U): Calendar workspace toolbar
+
 - [ ] **Step 5: Build the single-row calendar toolbar with compact fallback**
 
 Create `CalendarWorkspaceToolbar.swift`:
@@ -944,6 +1056,19 @@ private var compactTitle: String {
 }
 ```
 
+- [ ] **Step 5A: Run and commit the toolbar workstream**
+
+Run: `cd app && swift run TimeZonerTests`
+
+Expected: all tests pass.
+
+```bash
+git add app/Sources/Views/CalendarWorkspaceToolbar.swift
+git commit -m "feat: add compact calendar workspace toolbar"
+```
+
+#### Task 4C (V): Compose reviewed components into both persistent roots
+
 - [ ] **Step 6: Adopt the chrome without adding a second inner shell**
 
 Move the existing normal HStack into `ContentView.normalHeader`; move its cards/context/map into `normalBody`. Replace its outer stacks/background/clip with:
@@ -972,7 +1097,7 @@ if presentation.destination == .calendar {
 }
 ```
 
-Agenda uses the same chrome, with its existing header and scrollable content. Remove its own DragHandle, outer paddings, background/clip, and fixed 220-point root width; the panel/popover provides width. Header HStack uses `.center`, its title block retains 14/11-point text, and its expand uses the shared 28-point target.
+The compact calendar uses the same chrome, with its existing scrollable content. Remove its own DragHandle, outer paddings, background/clip, and fixed 220-point root width; the panel/popover provides width. Replace the two-line `Agenda`/date title block with the local date only at the existing 14-point rounded semibold panel-title scale. Header HStack uses `.center`, and its expand action uses the shared 28-point target. Do not introduce a second calendar glyph.
 
 CalendarModeView uses the same chrome, `presentation.agendaPanelHugsMenuBar`, focused identity `.calendar`, and `CalendarWorkspaceToolbar`. Place the existing date-range string plus the local timezone abbreviation in an 11-point subtitle above its grid within the content slot. Remove its old two-row header and redundant outer shell.
 
@@ -1041,16 +1166,18 @@ The coordinator will request focus after a completed normal restoration. Do not 
 Run `cd app && swift run TimeZonerTests` and `./scripts/build.sh`. Expected: tests pass and both target roots compile. Search `rg -n 'onReturnToTimeZoner|backToTimeZoner|openWeek' app/Sources app/Tests`; expected no obsolete return/icon symbols (the intentional `onOpenWeek` action spelling is case-distinct and may remain).
 
 ```bash
-git add app/Sources/Models/CalendarWorkspaceState.swift app/Sources/Models/CalendarRange.swift app/Sources/Views/TimeZonerRailView.swift app/Sources/Views/CalendarWorkspaceToolbar.swift app/Sources/Views/CalendarPanelRootView.swift app/Sources/Views/ContentView.swift app/Sources/Views/AgendaView.swift app/Sources/Views/CalendarModeView.swift app/Sources/Views/CalendarTimeGrid.swift app/Sources/Views/ChatField.swift app/Sources/App/TimeZonerApp.swift app/Tests/CalendarWorkspaceStateTests.swift app/Tests/CalendarRangeTests.swift app/Tests/CalendarPresentationStateTests.swift
+git add app/Sources/Views/CalendarPanelRootView.swift app/Sources/Views/ContentView.swift app/Sources/Views/AgendaView.swift app/Sources/Views/CalendarModeView.swift app/Sources/Views/CalendarTimeGrid.swift app/Sources/Views/ChatField.swift app/Sources/App/TimeZonerApp.swift app/Tests/CalendarPresentationStateTests.swift
 git commit -m "feat: compose calendar workspace and compact city rail"
 ```
 
-### Task 5: Persistent panel ownership, focus, and restoration
+### Task 5A/5B (K/N): Pair core, then native panel lifecycle
+
+Run K concurrently with R and U after Wave 2; E is already integrated. After K/R/U/H and then V are integrated, create N from the Wave 4 integrated SHA. K owns only the relocated pure pair-controller file/tests. N owns AppKit panels, AppDelegate wiring, command routing, integration-view routing, and any remaining presentation state.
 
 **Files:**
-- Modify: `app/Sources/Models/CalendarPresentationState.swift` (pair controller and panel protocol)
+- Modify: `app/Sources/Models/CalendarPanelPairController.swift` (pair controller and panel protocol)
 - Modify: `app/Sources/App/CalendarPanelCoordinator.swift`, `app/Sources/App/FloatingPanel.swift`, `app/Sources/App/TimeZonerApp.swift`
-- Modify: `app/Sources/Views/ContentView.swift`, `app/Sources/Views/CalendarPanelRootView.swift`, `app/Sources/Views/TimeZonerRailView.swift`
+- Modify: `app/Sources/Views/ContentView.swift`, `app/Sources/Views/CalendarPanelRootView.swift`
 - Modify: `app/Tests/CalendarPanelCoordinatorTests.swift`, `app/Tests/PendingCalendarCommandTests.swift`, `app/Tests/TimeZonerDeepLinkTests.swift`
 
 **Interfaces:**
@@ -1059,6 +1186,8 @@ git commit -m "feat: compose calendar workspace and compact city rail"
 - Changes coordinator initializer to also consume `cityCount: () -> Int`, `prepareCalendar: () -> Void`, and `refreshCalendar: () -> Void`.
 - Coordinator owns one `savedNormalLayout: CalendarNormalLayoutSnapshot?`; presentation owns destination, not geometry.
 - FloatingPanel adds `persistsNormalPosition: Bool` and `floatingPanelDidBecomeKey(_:)` delegate callback.
+
+#### Task 5A (K): Pure pair-controller workspace mode
 
 - [ ] **Step 1: Write paired-window lifecycle tests using the existing fakes**
 
@@ -1159,7 +1288,20 @@ if workspaceFrames != nil {
 }
 ```
 
-In `show(showAgenda:)`, use `workspaceFrames == nil ? main.focus() : agenda.focus()` after syncing. In `resizeMain`, return immediately when `workspaceFrames != nil` or `transitionInProgress`; retain normal center-x but replace center-y anchoring with `y: oldFrame.maxY - size.height` so city changes do not move the nav top. In the deferred resignation closure, include `!transitionInProgress` in the existing visibility/focus guards. Add the three protocol methods listed in Interfaces and forwarding methods on `CalendarPanelControllerProxy`.
+In `show(showAgenda:)`, use `workspaceFrames == nil ? main.focus() : agenda.focus()` after syncing. In `resizeMain`, return immediately when `workspaceFrames != nil` or `transitionInProgress`; retain normal center-x but replace center-y anchoring with `y: oldFrame.maxY - size.height` so city changes do not move the nav top. In the deferred resignation closure, include `!transitionInProgress` in the existing visibility/focus guards. Add the three protocol requirements listed in Interfaces. N adds their forwarding methods on `CalendarPanelControllerProxy`, keeping `TimeZonerApp.swift` out of K.
+
+- [ ] **Step 2A: Run and commit the pair-core workstream**
+
+Run: `cd app && swift run TimeZonerTests`
+
+Expected: all tests pass.
+
+```bash
+git add app/Sources/Models/CalendarPanelPairController.swift app/Tests/CalendarPanelCoordinatorTests.swift
+git commit -m "feat: add workspace mode to calendar panel pair"
+```
+
+#### Task 5B (N): Native panel lifecycle, focus, and restoration
 
 - [ ] **Step 3: Move mode switching entirely into the native coordinator**
 
@@ -1352,14 +1494,18 @@ Run `cd app && swift run TimeZonerTests`, then `./scripts/build.sh`. Expected: a
 Commit:
 
 ```bash
-git add app/Sources/Models/CalendarPresentationState.swift app/Sources/App/CalendarPanelCoordinator.swift app/Sources/App/FloatingPanel.swift app/Sources/App/TimeZonerApp.swift app/Sources/Views/ContentView.swift app/Sources/Views/CalendarPanelRootView.swift app/Sources/Views/TimeZonerRailView.swift app/Tests/CalendarPanelCoordinatorTests.swift app/Tests/PendingCalendarCommandTests.swift app/Tests/TimeZonerDeepLinkTests.swift
+git add app/Sources/Models/CalendarPresentationState.swift app/Sources/App/CalendarPanelCoordinator.swift app/Sources/App/FloatingPanel.swift app/Sources/App/TimeZonerApp.swift app/Sources/Views/ContentView.swift app/Sources/Views/CalendarPanelRootView.swift app/Tests/CalendarPanelCoordinatorTests.swift app/Tests/PendingCalendarCommandTests.swift app/Tests/TimeZonerDeepLinkTests.swift
 git commit -m "feat: coordinate persistent calendar workspace panels"
 ```
 
-### Task 6: One interruptible transition timeline and Reduce Motion
+### Task 6A/6B (M/A): Pure motion core, then native animation
+
+M runs in Wave 1 from F0 and owns only the pure transition file/tests. A starts only after N is integrated and owns the native animation/cancellation adoption. This moves stale-token and Reduce Motion policy off the critical AppKit sequence.
 
 **Files:**
-- Modify: `app/Sources/Models/CalendarWorkspaceState.swift`, `app/Sources/Models/CalendarPresentationState.swift`
+- Create: `app/Sources/Models/CalendarWorkspaceTransition.swift`
+- Modify: `app/Sources/Models/CalendarPanelPairController.swift` (A only: optional focus and settlement protocol seam)
+- Modify: `app/Sources/Models/CalendarPresentationState.swift`
 - Create: `app/Tests/CalendarWorkspaceTransitionTests.swift`
 - Modify: `app/Sources/App/CalendarPanelCoordinator.swift`, `app/Sources/App/TimeZonerApp.swift`
 - Modify: `app/Sources/Views/ContentView.swift`, `app/Sources/Views/AgendaView.swift`, `app/Sources/Views/CalendarModeView.swift`, `app/Sources/Views/TimeZonerRailView.swift`
@@ -1369,7 +1515,10 @@ git commit -m "feat: coordinate persistent calendar workspace panels"
 - Produces `CalendarWorkspaceMotion(reduceMotion:)` with `fadeOut`, `move`, `fadeIn`, and `travel`.
 - Produces `CalendarWorkspaceTransitionGate.begin(to:) -> Request?`, `isCurrent(_:) -> Bool`, `finish(_:) -> CalendarDestination?`, `cancel() -> CalendarDestination?`, and `active: Request?`.
 - Adds presentation values `workspaceContentOpacity: Double = 1`, `workspaceContentOffset: CGFloat = 0`, `isWorkspaceTransitioning = false`.
-- Native coordinator exposes `settleWorkspaceTransition()` internally for hide, display changes, accessibility changes, and notification preparation. The panel protocol exposes that same method for the proxy if a caller needs it.
+- A extends K's `endWorkspace` with optional `focusMain: Bool = true`, and adds `settleWorkspaceTransition()` to `CalendarPanelControlling`, the coordinator, and proxy in the same sequential branch.
+- Native coordinator uses settlement for hide, display changes, accessibility changes, notification preparation, and synchronous deep-link restoration.
+
+#### Task 6A (M): Pure transition gate and timing
 
 - [ ] **Step 1: Write coalescing, interruption, and reduced-motion tests**
 
@@ -1411,9 +1560,11 @@ Run `cd app && swift run TimeZonerTests`; expected: missing gate/motion types.
 
 - [ ] **Step 2: Implement the pure gate and timing**
 
-Append to `CalendarWorkspaceState.swift`:
+Create `CalendarWorkspaceTransition.swift`:
 
 ```swift
+import Foundation
+
 public struct CalendarWorkspaceMotion: Equatable, Sendable {
     public let fadeOut: TimeInterval
     public let move: TimeInterval
@@ -1459,6 +1610,19 @@ public struct CalendarWorkspaceTransitionGate {
     }
 }
 ```
+
+- [ ] **Step 2A: Run and commit the motion-core workstream**
+
+Run: `cd app && swift run TimeZonerTests`
+
+Expected: all tests pass.
+
+```bash
+git add app/Sources/Models/CalendarWorkspaceTransition.swift app/Tests/CalendarWorkspaceTransitionTests.swift app/Tests/TimeZonerTests.swift
+git commit -m "feat: define interruptible calendar workspace motion"
+```
+
+#### Task 6B (A): Adopt reviewed motion in the native coordinator
 
 Add the three presentation values listed in Interfaces. At every `CalendarPanelChrome` call site, pass:
 
@@ -1684,11 +1848,288 @@ Run `cd app && swift run TimeZonerTests` and `./scripts/build.sh`. Expected: all
 - [ ] **Step 7: Commit the timeline after native cancellation code is reviewed**
 
 ```bash
-git add app/Sources/Models/CalendarWorkspaceState.swift app/Sources/Models/CalendarPresentationState.swift app/Sources/App/CalendarPanelCoordinator.swift app/Sources/App/TimeZonerApp.swift app/Sources/Views/ContentView.swift app/Sources/Views/AgendaView.swift app/Sources/Views/CalendarModeView.swift app/Sources/Views/TimeZonerRailView.swift app/Tests/CalendarWorkspaceTransitionTests.swift app/Tests/CalendarPanelCoordinatorTests.swift app/Tests/TimeZonerTests.swift
+git add app/Sources/Models/CalendarPanelPairController.swift app/Sources/Models/CalendarPresentationState.swift app/Sources/App/CalendarPanelCoordinator.swift app/Sources/App/TimeZonerApp.swift app/Sources/Views/ContentView.swift app/Sources/Views/AgendaView.swift app/Sources/Views/CalendarModeView.swift app/Sources/Views/TimeZonerRailView.swift app/Tests/CalendarPanelCoordinatorTests.swift
 git commit -m "feat: animate calendar workspace with accessible interruption"
 ```
 
-### Task 7: Verify the actual installed interaction and document observations
+### Task H (H): Add quiet map day/night and hour cues
+
+This workstream branches from F0 and runs fully in parallel with P/L/M. It owns only the two new map utilities, `TimezoneMapView.swift`, and `TimezoneMapTests.swift`. It must not touch `ContentView`, calendar files, Theme colors, card components, or panel state. V later preserves the reviewed map unchanged inside normal TimeZoner.
+
+**Files:**
+- Create: `app/Sources/Utilities/MapHourScale.swift`
+- Create: `app/Sources/Utilities/SolarDayNightOverlay.swift`
+- Modify: `app/Sources/Views/TimezoneMapView.swift`
+- Modify: `app/Tests/TimezoneMapTests.swift`
+
+**Interfaces:**
+- Produces `MapHourScale.labels(at:) -> [MapHourScaleLabel]`, always 24 standard meridians ordered UTC−12 through UTC+11.
+- Produces `SolarDayNightOverlay.subsolarPoint(at:)`, `isNight(longitude:latitude:at:)`, and `nightBands(at:latitudeRange:bandCount:)` with no SwiftUI or app-state dependency.
+- Consumes only the existing equirectangular `MapProjection` and `TimeState.referenceDate`; does not modify `MapProjection`, `MapColorLogic`, `TimeFormatter`, or Theme.
+
+- [ ] **Step H1: Add failing hour and solar geometry tests**
+
+Append to `runTimezoneMapTests()`:
+
+```swift
+let scaleInstant = Date(timeIntervalSince1970: 1_751_344_200) // 2025-07-01 04:30 UTC
+let labels = MapHourScale.labels(at: scaleInstant)
+expectTrue(labels.count == 24, "hour scale has 24 longitude bands")
+expectTrue(labels.first?.xFraction == 0, "UTC-12 begins at the left meridian")
+expectTrue(labels.first?.longitude == -180, "first standard meridian")
+expectTrue(labels.last?.longitude == 165, "last standard meridian")
+expectTrue(zip(labels, labels.dropFirst()).allSatisfy { next in
+    abs((next.1.longitude - next.0.longitude) - 15) < 0.000_001
+}, "hour scale advances one standard meridian per label")
+expectTrue(zip(labels, labels.dropFirst()).allSatisfy { next in
+    abs((next.1.xFraction - next.0.xFraction) - (1.0 / 24.0)) < 0.000_001
+}, "hour scale advances one twenty-fourth of the map per label")
+expectTrue(labels[12].text == "04", "UTC band reflects reference hour")
+expectTrue(labels[0].text == "16", "UTC-12 wraps to previous day")
+expectTrue(labels[23].text == "15", "UTC+11 wraps forward")
+
+let juneNoon = Date(timeIntervalSince1970: 1_750_507_200) // 2025-06-21 12:00 UTC
+expectTrue(!SolarDayNightOverlay.isNight(longitude: 0, latitude: 70, at: juneNoon),
+           "June solstice north is daylight near noon")
+expectTrue(SolarDayNightOverlay.isNight(longitude: 0, latitude: -70, at: juneNoon),
+           "June solstice south is night near noon")
+expectTrue(SolarDayNightOverlay.isNight(longitude: 180, latitude: 0, at: juneNoon),
+           "antisolar equator is night")
+
+let equinoxNoon = Date(timeIntervalSince1970: 1_742_472_000) // 2025-03-20 12:00 UTC
+expectTrue(!SolarDayNightOverlay.isNight(longitude: 0, latitude: 0, at: equinoxNoon),
+           "equinox Greenwich is day near noon")
+expectTrue(SolarDayNightOverlay.isNight(longitude: 180, latitude: 0, at: equinoxNoon),
+           "equinox opposite longitude is night")
+let nightBands = SolarDayNightOverlay.nightBands(at: juneNoon,
+                                                  latitudeRange: -70...70,
+                                                  bandCount: 70)
+expectTrue(nightBands.count == 70, "one night band per latitude strip")
+expectTrue(nightBands.allSatisfy { band in
+    band.spans.allSatisfy { $0.minimum >= -180 && $0.maximum <= 180 }
+}, "night spans stay inside map longitude bounds")
+let southernPolarBand = nightBands.first!
+expectTrue(southernPolarBand.spans == [SolarLongitudeSpan(minimum: -180, maximum: 180)],
+           "June southern polar band is fully night")
+
+let equinoxBands = SolarDayNightOverlay.nightBands(at: equinoxNoon,
+                                                    latitudeRange: -70...70,
+                                                    bandCount: 70)
+let equatorialBand = equinoxBands.min { lhs, rhs in
+    abs((lhs.minimumLatitude + lhs.maximumLatitude) / 2)
+        < abs((rhs.minimumLatitude + rhs.maximumLatitude) / 2)
+}!
+expectTrue(equatorialBand.spans.count == 2,
+           "equinox equatorial night wraps into two date-line spans")
+expectTrue(equatorialBand.spans.first?.minimum == -180
+    && equatorialBand.spans.last?.maximum == 180,
+           "wrapped equatorial night reaches both map seams")
+let equinoxSun = SolarDayNightOverlay.subsolarPoint(at: equinoxNoon)
+expectTrue(equatorialBand.spans.allSatisfy {
+    !($0.minimum...$0.maximum).contains(equinoxSun.longitude)
+}, "night spans exclude the subsolar longitude")
+```
+
+- [ ] **Step H2: Run the suite to verify it fails**
+
+Run: `cd app && swift run TimeZonerTests`
+
+Expected: missing `MapHourScale` and `SolarDayNightOverlay` compilation errors.
+
+- [ ] **Step H3: Implement the pure 24-band scale**
+
+```swift
+import Foundation
+
+public struct MapHourScaleLabel: Equatable, Sendable {
+    public let xFraction: Double
+    public let longitude: Double
+    public let hour: Int
+    public let text: String
+}
+
+public enum MapHourScale {
+    public static func labels(at referenceDate: Date) -> [MapHourScaleLabel] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let utcHour = calendar.component(.hour, from: referenceDate)
+        return (-12...11).enumerated().map { index, offset in
+            let hour = (utcHour + offset + 24) % 24
+            return MapHourScaleLabel(
+                xFraction: Double(index) / 24.0,
+                longitude: -180.0 + Double(index) * 15.0,
+                hour: hour,
+                text: String(format: "%02d", hour)
+            )
+        }
+    }
+}
+```
+
+- [ ] **Step H4: Implement deterministic solar geometry**
+
+Create `SolarDayNightOverlay.swift` with these value types and calculation. Longitude normalization must keep `180` usable for the antisolar test.
+
+```swift
+import Foundation
+
+public struct SolarSubsolarPoint: Equatable, Sendable {
+    public let longitude: Double
+    public let latitude: Double
+}
+
+public struct SolarLongitudeSpan: Equatable, Sendable {
+    public let minimum: Double
+    public let maximum: Double
+}
+
+public struct SolarNightBand: Equatable, Sendable {
+    public let minimumLatitude: Double
+    public let maximumLatitude: Double
+    public let spans: [SolarLongitudeSpan]
+}
+
+public enum SolarDayNightOverlay {
+    public static func subsolarPoint(at date: Date) -> SolarSubsolarPoint {
+        let julian = date.timeIntervalSince1970 / 86_400 + 2_440_587.5
+        let days = julian - 2_451_545.0
+        let meanLongitude = normalized360(280.460 + 0.9856474 * days)
+        let anomaly = radians(normalized360(357.528 + 0.9856003 * days))
+        let ecliptic = radians(meanLongitude + 1.915 * sin(anomaly) + 0.020 * sin(2 * anomaly))
+        let obliquity = radians(23.439 - 0.0000004 * days)
+        let declination = asin(sin(obliquity) * sin(ecliptic))
+        let rightAscension = atan2(cos(obliquity) * sin(ecliptic), cos(ecliptic)) * 180 / .pi
+        let sidereal = normalized360(280.46061837 + 360.98564736629 * days)
+        return SolarSubsolarPoint(
+            longitude: normalized180(rightAscension - sidereal),
+            latitude: declination * 180 / .pi
+        )
+    }
+
+    public static func isNight(longitude: Double, latitude: Double, at date: Date) -> Bool {
+        let sun = subsolarPoint(at: date)
+        return isNight(longitude: longitude, latitude: latitude, sun: sun)
+    }
+
+    private static func isNight(longitude: Double,
+                                latitude: Double,
+                                sun: SolarSubsolarPoint) -> Bool {
+        let lat = radians(latitude)
+        let declination = radians(sun.latitude)
+        let hourAngle = radians(longitude - sun.longitude)
+        let altitudeSine = sin(lat) * sin(declination)
+            + cos(lat) * cos(declination) * cos(hourAngle)
+        return altitudeSine < 0
+    }
+
+    public static func nightBands(at date: Date,
+                                  latitudeRange: ClosedRange<Double> = -70...70,
+                                  bandCount: Int = 70) -> [SolarNightBand] {
+        precondition(bandCount > 0)
+        let sun = subsolarPoint(at: date)
+        let latitudeStep = (latitudeRange.upperBound - latitudeRange.lowerBound)
+            / Double(bandCount)
+        return (0..<bandCount).map { index in
+            let minimum = latitudeRange.lowerBound + Double(index) * latitudeStep
+            let maximum = minimum + latitudeStep
+            let center = (minimum + maximum) / 2
+            var spans: [SolarLongitudeSpan] = []
+            var start: Double?
+            for longitude in stride(from: -180.0, through: 180.0, by: 1.0) {
+                if isNight(longitude: longitude, latitude: center, sun: sun) {
+                    start = start ?? longitude
+                } else if let current = start {
+                    spans.append(SolarLongitudeSpan(minimum: current, maximum: longitude))
+                    start = nil
+                }
+            }
+            if let current = start {
+                spans.append(SolarLongitudeSpan(minimum: current, maximum: 180))
+            }
+            return SolarNightBand(minimumLatitude: minimum,
+                                  maximumLatitude: maximum, spans: spans)
+        }
+    }
+
+    private static func radians(_ degrees: Double) -> Double { degrees * .pi / 180 }
+    private static func normalized360(_ degrees: Double) -> Double {
+        let value = degrees.truncatingRemainder(dividingBy: 360)
+        return value < 0 ? value + 360 : value
+    }
+    private static func normalized180(_ degrees: Double) -> Double {
+        let value = normalized360(degrees + 180) - 180
+        return value == -180 && degrees > 0 ? 180 : value
+    }
+}
+```
+
+- [ ] **Step H5: Layer the neutral overlay and quiet scale into the existing map**
+
+Inside the existing Canvas, after land/zone fills and before city dots, create one path from `nightBands(at: timeState.referenceDate)` using the existing projection. Each span is an equirectangular rectangle:
+
+```swift
+var nightPath = Path()
+let nightProjection = projection ?? MapProjection(size: size)
+for band in SolarDayNightOverlay.nightBands(
+    at: timeState.referenceDate,
+    latitudeRange: nightProjection.minLat...nightProjection.maxLat
+) {
+    for span in band.spans {
+        let topLeft = nightProjection.project(longitude: span.minimum,
+                                              latitude: band.maximumLatitude)
+        let bottomRight = nightProjection.project(longitude: span.maximum,
+                                                  latitude: band.minimumLatitude)
+        nightPath.addRect(CGRect(x: topLeft.x, y: topLeft.y,
+                                 width: max(bottomRight.x - topLeft.x, 0),
+                                 height: max(bottomRight.y - topLeft.y, 0)))
+    }
+}
+context.fill(nightPath, with: .color(.black.opacity(0.17)))
+```
+
+Wrap the existing Canvas and scale in one `VStack(spacing: 0).frame(height: 320)`: the Canvas remains 300 points high and the non-interactive scale beneath it is 20 points high. Move the map's rounded clip, border, and transition modifiers from the Canvas to this parent so the pair reads as one surface. Keep the existing `GeometryReader`, projection cache sizing, hover state, and click-to-add gesture scoped to the 300-point Canvas only.
+
+Render every third interior meridian from `MapHourScale.labels`: seven labels are visible and the `-180/180` seam label is omitted, so every label stays exactly aligned with its standard meridian without edge clamping or clipping:
+
+```swift
+GeometryReader { proxy in
+    ZStack(alignment: .topLeading) {
+        ForEach(Array(MapHourScale.labels(at: timeState.referenceDate).enumerated()), id: \.offset) { index, label in
+            if index > 0 && index.isMultiple(of: 3) {
+                Text(label.text)
+                    .font(.system(size: 9, weight: .regular, design: .monospaced))
+                    .foregroundStyle(Theme.textTertiary)
+                    .position(x: proxy.size.width * label.xFraction, y: 10)
+            }
+        }
+    }
+    .allowsHitTesting(false)
+}
+.frame(height: 20)
+```
+
+Keep hover and click-to-add modifiers on the Canvas only. Do not change map fill colors, timezone cards, buttons, or Theme. During native QA, inspect the stepped terminator in both light and dark appearances; if 2-degree latitude bands look visibly blocky at the shipped map size, increase to 140 one-degree bands before considering any analytic-path expansion.
+
+- [ ] **Step H6: Run, build, commit, and hand off for fresh review**
+
+Run:
+
+```bash
+cd app
+swift run TimeZonerTests
+cd ..
+./scripts/build.sh
+git diff --check
+```
+
+Expected: all tests pass, the app builds, and diff check has no output.
+
+```bash
+git add app/Sources/Utilities/MapHourScale.swift app/Sources/Utilities/SolarDayNightOverlay.swift app/Sources/Views/TimezoneMapView.swift app/Tests/TimezoneMapTests.swift
+git commit -m "feat: add quiet temporal cues to timezone map"
+```
+
+### Task 7 (Q): Verify the actual installed interaction and document observations
 
 **Files:**
 - Create: `docs/verification/calendar-workspace-transition-2026-09-25.md`
@@ -1728,13 +2169,15 @@ Confirm the process executable is `/Users/team/Applications/TimeZoner.app/Conten
 
 Use the native UI automation surface or manual interaction, without changing production calendar events:
 
-1. In normal mode, check input/Now/calendar/settings and Agenda/date/expand nav centers, both 20-point insets, matching content-start line, and no second calendar glyph in Agenda.
-2. Expand agenda. Verify two actual visible panels, rail on the left, no map/input/add/remove city controls, settings on the right, and the 340 ms transition without nav/title jump.
-3. Click a timed event: calendar stays in place, all city times update, long selected title stays in its fixed context slot. Click an all-day event: details open, date/reference time do not change.
-4. Click Now: context clears and city times become live; calendar range remains unchanged. Navigate previous/next, Today, 3 Day, Week; jump Today must not change the reference instant.
-5. Expand TimeZoner from the rail: exact prior normal frame and normal agenda visibility are restored. Repeat ten times, then invoke Escape midway; neither panel may reappear. Reopen with the global hotkey and check a consistent settled layout.
-6. Open settings with the button and `⌘,` from both key panels; transfer focus into event details and between panels. Neither should disappear during an internal transfer. External app focus and Escape retain normal dismissal.
-7. Turn Reduce Motion on and repeat. Expect an opacity change with no frame travel, text scaling, or bounce. Restore the user's original system setting afterward if changed with permission.
+1. In normal mode, check input/Now/calendar/settings and date/expand nav centers, both 20-point insets, matching content-start line, no `Agenda` title, and no second calendar glyph in the compact calendar.
+2. Confirm the shipped neutral timezone cards, buttons, fonts, borders, spacing, and hover states remain visually unchanged. Calendar identity may use only the existing muted event tint and thin color edge/dot.
+3. Expand the compact calendar. Verify two actual visible panels, rail on the left, no map/input/add/remove city controls, settings on the right, and the 340 ms transition without nav/title jump.
+4. Click a timed event: calendar stays in place, all city times update, long selected title stays in its fixed context slot. Click an all-day event: details open, date/reference time do not change.
+5. Click Now: context clears and city times become live; calendar range remains unchanged. Navigate previous/next, Today, 3 Day, Week; jump Today must not change the reference instant.
+6. Expand TimeZoner from the rail: exact prior normal frame and normal calendar visibility are restored. Repeat ten times, then invoke Escape midway; neither panel may reappear. Reopen with the global hotkey and check a consistent settled layout.
+7. Open settings with the button and `⌘,` from both key panels; transfer focus into event details and between panels. Neither should disappear during an internal transfer. External app focus and Escape retain normal dismissal.
+8. Turn Reduce Motion on and repeat. Expect an opacity change with no frame travel, text scaling, or bounce. Restore the user's original system setting afterward if changed with permission.
+9. In the normal map, verify the neutral night overlay and eight visible three-hour labels update for live time, a typed time, and a selected calendar event; city dots and hover/selection colors must remain legible and map gestures unchanged.
 
 Record screenshots for both stable states in light and dark modes, plus a short screen recording of the transition if the tooling supports it. Do not claim smoothness from still screenshots alone.
 
@@ -1743,7 +2186,7 @@ Record screenshots for both stable states in light and dark modes, plus a short 
 Use isolated test preferences or temporary saved-city changes with restoration, never erase the user's defaults:
 
 - 0, 1, 2, 4, and 8 cities: workspace dimensions stay stable, all rail cards remain reachable, returning uses correct normal width.
-- Normal right agenda, normal left agenda, and normal agenda popover: each expands to one real calendar window; return restores the appropriate normal presentation.
+- Normal right compact calendar, normal left compact calendar, and normal calendar popover: each expands to one real calendar window; return restores the appropriate normal presentation.
 - 800-point and 500-point visible-frame fixtures: side-by-side/stacked fallback, compact toolbar, and horizontal week grid remain reachable. Pure tests supply geometry if actual display sizes cannot reproduce these cases; mark native checks untested in that case.
 - Drag either panel: pair gap/top alignment remains stable. Move across screens or disconnect a display only if the user has such a setup available; otherwise preserve that manual row as untested.
 - Fresh isolated preferences with no access show explanation without a prompt; explicitly hidden stays hidden after reopening. Permission loss, if the user elects to test it, leaves recovery in the full calendar rather than collapsing or showing old events.
@@ -1773,7 +2216,7 @@ Observed layouts, focus, selection, motion, interruption, and screenshots/record
 Specific unavailable hardware, permission, notification, or accessibility checks and why.
 ```
 
-Update README's Calendar section to say: agenda visible by default when unset; calendar button hides/shows it; expand Agenda opens the week/range workspace with stacked city times; expand TimeZoner returns; timed selection remains in the calendar workspace; settings belongs to the large panel. Preserve read-only access, local data, and notification caveats.
+Update README's Calendar section to say: the compact calendar is visible by default when unset; the calendar button hides/shows it; its date-only header expands into the week/range workspace with stacked city times; expand TimeZoner returns; timed selection remains in the calendar workspace; settings belongs to the large panel. Add one sentence that the normal map's neutral day/night overlay and hour scale follow the shared reference moment. Preserve read-only access, local data, and notification caveats.
 
 Run `git diff --check`. Commit only relevant documentation and any separately tested fix:
 
@@ -1784,12 +2227,13 @@ git commit -m "docs: record calendar workspace verification"
 
 ## Plan self-review record
 
-- Spec coverage: normal defaults/access (Task 1), pair geometry/restoration (Task 2), common chrome/settings (Task 3), rail/toolbar/icons/in-place event selection (Task 4), native ownership/focus/routing (Task 5), motion/interruption/Reduce Motion (Task 6), real rendering/edge cases/evidence (Task 7).
+- Spec coverage: stable contracts (F0), normal defaults/access (P), pair geometry/restoration (L), common chrome/settings (C/S), rail/toolbar/icons/in-place event selection (R/E/U/V), pure pair/native ownership/focus/routing (K/N), motion/interruption/Reduce Motion (M/A), map temporal cues (H), and real rendering/edge cases/evidence (Q).
 - Placeholder scan: all implementation steps contain concrete interfaces, code or exact existing-code transformations, test actions, and commands. Manual observations intentionally remain unchecked until execution.
-- Type consistency: all new public types/functions are defined in their producing tasks; existing types are identified in Interfaces; coordinator helpers are defined in Tasks 5–6. The optional `focusMain` addition in Task 6 extends the Task 5 method rather than introducing a second restoration API.
+- Type consistency: F0 freezes shared policy/metric/panel interfaces; later model concerns live in separate settings, rail, layout, and transition files. Coordinator helpers are defined in K/N/A. The optional `focusMain` addition in A extends K's reviewed method rather than introducing a second restoration API.
 - Review Focus coverage: all five listed classes have deterministic tests in their owning tasks; native timing, screen changes, and settings/window integration also have explicit real-app checks.
-- Scope: one coordinated UI plan; no calendar mutation/provider rewrite, hidden new authentication, or notification scheduling expansion.
+- Parallelism: peak safe concurrency is four in Wave 1, then three in both Waves 2 and 3. Production-file ownership is disjoint inside each wave; only additive test-runner registration is an acknowledged integration merge point. Native lifecycle and animation remain sequential because both own the same AppKit coordinator and stale-callback risk.
+- Scope: one coordinated UI plan plus one independent map-temporal-cues slice; no calendar mutation/provider rewrite, hidden new authentication, notification scheduling expansion, card restyle, or new interaction mode.
 
 ## Execution handoff
 
-Review the spec and plan before implementation, as required by the writing-plans skill. The previously chosen execution method remains subagent-driven development with Terra xhigh building agents and fresh reviewers. This document is the reviewable result of the requested Astra planning pass; no app code or installed binary was changed while writing it.
+Review the spec and plan before implementation, as required by the writing-plans skill. The previously chosen execution method remains subagent-driven development with Terra xhigh builders and fresh non-Astra reviewers. Use the authoritative Worktrunk waves above rather than dispatching the numbered sections sequentially. No app code or installed binary was changed while revising these documents.
