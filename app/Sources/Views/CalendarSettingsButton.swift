@@ -25,17 +25,7 @@ public struct CalendarSettingsButton<Content: View>: View {
     }
 
     public var body: some View {
-        Button(action: onActivate) {
-            Image(systemName: "gearshape")
-                .font(.system(size: 14, weight: .medium))
-                .frame(width: CalendarPanelMetrics.iconTarget, height: CalendarPanelMetrics.iconTarget)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .foregroundStyle(Theme.textSecondary)
-        .accessibilityLabel("Settings (⌘,)")
-        .accessibilityHint("Opens TimeZoner settings.")
-        .help("Settings (⌘,)")
+        CalendarToolbarIcon(systemName: "gearshape", label: "Settings (⌘,)", hint: "Opens TimeZoner settings.", action: onActivate)
         .popover(isPresented: Binding(
             get: { CalendarSettingsOwnership.isPresented(owner: owner, presentation: presentation) },
             set: { CalendarSettingsOwnership.setPresented(
