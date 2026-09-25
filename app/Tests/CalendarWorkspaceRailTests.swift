@@ -5,7 +5,10 @@ func runCalendarWorkspaceRailTests() {
     print("Running CalendarWorkspaceRailTests...")
 
     let start = Date(timeIntervalSince1970: 1_750_000_000)
-    let presentation = CalendarPresentationState(defaults: UserDefaults(suiteName: "CalendarWorkspaceRailTests.\(UUID().uuidString)")!)
+    let suiteName = "CalendarWorkspaceRailTests.\(UUID().uuidString)"
+    let defaults = UserDefaults(suiteName: suiteName)!
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    let presentation = CalendarPresentationState(defaults: defaults)
     presentation.enterCalendar(now: start, calendar: .current)
     let reference = ReferenceMomentController(timeState: TimeState(), presentation: presentation)
     let event = CalendarEventSnapshot(
@@ -45,6 +48,17 @@ func runCalendarWorkspaceRailTests() {
     CalendarWorkspaceEventActivation.select(allDay, referenceMoment: reference)
     workspaceExpect(reference.timeState.referenceDate == start, "all-day activation cannot change rail instant")
     workspaceExpect(reference.selectedEvent?.id == event.id, "timed activation sets selected event context")
+
+    let requestedZone = TimeZone(identifier: "Asia/Tokyo")!
+    reference.setTime(hour: 16, minute: 45, in: requestedZone)
+    var requestedCalendar = Calendar(identifier: .gregorian)
+    requestedCalendar.timeZone = requestedZone
+    let requestedComponents = requestedCalendar.dateComponents([.hour, .minute], from: reference.timeState.referenceDate)
+    workspaceExpect(presentation.destination == .calendar, "editing a rail card keeps the calendar workspace active")
+    workspaceExpect(reference.selectedEvent == nil, "editing a rail card clears the selected event context")
+    workspaceExpect(requestedComponents.hour == 16 && requestedComponents.minute == 45,
+                    "editing a rail card represents the requested local instant")
+    workspaceExpect(!reference.timeState.isLive, "editing a rail card leaves the reference moment adjusted")
 
     reference.goLive()
     workspaceExpect(presentation.destination == .calendar && reference.selectedEvent == nil,

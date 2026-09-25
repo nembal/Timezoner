@@ -8,7 +8,7 @@ public struct ZoneCard: View {
     @Binding public var editingZoneId: UUID?
     public let isDragging: Bool
     public let onRemove: () -> Void
-    public let onDragChanged: (CGFloat) -> Void
+    public let onDragChanged: (CGSize) -> Void
     public let onDragEnded: () -> Void
 
     @State private var editText = ""
@@ -31,7 +31,7 @@ public struct ZoneCard: View {
                 editingZoneId: Binding<UUID?>,
                 isDragging: Bool = false,
                 onRemove: @escaping () -> Void,
-                onDragChanged: @escaping (CGFloat) -> Void = { _ in },
+                onDragChanged: @escaping (CGSize) -> Void = { _ in },
                 onDragEnded: @escaping () -> Void = {}) {
         self.zone = zone
         self.referenceMoment = referenceMoment
@@ -64,7 +64,7 @@ public struct ZoneCard: View {
             .gesture(
                 DragGesture(minimumDistance: 3)
                     .onChanged { value in
-                        onDragChanged(value.translation.width)
+                        onDragChanged(value.translation)
                     }
                     .onEnded { _ in
                         onDragEnded()

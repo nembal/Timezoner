@@ -174,6 +174,16 @@ public struct ContentView: View {
                     zones: zoneStore.zones,
                     referenceMoment: referenceMoment,
                     presentation: presentation,
+                    editingZoneId: $editingZoneId,
+                    highlightedZoneIds: highlightedZoneIds,
+                    onRemove: { id in
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            zoneStore.remove(id: id)
+                        }
+                    },
+                    onMove: { source, destination in
+                        zoneStore.move(from: source, to: destination)
+                    },
                     onExpand: returnFromCalendarMode
                 )
             } else {

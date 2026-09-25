@@ -4,6 +4,10 @@ public struct TimeZonerRailView: View {
     public let zones: [ZoneInfo]
     public let referenceMoment: ReferenceMomentController
     public let presentation: CalendarPresentationState
+    @Binding public var editingZoneId: UUID?
+    public let highlightedZoneIds: Set<UUID>
+    public let onRemove: (UUID) -> Void
+    public let onMove: (IndexSet, Int) -> Void
     public let onExpand: () -> Void
 
     @AccessibilityFocusState private var contextFocused: Bool
@@ -12,11 +16,19 @@ public struct TimeZonerRailView: View {
         zones: [ZoneInfo],
         referenceMoment: ReferenceMomentController,
         presentation: CalendarPresentationState,
+        editingZoneId: Binding<UUID?>,
+        highlightedZoneIds: Set<UUID> = [],
+        onRemove: @escaping (UUID) -> Void,
+        onMove: @escaping (IndexSet, Int) -> Void = { _, _ in },
         onExpand: @escaping () -> Void
     ) {
         self.zones = zones
         self.referenceMoment = referenceMoment
         self.presentation = presentation
+        self._editingZoneId = editingZoneId
+        self.highlightedZoneIds = highlightedZoneIds
+        self.onRemove = onRemove
+        self.onMove = onMove
         self.onExpand = onExpand
     }
 
@@ -48,15 +60,20 @@ public struct TimeZonerRailView: View {
             VStack(alignment: .leading, spacing: 10) {
                 context.frame(height: 44, alignment: .topLeading)
                 ScrollView(.vertical) {
-                    LazyVStack(spacing: 10) {
-                        if zones.isEmpty {
-                            Text("No saved cities\nExpand TimeZoner to add a city.")
-                                .font(.system(size: 12, design: .rounded))
-                                .foregroundStyle(Theme.textSecondary)
-                        }
-                        ForEach(zones) { zone in
-                            card(CalendarRailCardPresentation(zone: zone, date: referenceMoment.timeState.referenceDate))
-                        }
+                    if zones.isEmpty {
+                        Text("No saved cities\nExpand TimeZoner to add a city.")
+                            .font(.system(size: 12, design: .rounded))
+                            .foregroundStyle(Theme.textSecondary)
+                    } else {
+                        ZoneCardCollection(
+                            axis: .vertical,
+                            zones: zones,
+                            referenceMoment: referenceMoment,
+                            editingZoneId: $editingZoneId,
+                            highlightedZoneIds: highlightedZoneIds,
+                            onRemove: onRemove,
+                            onMove: onMove
+                        )
                     }
                 }
             }
@@ -89,32 +106,4 @@ public struct TimeZonerRailView: View {
         return "\(TimeFormatter.formatDate(date, in: .current)) · \(TimeFormatter.formatTime(date, in: .current)) \(TimeZone.current.abbreviation(for: date) ?? TimeZone.current.identifier)"
     }
 
-    private func card(_ value: CalendarRailCardPresentation) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(value.title)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .lineLimit(1)
-                Spacer(minLength: 4)
-                Text(value.offset)
-                    .font(.system(size: 11, design: .rounded))
-                    .foregroundStyle(Theme.textTertiary)
-            }
-            Text(value.time)
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
-                .monospacedDigit()
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-            Text(value.date)
-                .font(.system(size: 11, design: .rounded))
-                .foregroundStyle(Theme.textSecondary)
-        }
-        .foregroundStyle(Theme.textPrimary)
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(value.accessibilityLabel)
-    }
 }
