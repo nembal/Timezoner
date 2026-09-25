@@ -257,10 +257,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         mainHost.setFrameSize(NSSize(width: 750, height: 580))
         let mainPanel = FloatingPanel(contentView: mainHost, role: .main)
 
-        let agendaPanel = FloatingPanel(
-            contentView: NSHostingView(rootView: makeCalendarPanelRootView(panelProxy: panelProxy)),
-            role: .agenda
+        let agendaHost = CalendarPanelHosting.fixed(
+            root: makeCalendarPanelRootView(panelProxy: panelProxy),
+            size: CGSize(
+                width: AgendaPlacementCalculator.wingWidth,
+                height: CalendarPanelMetrics.preferredHeight
+            )
         )
+        let agendaPanel = FloatingPanel(contentView: agendaHost, role: .agenda)
         let agendaPopover = NSPopover()
         agendaPopover.behavior = .applicationDefined
         agendaPopover.contentSize = NSSize(width: AgendaPlacementCalculator.wingWidth, height: 580)
