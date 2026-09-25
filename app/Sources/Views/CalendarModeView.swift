@@ -6,7 +6,7 @@ public struct CalendarModeView: View {
     public let calendarStore: CalendarStore
     public let referenceMoment: ReferenceMomentController
     public let presentation: CalendarPresentationState
-    public let onReturnToTimeZoner: () -> Void
+    public let settingsButton: CalendarSettingsButton<SettingsPopover>
     public let onOpenPrivacySettings: () -> Void
     public let onOwnedPopoverChanged: (Bool) -> Void
 
@@ -14,14 +14,14 @@ public struct CalendarModeView: View {
         calendarStore: CalendarStore,
         referenceMoment: ReferenceMomentController,
         presentation: CalendarPresentationState,
-        onReturnToTimeZoner: @escaping () -> Void,
+        settingsButton: CalendarSettingsButton<SettingsPopover>,
         onOpenPrivacySettings: @escaping () -> Void,
         onOwnedPopoverChanged: @escaping (Bool) -> Void
     ) {
         self.calendarStore = calendarStore
         self.referenceMoment = referenceMoment
         self.presentation = presentation
-        self.onReturnToTimeZoner = onReturnToTimeZoner
+        self.settingsButton = settingsButton
         self.onOpenPrivacySettings = onOpenPrivacySettings
         self.onOwnedPopoverChanged = onOwnedPopoverChanged
     }
@@ -30,92 +30,35 @@ public struct CalendarModeView: View {
     private var activeInterval: DateInterval { presentation.activeInterval(calendar: calendar) }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            DragHandle(showPill: true, isHugging: presentation.mainPanelHugsMenuBar)
-
-            VStack(spacing: 10) {
-                header
-                Divider()
-                content
-            }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 12)
-            .padding(.top, 4)
+        CalendarPanelChrome(
+            isHugging: presentation.agendaPanelHugsMenuBar,
+            isFocused: presentation.focusedPanel == .calendar
+        ) {
+            CalendarWorkspaceToolbar(
+                calendarStore: calendarStore,
+                presentation: presentation,
+                settingsButton: settingsButton
+            )
+        } content: {
+            content
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear(perform: refreshActiveInterval)
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 8) {
-                Picker("Calendar range", selection: Binding(
-                    get: { presentation.range },
-                    set: { range in
-                        presentation.setRange(range)
-                        refreshActiveInterval()
-                    }
-                )) {
-                    Text("Today").tag(CalendarRangeSelection.today)
-                    Text("3 Days").tag(CalendarRangeSelection.threeDays)
-                    Text("Week").tag(CalendarRangeSelection.week)
-                }
-                .pickerStyle(.segmented)
+    /// The calendar's timed-event action changes only the shared reference moment. Returning to
+    /// TimeZoner remains an explicit rail action, so a selected event keeps the workspace visible.
+    public static func selectTimedEvent(
+        _ event: CalendarEventSnapshot,
+        referenceMoment: ReferenceMomentController
+    ) {
+        CalendarWorkspaceEventActivation.select(event, referenceMoment: referenceMoment)
+    }
 
-                Button(action: onReturnToTimeZoner) {
-                    Image(systemName: CalendarNavigationIconControl.backToTimeZoner.systemImageName)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .frame(minWidth: 24, minHeight: 24)
-                        .contentShape(Rectangle())
-                }
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(Theme.accent)
-                    .accessibilityLabel(CalendarNavigationIconControl.backToTimeZoner.accessibilityLabel)
-                    .accessibilityHint(CalendarNavigationIconControl.backToTimeZoner.accessibilityHint)
-                    .help(CalendarNavigationIconControl.backToTimeZoner.helpText)
-            }
-
-            HStack(spacing: 8) {
-                Button {
-                    presentation.move(.previous, calendar: calendar)
-                    refreshActiveInterval()
-                } label: {
-                    Text("‹")
-                }
-                .buttonStyle(.borderless)
-                .font(.system(size: 16, weight: .medium, design: .rounded))
-                .accessibilityLabel("Previous \(presentation.range.accessibilityName)")
-                .help("Previous \(presentation.range.accessibilityName)")
-
-                Text(headerTitle)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-
-                Button {
-                    presentation.move(.next, calendar: calendar)
-                    refreshActiveInterval()
-                } label: {
-                    Text("›")
-                }
-                .buttonStyle(.borderless)
-                .font(.system(size: 16, weight: .medium, design: .rounded))
-                .accessibilityLabel("Next \(presentation.range.accessibilityName)")
-                .help("Next \(presentation.range.accessibilityName)")
-
-                Button("Today") {
-                    presentation.goToday(now: calendarStore.currentDate, calendar: calendar)
-                    refreshActiveInterval()
-                }
-                .buttonStyle(.borderless)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(Theme.accent)
-
-                Spacer(minLength: 0)
-
-                Text(visibleDateRange)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .foregroundStyle(Theme.textSecondary)
-            }
+    private var minimumGridWidth: CGFloat {
+        switch presentation.range {
+        case .today: 0
+        case .threeDays: 420
+        case .week: 700
         }
     }
 
@@ -124,19 +67,20 @@ public struct CalendarModeView: View {
         switch calendarStore.authorizationStatus {
         case .fullAccess:
             if calendarStore.hasSnapshot(for: activeInterval) {
-                CalendarTimeGrid(
-                    interval: activeInterval,
-                    events: calendarStore.events,
-                    currentDate: calendarStore.currentDate,
-                    descriptorColors: Dictionary(
-                        uniqueKeysWithValues: calendarStore.descriptors.map { ($0.id, $0.color) }
-                    ),
-                    calendar: calendar,
-                    onSelectTimedEvent: selectTimedEvent,
-                    eventDetailPopoverTarget: eventDetailPopoverTarget,
-                    onShowEventDetails: showEventDetails,
-                    onEventDetailPopoverChanged: updateEventDetailPopover
-                )
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(calendarSubtitle)
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Theme.textSecondary)
+
+                    GeometryReader { proxy in
+                        ScrollView(.horizontal) {
+                            calendarGrid.frame(
+                                width: max(proxy.size.width, minimumGridWidth),
+                                height: proxy.size.height
+                            )
+                        }
+                    }
+                }
             } else if calendarStore.isLoading {
                 ProgressView("Loading calendar…")
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -164,6 +108,22 @@ public struct CalendarModeView: View {
         }
     }
 
+    private var calendarGrid: some View {
+        CalendarTimeGrid(
+            interval: activeInterval,
+            events: calendarStore.events,
+            currentDate: calendarStore.currentDate,
+            descriptorColors: Dictionary(
+                uniqueKeysWithValues: calendarStore.descriptors.map { ($0.id, $0.color) }
+            ),
+            calendar: calendar,
+            onSelectTimedEvent: selectTimedEvent,
+            eventDetailPopoverTarget: eventDetailPopoverTarget,
+            onShowEventDetails: showEventDetails,
+            onEventDetailPopoverChanged: updateEventDetailPopover
+        )
+    }
+
     private func refreshActiveInterval() {
         guard presentation.destination == .calendar,
               calendarStore.authorizationStatus == .fullAccess else {
@@ -173,8 +133,7 @@ public struct CalendarModeView: View {
     }
 
     private func selectTimedEvent(_ event: CalendarEventSnapshot) {
-        referenceMoment.selectEvent(event, sourceZone: .current)
-        onReturnToTimeZoner()
+        Self.selectTimedEvent(event, referenceMoment: referenceMoment)
     }
 
     private func showEventDetails(_ event: CalendarEventSnapshot) {
@@ -201,29 +160,16 @@ public struct CalendarModeView: View {
         CalendarEventDetailPopoverTarget(eventID: event.id, presenterID: "calendar-grid:\(event.id)")
     }
 
-    private var headerTitle: String {
-        CalendarRangeHeaderPresentation.title(
-            for: presentation.range,
-            interval: activeInterval,
-            currentDate: calendarStore.currentDate,
-            calendar: calendar
-        )
-    }
-
     private var visibleDateRange: String {
         CalendarRangeHeaderPresentation.visibleDateRange(
             for: activeInterval,
             calendar: calendar
         )
     }
-}
 
-private extension CalendarRangeSelection {
-    var accessibilityName: String {
-        switch self {
-        case .today: "day"
-        case .threeDays: "three days"
-        case .week: "week"
-        }
+    private var calendarSubtitle: String {
+        let abbreviation = calendar.timeZone.abbreviation(for: calendarStore.currentDate)
+            ?? calendar.timeZone.identifier
+        return "\(visibleDateRange) · \(abbreviation)"
     }
 }

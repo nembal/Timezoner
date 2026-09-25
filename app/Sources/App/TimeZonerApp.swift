@@ -253,7 +253,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         let mainPanel = FloatingPanel(contentView: mainHost, role: .main)
 
         let agendaPanel = FloatingPanel(
-            contentView: NSHostingView(rootView: makeAgendaView(panelProxy: panelProxy)),
+            contentView: NSHostingView(rootView: makeCalendarPanelRootView(panelProxy: panelProxy)),
             role: .agenda
         )
         let agendaPopover = NSPopover()
@@ -269,6 +269,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         )
         panelProxy.target = coordinator
         panelCoordinator = coordinator
+    }
+
+    private func makeCalendarPanelRootView(panelProxy: CalendarPanelControllerProxy) -> CalendarPanelRootView {
+        CalendarPanelRootView(
+            presentation: presentation,
+            agenda: makeAgendaView(panelProxy: panelProxy),
+            calendar: makeCalendarModeView(panelProxy: panelProxy)
+        )
     }
 
     private func makeAgendaView(panelProxy: CalendarPanelControllerProxy) -> AgendaView {
@@ -291,6 +299,50 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onEscape: {
                 panelProxy.handleEscape()
+            }
+        )
+    }
+
+    private func makeCalendarModeView(panelProxy: CalendarPanelControllerProxy) -> CalendarModeView {
+        CalendarModeView(
+            calendarStore: calendarStore,
+            referenceMoment: referenceMoment,
+            presentation: presentation,
+            settingsButton: CalendarSettingsButton(
+                owner: .calendar,
+                presentation: presentation,
+                onActivate: { [weak self] in
+                    guard let self else { return }
+                    self.presentation.isSettingsPresented.toggle()
+                    panelProxy.setOwnedPopoverPresented(self.presentation.hasOwnedPopover)
+                },
+                onOwnedPopoverChanged: { isPresented in
+                    panelProxy.setOwnedPopoverPresented(isPresented)
+                }
+            ) {
+                SettingsPopover(
+                    settings: settings,
+                    calendarStore: calendarStore,
+                    calendarPreferences: calendarPreferences,
+                    calendarAlertLifecycle: calendarAlertLifecycle,
+                    setAgendaWingRequested: { [weak self] requested in
+                        self?.setAgendaWingRequested(requested)
+                    },
+                    openCalendarPrivacySettings: { [weak self] in
+                        panelProxy.hide()
+                        self?.openCalendarPrivacySettings()
+                    },
+                    openNotificationSettings: { [weak self] in
+                        self?.openNotificationSettings()
+                    }
+                )
+            },
+            onOpenPrivacySettings: { [weak self] in
+                panelProxy.hide()
+                self?.openCalendarPrivacySettings()
+            },
+            onOwnedPopoverChanged: { isPresented in
+                panelProxy.setOwnedPopoverPresented(isPresented)
             }
         )
     }

@@ -259,30 +259,17 @@ public struct AgendaView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 0) {
-            DragHandle(showPill: false, isHugging: presentation.agendaPanelHugsMenuBar)
-
-            VStack(alignment: .leading, spacing: 12) {
-                header
-                Divider()
-                ScrollView(.vertical) {
-                    content
-                }
+        CalendarPanelChrome(
+            isHugging: presentation.agendaPanelHugsMenuBar,
+            isFocused: presentation.focusedPanel == .calendar
+        ) {
+            header
+        } content: {
+            ScrollView(.vertical) {
+                content
             }
-            .padding(.horizontal, 14)
-            .padding(.bottom, 14)
-            .padding(.top, 4)
         }
-        .frame(width: AgendaPlacementCalculator.wingWidth)
         .frame(minHeight: 260, maxHeight: .infinity, alignment: .top)
-        .background(Theme.background)
-        .clipShape(UnevenRoundedRectangle(
-            topLeadingRadius: presentation.agendaPanelHugsMenuBar ? 0 : 12,
-            bottomLeadingRadius: 12,
-            bottomTrailingRadius: 12,
-            topTrailingRadius: presentation.agendaPanelHugsMenuBar ? 0 : 12,
-            style: .continuous
-        ))
         .onChange(of: presentation.eventDetailPopoverTarget) {
             onOwnedPopoverChanged(presentation.hasOwnedPopover)
         }
@@ -293,27 +280,17 @@ public struct AgendaView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Agenda")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Theme.textPrimary)
-                Text(dayFormatter.string(from: calendarStore.currentDate))
-                    .font(.system(size: 11, design: .rounded))
-                    .foregroundStyle(Theme.textTertiary)
-            }
+        HStack(alignment: .center) {
+            Text(dayFormatter.string(from: calendarStore.currentDate))
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(Theme.textPrimary)
             Spacer()
-            Button(action: onOpenWeek) {
-                Image(systemName: CalendarNavigationIconControl.openWeek.systemImageName)
-                    .font(.system(size: 11, weight: .medium, design: .rounded))
-                    .frame(minWidth: 24, minHeight: 24)
-                    .contentShape(Rectangle())
-            }
-                .buttonStyle(.borderless)
-                .foregroundStyle(Theme.accent)
-                .accessibilityLabel(CalendarNavigationIconControl.openWeek.accessibilityLabel)
-                .accessibilityHint(CalendarNavigationIconControl.openWeek.accessibilityHint)
-                .help(CalendarNavigationIconControl.openWeek.helpText)
+            CalendarToolbarIcon(
+                systemName: CalendarNavigationIconControl.expandCalendar.systemImageName,
+                label: CalendarNavigationIconControl.expandCalendar.accessibilityLabel,
+                hint: CalendarNavigationIconControl.expandCalendar.accessibilityHint,
+                action: onOpenWeek
+            )
         }
     }
 

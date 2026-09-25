@@ -49,148 +49,129 @@ public struct ContentView: View {
     }
 
     private var idealWidth: CGFloat {
-        let cardWidth: CGFloat = 155
-        let diffLabelWidth: CGFloat = 36
-        let padding: CGFloat = 40
-        let count = CGFloat(max(zoneStore.zones.count, 2))
-        let diffs = max(count - 1, 0) * diffLabelWidth
-        return count * cardWidth + diffs + padding
+        CalendarPanelMetrics.normalWidth(cityCount: zoneStore.zones.count)
     }
 
     private var isTimeAdjusted: Bool {
         !timeState.isLive
     }
 
-    private var settingsPopoverBinding: Binding<Bool> {
-        Binding(
-            get: { presentation.isSettingsPresented },
-            set: setSettingsPresented
-        )
+    private var normalContent: some View {
+        CalendarPanelChrome(
+            isHugging: presentation.mainPanelHugsMenuBar,
+            isFocused: presentation.focusedPanel == .timezoner
+        ) {
+            normalHeader
+        } content: {
+            normalBody
+        }
     }
 
-    private var normalContent: some View {
-        VStack(spacing: 0) {
-            // Drag handle
-            DragHandle(showPill: true, isHugging: presentation.mainPanelHugsMenuBar)
+    private var normalHeader: some View {
+        HStack(spacing: 8) {
+            ChatField(
+                referenceMoment: referenceMoment,
+                zoneStore: zoneStore,
+                editingZoneId: $editingZoneId,
+                highlightedZoneIds: $highlightedZoneIds
+            )
+            .frame(maxWidth: .infinity)
+            .layoutPriority(1)
 
-            VStack(spacing: 14) {
-                // Chat field + Now + Help
-                HStack(spacing: 8) {
-                    ChatField(referenceMoment: referenceMoment, zoneStore: zoneStore, editingZoneId: $editingZoneId, highlightedZoneIds: $highlightedZoneIds)
-
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            referenceMoment.goLive()
-                            editingZoneId = nil
-                        }
-                    }) {
-                        Text("Now")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundStyle(isTimeAdjusted ? Theme.accent : Theme.textTertiary)
-                            .padding(.horizontal, 14)
-                            .frame(maxHeight: .infinity)
-                            .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .strokeBorder(Theme.border, lineWidth: 1)
-                            )
-                        }
-                    .buttonStyle(.plain)
-
-                    Button(action: activateCalendar) {
-                        Image(systemName: "calendar")
-                            .font(.system(size: 14))
-                            .foregroundStyle(presentation.showAgendaWing ? Theme.accent : Theme.textTertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .help("Calendar agenda (⌘⇧A focuses it when shown)")
-
-                    Button(action: { setSettingsPresented(!presentation.isSettingsPresented) }) {
-                        Image(systemName: "gearshape")
-                            .font(.system(size: 15))
-                            .foregroundStyle(presentation.isSettingsPresented ? Theme.accent : Theme.textTertiary)
-                            .rotationEffect(.degrees(presentation.isSettingsPresented ? 22 : 0))
-                            .animation(.spring(response: 0.35, dampingFraction: 0.7), value: presentation.isSettingsPresented)
-                        }
-                    .buttonStyle(.plain)
-                    .help("Settings (⌘,)")
-                    .popover(isPresented: settingsPopoverBinding, arrowEdge: .bottom) {
-                        SettingsPopover(
-                            settings: settings,
-                            calendarStore: calendarStore,
-                            calendarPreferences: calendarPreferences,
-                            calendarAlertLifecycle: calendarAlertLifecycle,
-                            setAgendaWingRequested: setAgendaWingRequested,
-                            openCalendarPrivacySettings: openCalendarPrivacySettings,
-                            openNotificationSettings: openNotificationSettings
-                        )
-                    }
+            Button("Now") {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    referenceMoment.goLive()
+                    editingZoneId = nil
                 }
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 13, weight: .medium, design: .rounded))
+            .frame(width: 54, height: 40)
+            .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Theme.border, lineWidth: 1)
+            )
+            .foregroundStyle(isTimeAdjusted ? Theme.accent : Theme.textTertiary)
 
-                if let selectedEvent = referenceMoment.selectedEvent {
-                    selectedEventContextRow(selectedEvent)
-                }
+            CalendarToolbarIcon(
+                systemName: "calendar",
+                label: "Calendar agenda",
+                hint: "Shows or hides the compact calendar agenda. Command Shift A focuses it when shown.",
+                action: activateCalendar
+            )
 
-                // Zone cards with time difference annotations
-                ZoneCardRow(zones: zoneStore.zones, referenceMoment: referenceMoment, editingZoneId: $editingZoneId, highlightedZoneIds: highlightedZoneIds, onRemove: { id in
+            normalSettingsButton
+        }
+    }
+
+    private var normalBody: some View {
+        VStack(spacing: 14) {
+            if let selectedEvent = referenceMoment.selectedEvent {
+                selectedEventContextRow(selectedEvent)
+            }
+
+            ZoneCardRow(
+                zones: zoneStore.zones,
+                referenceMoment: referenceMoment,
+                editingZoneId: $editingZoneId,
+                highlightedZoneIds: highlightedZoneIds,
+                onRemove: { id in
                     withAnimation(.easeInOut(duration: 0.3)) {
                         zoneStore.remove(id: id)
                     }
-                }, onMove: { source, destination in
+                },
+                onMove: { source, destination in
                     zoneStore.move(from: source, to: destination)
-                })
+                }
+            )
 
-                // Timezone map
-                TimezoneMapView(
-                    zones: zoneStore.zones,
-                    timeState: timeState,
-                    highlightedZoneIds: highlightedZoneIds,
-                    mapPresentation: presentation,
-                    onManualMapToggle: {
-                        referenceMoment.didManuallyToggleMap()
-                    },
-                    onAddZone: { label, ianaId in
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            zoneStore.add(label: label, timezoneId: ianaId)
-                        }
+            TimezoneMapView(
+                zones: zoneStore.zones,
+                timeState: timeState,
+                highlightedZoneIds: highlightedZoneIds,
+                mapPresentation: presentation,
+                onManualMapToggle: {
+                    referenceMoment.didManuallyToggleMap()
+                },
+                onAddZone: { label, ianaId in
+                    withAnimation(.easeInOut(duration: 0.3)) {
+                        zoneStore.add(label: label, timezoneId: ianaId)
                     }
-                )
-            }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 8)
-            .padding(.top, 6)
-
-            if presentation.accessDestination != .none {
-                CalendarAccessView(
-                    status: calendarStore.authorizationStatus,
-                    onEnable: { calendarStore.requestAccess() },
-                    onOpenPrivacySettings: openCalendarPrivacySettings
-                )
-                .background(Theme.cardBg, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous)
-                        .strokeBorder(Theme.border, lineWidth: 1)
-                )
-                .padding(.horizontal, 20)
-                .padding(.bottom, 14)
-            }
+                }
+            )
         }
-        .frame(width: idealWidth)
-        .fixedSize(horizontal: true, vertical: true)
+    }
+
+    private var normalSettingsButton: CalendarSettingsButton<SettingsPopover> {
+        CalendarSettingsButton(
+            owner: .timezoner,
+            presentation: presentation,
+            onActivate: { setSettingsPresented(!presentation.isSettingsPresented) },
+            onOwnedPopoverChanged: { isPresented in
+                panelController?.setOwnedPopoverPresented(isPresented)
+            }
+        ) {
+            SettingsPopover(
+                settings: settings,
+                calendarStore: calendarStore,
+                calendarPreferences: calendarPreferences,
+                calendarAlertLifecycle: calendarAlertLifecycle,
+                setAgendaWingRequested: setAgendaWingRequested,
+                openCalendarPrivacySettings: openCalendarPrivacySettings,
+                openNotificationSettings: openNotificationSettings
+            )
+        }
     }
 
     public var body: some View {
         Group {
             if presentation.destination == .calendar {
-                CalendarModeView(
-                    calendarStore: calendarStore,
+                TimeZonerRailView(
+                    zones: zoneStore.zones,
                     referenceMoment: referenceMoment,
                     presentation: presentation,
-                    onReturnToTimeZoner: returnFromCalendarMode,
-                    onOpenPrivacySettings: openCalendarPrivacySettings,
-                    onOwnedPopoverChanged: { isPresented in
-                        panelController?.setOwnedPopoverPresented(isPresented)
-                    }
+                    onExpand: returnFromCalendarMode
                 )
             } else {
                 normalContent
@@ -200,14 +181,6 @@ public struct ContentView: View {
         .onTapGesture {
             editingZoneId = nil
         }
-        .background(Theme.background)
-        .clipShape(UnevenRoundedRectangle(
-            topLeadingRadius: presentation.mainPanelHugsMenuBar ? 0 : 12,
-            bottomLeadingRadius: 12,
-            bottomTrailingRadius: 12,
-            topTrailingRadius: presentation.mainPanelHugsMenuBar ? 0 : 12,
-            style: .continuous
-        ))
         .onAppear {
             ensureDefaultSource()
             consumePendingDeepLink()
@@ -233,7 +206,8 @@ public struct ContentView: View {
         }
         .background {
             Button("") {
-                NotificationCenter.default.post(name: .focusChatField, object: nil)
+                guard presentation.destination == .timezoner else { return }
+                focusChatField()
             }
             .keyboardShortcut("n", modifiers: .command)
             .hidden()

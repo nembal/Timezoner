@@ -45,12 +45,11 @@ public struct ChatField: View {
             )
             .focused($isFocused)
             .offset(x: shakeOffset)
-            .onAppear {
-                // Delay focus to ensure window is ready
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    NSApp.activate(ignoringOtherApps: true)
-                    isFocused = true
-                }
+            .task {
+                do { try await Task.sleep(for: .milliseconds(300)) }
+                catch { return }
+                guard !Task.isCancelled else { return }
+                isFocused = true
             }
             .onSubmit {
                 handleSubmit()
