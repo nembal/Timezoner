@@ -77,6 +77,93 @@ private final class CalendarPanelDeferredSchedulerFake {
     }
 }
 
+/// AppKit stays in the executable target, so this fixture composes the same two deterministic
+/// production seams the native coordinator owns: value snapshots/layout restoration and pair
+/// visibility/focus policy. It deliberately has no platform-window dependency.
+private final class CalendarPanelNativeLifecycleFixture {
+    private let main: CalendarPanelSurfaceFake
+    private let agenda: CalendarPanelSurfaceFake
+    private let pair: CalendarPanelPairController
+    private let visibleFrame: () -> CGRect
+
+    private(set) var savedNormalLayout: CalendarNormalLayoutSnapshot?
+    private(set) var persistsNormalPosition = true
+    private(set) var focusedPanel: CalendarPanelIdentity?
+    var workspaceFrames: CalendarWorkspaceFrames? { pair.workspaceFrames }
+
+    init(
+        main: CalendarPanelSurfaceFake,
+        agenda: CalendarPanelSurfaceFake,
+        popover: CalendarPanelPopoverFake,
+        visibleFrame: @escaping () -> CGRect,
+        scheduleDeferredDismissal: @escaping CalendarPanelPairController.DeferredDismissalScheduler
+    ) {
+        self.main = main
+        self.agenda = agenda
+        self.visibleFrame = visibleFrame
+        pair = CalendarPanelPairController(
+            main: main,
+            agenda: agenda,
+            agendaPopover: popover,
+            visibleFrame: visibleFrame,
+            scheduleDeferredDismissal: scheduleDeferredDismissal
+        )
+    }
+
+    func showNormalAgenda() {
+        pair.show(showAgenda: true)
+        focusedPanel = .timezoner
+    }
+
+    func enterWorkspace(screenID: String?, cityCount: Int) {
+        guard savedNormalLayout == nil else { return }
+        savedNormalLayout = CalendarNormalLayoutSnapshot(
+            main: main.frame,
+            agenda: agenda.isVisible ? agenda.frame : nil,
+            placement: pair.placement,
+            screenID: screenID,
+            visibleFrame: visibleFrame(),
+            cityCount: cityCount
+        )
+        persistsNormalPosition = false
+        let frames = CalendarWorkspaceLayout.calculate(
+            main: main.frame,
+            agenda: agenda.isVisible ? agenda.frame : nil,
+            placement: pair.placement,
+            visibleFrame: visibleFrame()
+        )
+        pair.beginWorkspace(frames, focusCalendar: true)
+        focusedPanel = .calendar
+    }
+
+    func restoreNormal(
+        visibleFrame: CGRect,
+        screenID: String?,
+        cityCount: Int,
+        showAgenda: Bool
+    ) {
+        guard let snapshot = savedNormalLayout else { return }
+        let restored = CalendarWorkspaceLayout.restore(
+            snapshot,
+            visibleFrame: visibleFrame,
+            screenID: screenID,
+            cityCount: cityCount
+        )
+        pair.endWorkspace(restored, showAgenda: showAgenda)
+        savedNormalLayout = nil
+        persistsNormalPosition = true
+        focusedPanel = .timezoner
+    }
+
+    func setOwnedPopoverPresented(_ isPresented: Bool) {
+        pair.setOwnedPopoverPresented(isPresented)
+    }
+
+    func resignKey() {
+        pair.panelDidResignKey()
+    }
+}
+
 private func expectCalendarPanel(_ condition: Bool, _ label: String, line: Int = #line) {
     if condition {
         testsPassed += 1
@@ -474,5 +561,54 @@ func runCalendarPanelCoordinatorTests() {
         pair.hide()
         pair.focusTimeZoner()
         expectCalendarPanel(!main.isKey, "focusTimeZoner leaves a hidden main panel unfocused")
+    }
+
+    do {
+        let scheduler = CalendarPanelDeferredSchedulerFake()
+        let visibleFrame = CGRect(x: -1_200, y: 40, width: 1_920, height: 900)
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: -940, y: 260, width: 700, height: 580))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: -230, y: 260, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let lifecycle = CalendarPanelNativeLifecycleFixture(
+            main: main,
+            agenda: agenda,
+            popover: popover,
+            visibleFrame: { visibleFrame },
+            scheduleDeferredDismissal: scheduler.schedule
+        )
+
+        lifecycle.showNormalAgenda()
+        lifecycle.enterWorkspace(screenID: "left", cityCount: 4)
+        expectCalendarPanel(main.isVisible && agenda.isVisible && !popover.isPresented,
+                            "native lifecycle promotes two visible panels for the workspace")
+        expectCalendarPanel(!lifecycle.persistsNormalPosition,
+                            "workspace movement cannot persist a temporary rail origin")
+        expectCalendarPanel(lifecycle.focusedPanel == .calendar,
+                            "workspace entry focuses the real calendar panel")
+
+        main.isKey = false
+        agenda.isKey = false
+        lifecycle.setOwnedPopoverPresented(true)
+        lifecycle.resignKey()
+        scheduler.runAll()
+        expectCalendarPanel(main.isVisible && agenda.isVisible,
+                            "owned calendar settings retain the paired workspace during focus transfer")
+
+        lifecycle.setOwnedPopoverPresented(false)
+        lifecycle.restoreNormal(
+            visibleFrame: CGRect(x: 0, y: 0, width: 1_200, height: 800),
+            screenID: "built-in",
+            cityCount: 8,
+            showAgenda: true
+        )
+        expectCalendarPanel(lifecycle.persistsNormalPosition,
+                            "normal-position persistence resumes only after restoration")
+        expectCalendarPanel(lifecycle.focusedPanel == .timezoner,
+                            "normal restoration returns focus to TimeZoner")
+        expectCalendarPanel(main.frame.width == min(CalendarPanelMetrics.normalWidth(cityCount: 8), 1_200)
+                                && main.frame.maxY <= 800,
+                            "city-count and display changes restore a clamped normal frame")
+        expectCalendarPanel(lifecycle.savedNormalLayout == nil && lifecycle.workspaceFrames == nil,
+                            "restoration clears the workspace snapshot and pair geometry")
     }
 }
