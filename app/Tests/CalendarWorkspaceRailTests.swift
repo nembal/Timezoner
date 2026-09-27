@@ -11,6 +11,14 @@ func runCalendarWorkspaceRailTests() {
     let presentation = CalendarPresentationState(defaults: defaults)
     presentation.enterCalendar(now: start, calendar: .current)
     let reference = ReferenceMomentController(timeState: TimeState(), presentation: presentation)
+    let utc = TimeZone(identifier: "UTC")!
+    let liveContext: CalendarRailContextPresentation? = CalendarRailContextPresentation(
+        selectedEvent: reference.selectedEvent,
+        date: start,
+        timeZone: utc
+    )
+    workspaceExpect(liveContext == nil,
+                    "live Calendar rail has no context heading, timestamp, accessibility label, or help text")
     let event = CalendarEventSnapshot(
         id: "meeting",
         calendarID: "work",
@@ -26,6 +34,19 @@ func runCalendarWorkspaceRailTests() {
     CalendarWorkspaceEventActivation.select(event, referenceMoment: reference)
     workspaceExpect(presentation.destination == .calendar, "timed selection stays in workspace")
     workspaceExpect(reference.timeState.referenceDate == start, "rail receives event instant")
+    let selectedContext = CalendarRailContextPresentation(
+        selectedEvent: reference.selectedEvent,
+        date: reference.timeState.referenceDate,
+        timeZone: utc
+    )
+    workspaceExpect(selectedContext?.title == "Planning across cities",
+                    "selected event rail context retains the event title")
+    workspaceExpect(selectedContext?.dateTime == "Sun, Jun 15 · 3:06 pm GMT",
+                    "selected event rail context retains the event local date and time")
+    workspaceExpect(selectedContext?.accessibilityLabel == "Planning across cities, Sun, Jun 15 · 3:06 pm GMT",
+                    "selected event rail context retains its accessibility label")
+    workspaceExpect(selectedContext?.helpText == "Planning across cities",
+                    "selected event rail context retains its help text")
 
     let zones = (0..<8).map { ZoneInfo(label: "City \($0)", timeZoneId: "America/New_York") }
     let cards = zones.map { CalendarRailCardPresentation(zone: $0, date: reference.timeState.referenceDate) }

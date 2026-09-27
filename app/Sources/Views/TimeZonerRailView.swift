@@ -58,7 +58,10 @@ public struct TimeZonerRailView: View {
             }
         } content: {
             VStack(alignment: .leading, spacing: 10) {
-                context.frame(height: 44, alignment: .topLeading)
+                if let context = contextPresentation {
+                    contextView(context)
+                        .frame(height: 44, alignment: .topLeading)
+                }
                 ScrollView(.vertical) {
                     if zones.isEmpty {
                         Text("No saved cities\nExpand TimeZoner to add a city.")
@@ -84,26 +87,28 @@ public struct TimeZonerRailView: View {
         }
     }
 
-    private var context: some View {
-        VStack(alignment: .leading, spacing: 1) {
-            Text(referenceMoment.selectedEvent?.title ?? "Current time")
+    private var contextPresentation: CalendarRailContextPresentation? {
+        CalendarRailContextPresentation(
+            selectedEvent: referenceMoment.selectedEvent,
+            date: referenceMoment.timeState.referenceDate
+        )
+    }
+
+    private func contextView(_ presentation: CalendarRailContextPresentation) -> some View {
+        return VStack(alignment: .leading, spacing: 1) {
+            Text(presentation.title)
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(Theme.textPrimary)
                 .lineLimit(2)
-            Text(contextTime)
+            Text(presentation.dateTime)
                 .font(.system(size: 11, design: .rounded))
                 .foregroundStyle(Theme.textSecondary)
                 .lineLimit(1)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(referenceMoment.selectedEvent?.title ?? "Current time"), \(contextTime)")
+        .accessibilityLabel(presentation.accessibilityLabel)
         .accessibilityFocused($contextFocused)
-        .help(referenceMoment.selectedEvent?.title ?? "Current time")
-    }
-
-    private var contextTime: String {
-        let date = referenceMoment.timeState.referenceDate
-        return "\(TimeFormatter.formatDate(date, in: .current)) · \(TimeFormatter.formatTime(date, in: .current)) \(TimeZone.current.abbreviation(for: date) ?? TimeZone.current.identifier)"
+        .help(presentation.helpText)
     }
 
 }
