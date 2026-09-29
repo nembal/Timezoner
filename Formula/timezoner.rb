@@ -150,6 +150,7 @@ class Timezoner < Formula
         local pid remaining attempt
         remaining="$(running_installed_pids "$executable" "$snapshot")"
         [[ -n "$remaining" ]] || return 0
+        was_running=1
         while IFS= read -r pid; do
           [[ -n "$pid" ]] && kill -TERM "$pid"
         done <<< "$remaining"
@@ -166,12 +167,22 @@ class Timezoner < Formula
       mkdir -p "$destination"
       reject_source_destination
       command -v plutil >/dev/null 2>&1 || { echo "error: plutil is required" >&2; exit 1; }
+      command -v lockf >/dev/null 2>&1 || { echo "error: lockf is required" >&2; exit 1; }
+      # Keep this descriptor open until the exit trap finishes restoring or cleaning up.
+      exec 9> "$destination/.TimeZoner-install.lock"
+      if ! lockf -t 30 9; then
+        echo "error: timed out waiting to update $destination/TimeZoner.app" >&2
+        exit 1
+      fi
       stage_dir="$(mktemp -d "$destination/.TimeZoner-install.XXXXXX")"
       staged_app="$stage_dir/TimeZoner.app"
       previous_app="$stage_dir/previous.app"
       installed_app="$destination/TimeZoner.app"
+      promoted=0
+      was_running=0
       cleanup_install() {
         local status=$?
+        local restored=0
         trap - EXIT
         if [[ -e "$previous_app" || -L "$previous_app" ]]; then
           if [[ ! -e "$installed_app" && ! -L "$installed_app" ]]; then
@@ -179,9 +190,18 @@ class Timezoner < Formula
               echo "error: could not restore the previous app; it remains at $previous_app" >&2
               exit 1
             fi
+            restored=1
+          elif [[ "$promoted" -eq 0 ]]; then
+            echo "error: could not restore the previous app because $installed_app is occupied; it remains at $previous_app" >&2
+            exit 1
           fi
         fi
         rm -rf "$stage_dir"
+        if [[ "$restored" -eq 1 && "$was_running" -eq 1 ]]; then
+          if ! open "$installed_app"; then
+            echo "error: previous app restored but could not relaunch: $installed_app" >&2
+          fi
+        fi
         exit "$status"
       }
       trap cleanup_install EXIT
@@ -203,10 +223,14 @@ class Timezoner < Formula
         mv "$installed_app" "$previous_app"
       fi
       mv "$staged_app" "$installed_app"
+      promoted=1
       echo "Installed TimeZoner.app to $destination/TimeZoner.app"
       echo "Launch with: open $destination/TimeZoner.app"
       if [[ "$open_app" -eq 1 ]]; then
-        open "$destination/TimeZoner.app"
+        if ! open "$destination/TimeZoner.app"; then
+          echo "error: installed but could not open $destination/TimeZoner.app" >&2
+          exit 1
+        fi
       fi
     EOS
 

@@ -51,7 +51,7 @@ case "${1:-all}" in
         grep -qi 'source.*destination\|destination.*source' "$equal_root/output" || \
             fail "equal source and destination did not explain the rejection"
         ;;
-    open|formula|formula-open|crosspath|formula-crosspath|default|formula-default|ps-failure|formula-ps-failure|stale-path|formula-stale-path|copy-failure|formula-copy-failure|sign-failure|formula-sign-failure|promote-failure|formula-promote-failure)
+    open|formula|formula-open|open-failure|formula-open-failure|crosspath|formula-crosspath|default|formula-default|ps-failure|formula-ps-failure|stale-path|formula-stale-path|copy-failure|formula-copy-failure|sign-failure|formula-sign-failure|promote-failure|formula-promote-failure|restore-conflict|formula-restore-conflict|concurrent|formula-concurrent)
         ;;
     *)
         fail "unknown case: $1"
@@ -366,7 +366,7 @@ if [[ "${1:-all}" == "copy-failure" || "${1:-all}" == "formula-copy-failure" || 
             [[ "$(< "$TZ_TEST_DESTINATION/Contents/MacOS/TimeZoner")" == "old binary" ]] || \
                 fail "$selected_case damaged the existing app"
             test ! -f "$TZ_TEST_KILLED" || fail "$selected_case stopped the working app before staging completed"
-            for leftover in "$fixture_root/Applications"/.TimeZoner-install.*; do
+            for leftover in "$fixture_root/Applications"/.TimeZoner-install.??????; do
                 test ! -e "$leftover" || fail "$selected_case left a staging directory"
             done
             if [[ "$scenario" == "copy-failure" ]]; then
@@ -397,8 +397,18 @@ if [[ "${1:-all}" == "promote-failure" || "${1:-all}" == "formula-promote-failur
         else
             installer="$fixture_root/install.sh"
         fi
+        export TZ_TEST_DESTINATION="$fixture_root/Applications/TimeZoner.app"
+        export TZ_TEST_KILLED="$fixture_root/killed"
+        export TZ_TEST_RESTARTED="$fixture_root/restarted"
         printf '#!/bin/bash\nexit 0\n' > "$fixture_root/bin/codesign"
-        printf '#!/bin/bash\nexit 0\n' > "$fixture_root/bin/ps"
+        printf '%s\n' '#!/bin/bash' \
+            'if [[ ! -f "$TZ_TEST_KILLED" ]]; then' \
+            '  printf "42424 %s/Contents/MacOS/TimeZoner\n" "$TZ_TEST_DESTINATION"' \
+            'fi' > "$fixture_root/bin/ps"
+        printf '%s\n' '#!/bin/bash' \
+            '[[ "$(< "$TZ_TEST_DESTINATION/Contents/MacOS/TimeZoner")" == "old binary" ]] || exit 1' \
+            'touch "$TZ_TEST_RESTARTED"' > "$fixture_root/bin/open"
+        printf '%s\n' 'kill() { touch "$TZ_TEST_KILLED"; }' > "$fixture_root/bash-env"
         printf '%s\n' '#!/bin/bash' \
             'if [[ "$1" == */.TimeZoner-install.*/TimeZoner.app ]]; then' \
             '  echo "fixture promotion failed" >&2' \
@@ -407,17 +417,19 @@ if [[ "${1:-all}" == "promote-failure" || "${1:-all}" == "formula-promote-failur
             '/bin/mv "$@"' > "$fixture_root/bin/mv"
         chmod +x "$fixture_root/bin/"*
         if [[ "$install_kind" == "formula" ]]; then
-            if PATH="$fixture_root/bin:$PATH" "$installer" "$fixture_root/Applications" > "$fixture_root/output" 2>&1; then
+            if PATH="$fixture_root/bin:$PATH" BASH_ENV="$fixture_root/bash-env" "$installer" "$fixture_root/Applications" > "$fixture_root/output" 2>&1; then
                 fail "$selected_case reported success"
             fi
         else
-            if PATH="$fixture_root/bin:$PATH" "$installer" --skip-build --destination "$fixture_root/Applications" > "$fixture_root/output" 2>&1; then
+            if PATH="$fixture_root/bin:$PATH" BASH_ENV="$fixture_root/bash-env" "$installer" --skip-build --destination "$fixture_root/Applications" > "$fixture_root/output" 2>&1; then
                 fail "$selected_case reported success"
             fi
         fi
         [[ "$(< "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner")" == "old binary" ]] || \
             fail "$selected_case failed to restore the previous app"
-        for leftover in "$fixture_root/Applications"/.TimeZoner-install.*; do
+        test -f "$TZ_TEST_KILLED" || fail "$selected_case did not stop the running old app"
+        test -f "$TZ_TEST_RESTARTED" || fail "$selected_case did not restart the restored old app"
+        for leftover in "$fixture_root/Applications"/.TimeZoner-install.??????; do
             test ! -e "$leftover" || fail "$selected_case left a staging directory"
         done
         grep -F 'fixture promotion failed' "$fixture_root/output" >/dev/null || fail "$selected_case did not reach promotion"
@@ -471,6 +483,174 @@ if [[ "${1:-all}" == "ps-failure" || "${1:-all}" == "formula-ps-failure" || \
             else
                 grep -F -- "$TZ_TEST_OTHER_EXECUTABLE" "$fixture_root/output" >/dev/null || fail "$selected_case did not identify the stale running path"
             fi
+        done
+    done
+fi
+
+if [[ "${1:-all}" == "open-failure" || "${1:-all}" == "formula-open-failure" || "${1:-all}" == "all" ]]; then
+    for install_kind in source formula; do
+        selected_case="open-failure"
+        [[ "$install_kind" == "source" ]] || selected_case="formula-open-failure"
+        [[ "${1:-all}" == "all" || "${1:-all}" == "$selected_case" ]] || continue
+        fixture_root="$test_root/$selected_case"
+        make_source_bundle "$fixture_root"
+        mkdir -p "$fixture_root/Applications/TimeZoner.app/Contents/MacOS" "$fixture_root/bin"
+        printf 'old binary\n' > "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner"
+        chmod +x "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner"
+        if [[ "$install_kind" == "formula" ]]; then
+            mkdir -p "$fixture_root/prefix"
+            cp -R "$fixture_root/app/TimeZoner.app" "$fixture_root/prefix/TimeZoner.app"
+            write_formula_helper "$fixture_root/prefix" "$fixture_root/timezoner-install-app"
+            installer="$fixture_root/timezoner-install-app"
+        else
+            installer="$fixture_root/install.sh"
+        fi
+        printf '#!/bin/bash\nexit 0\n' > "$fixture_root/bin/codesign"
+        printf '#!/bin/bash\nexit 0\n' > "$fixture_root/bin/ps"
+        printf '%s\n' '#!/bin/bash' \
+            'echo "fixture launch failed" >&2' \
+            'exit 91' > "$fixture_root/bin/open"
+        chmod +x "$fixture_root/bin/"*
+        if [[ "$install_kind" == "formula" ]]; then
+            if PATH="$fixture_root/bin:$PATH" "$installer" "$fixture_root/Applications" --open > "$fixture_root/output" 2>&1; then
+                fail "$selected_case reported successful launch"
+            fi
+        else
+            if PATH="$fixture_root/bin:$PATH" "$installer" --skip-build --destination "$fixture_root/Applications" --open > "$fixture_root/output" 2>&1; then
+                fail "$selected_case reported successful launch"
+            fi
+        fi
+        [[ "$(< "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner")" == "new binary" ]] || \
+            fail "$selected_case rolled back a completed installation"
+        grep -F 'installed but could not open' "$fixture_root/output" >/dev/null || \
+            fail "$selected_case did not explain that installation succeeded"
+    done
+fi
+
+if [[ "${1:-all}" == "restore-conflict" || "${1:-all}" == "formula-restore-conflict" || "${1:-all}" == "all" ]]; then
+    for install_kind in source formula; do
+        selected_case="restore-conflict"
+        [[ "$install_kind" == "source" ]] || selected_case="formula-restore-conflict"
+        [[ "${1:-all}" == "all" || "${1:-all}" == "$selected_case" ]] || continue
+        fixture_root="$test_root/$selected_case"
+        make_source_bundle "$fixture_root"
+        mkdir -p "$fixture_root/Applications/TimeZoner.app/Contents/MacOS" "$fixture_root/bin"
+        printf 'old binary\n' > "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner"
+        chmod +x "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner"
+        if [[ "$install_kind" == "formula" ]]; then
+            mkdir -p "$fixture_root/prefix"
+            cp -R "$fixture_root/app/TimeZoner.app" "$fixture_root/prefix/TimeZoner.app"
+            write_formula_helper "$fixture_root/prefix" "$fixture_root/timezoner-install-app"
+            installer="$fixture_root/timezoner-install-app"
+        else
+            installer="$fixture_root/install.sh"
+        fi
+        export TZ_TEST_DESTINATION="$fixture_root/Applications/TimeZoner.app"
+        printf '#!/bin/bash\nexit 0\n' > "$fixture_root/bin/codesign"
+        printf '#!/bin/bash\nexit 0\n' > "$fixture_root/bin/ps"
+        printf '%s\n' '#!/bin/bash' \
+            'if [[ "$1" == */.TimeZoner-install.*/TimeZoner.app && "$2" == "$TZ_TEST_DESTINATION" ]]; then' \
+            '  mkdir "$TZ_TEST_DESTINATION"' \
+            '  echo "fixture destination conflict" >&2' \
+            '  exit 83' \
+            'fi' \
+            '/bin/mv "$@"' > "$fixture_root/bin/mv"
+        chmod +x "$fixture_root/bin/"*
+        if [[ "$install_kind" == "formula" ]]; then
+            if PATH="$fixture_root/bin:$PATH" "$installer" "$fixture_root/Applications" > "$fixture_root/output" 2>&1; then
+                fail "$selected_case reported success"
+            fi
+        else
+            if PATH="$fixture_root/bin:$PATH" "$installer" --skip-build --destination "$fixture_root/Applications" > "$fixture_root/output" 2>&1; then
+                fail "$selected_case reported success"
+            fi
+        fi
+        recovered=0
+        for old_bundle in "$fixture_root/Applications"/.TimeZoner-install.*/previous.app; do
+            if [[ -f "$old_bundle/Contents/MacOS/TimeZoner" ]] && \
+               [[ "$(< "$old_bundle/Contents/MacOS/TimeZoner")" == "old binary" ]]; then
+                recovered=1
+            fi
+        done
+        [[ "$recovered" -eq 1 ]] || fail "$selected_case deleted the previous app after rollback was blocked"
+        grep -F 'could not restore' "$fixture_root/output" >/dev/null || fail "$selected_case did not explain the recovery path"
+    done
+fi
+
+if [[ "${1:-all}" == "concurrent" || "${1:-all}" == "formula-concurrent" || "${1:-all}" == "all" ]]; then
+    for install_kind in source formula; do
+        selected_case="concurrent"
+        [[ "$install_kind" == "source" ]] || selected_case="formula-concurrent"
+        [[ "${1:-all}" == "all" || "${1:-all}" == "$selected_case" ]] || continue
+        fixture_root="$test_root/$selected_case"
+        make_source_bundle "$fixture_root"
+        mkdir -p "$fixture_root/Applications/TimeZoner.app/Contents/MacOS" "$fixture_root/bin"
+        printf 'old binary\n' > "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner"
+        chmod +x "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner"
+        if [[ "$install_kind" == "formula" ]]; then
+            mkdir -p "$fixture_root/prefix"
+            cp -R "$fixture_root/app/TimeZoner.app" "$fixture_root/prefix/TimeZoner.app"
+            write_formula_helper "$fixture_root/prefix" "$fixture_root/timezoner-install-app"
+            installer="$fixture_root/timezoner-install-app"
+        else
+            installer="$fixture_root/install.sh"
+        fi
+        export TZ_TEST_DESTINATION="$fixture_root/Applications/TimeZoner.app"
+        export TZ_TEST_FIRST_MOVED="$fixture_root/first-moved"
+        export TZ_TEST_RELEASE="$fixture_root/release-first"
+        export TZ_TEST_SECOND_SIGNED="$fixture_root/second-signed"
+        printf '#!/bin/bash\nexit 0\n' > "$fixture_root/bin/ps"
+        printf '%s\n' '#!/bin/bash' \
+            '[[ "$TZ_TEST_ROLE" == second ]] && touch "$TZ_TEST_SECOND_SIGNED"' \
+            'exit 0' > "$fixture_root/bin/codesign"
+        printf '%s\n' '#!/bin/bash' \
+            'if [[ "$TZ_TEST_ROLE" == first && "$1" == "$TZ_TEST_DESTINATION" && "$2" == */previous.app ]]; then' \
+            '  /bin/mv "$@" || exit' \
+            '  touch "$TZ_TEST_FIRST_MOVED"' \
+            '  while [[ ! -f "$TZ_TEST_RELEASE" ]]; do sleep 0.05; done' \
+            '  exit 0' \
+            'fi' \
+            '/bin/mv "$@"' > "$fixture_root/bin/mv"
+        chmod +x "$fixture_root/bin/"*
+
+        if [[ "$install_kind" == "formula" ]]; then
+            PATH="$fixture_root/bin:$PATH" TZ_TEST_ROLE=first "$installer" "$fixture_root/Applications" > "$fixture_root/first-output" 2>&1 &
+        else
+            PATH="$fixture_root/bin:$PATH" TZ_TEST_ROLE=first "$installer" --skip-build --destination "$fixture_root/Applications" > "$fixture_root/first-output" 2>&1 &
+        fi
+        first_pid=$!
+        for ((attempt = 0; attempt < 100; attempt++)); do
+            [[ -f "$TZ_TEST_FIRST_MOVED" ]] && break
+            sleep 0.05
+        done
+        if [[ ! -f "$TZ_TEST_FIRST_MOVED" ]]; then
+            touch "$TZ_TEST_RELEASE"
+            wait "$first_pid" || true
+            fail "$selected_case did not reach the promotion gap"
+        fi
+        if [[ "$install_kind" == "formula" ]]; then
+            PATH="$fixture_root/bin:$PATH" TZ_TEST_ROLE=second "$installer" "$fixture_root/Applications" > "$fixture_root/second-output" 2>&1 &
+        else
+            PATH="$fixture_root/bin:$PATH" TZ_TEST_ROLE=second "$installer" --skip-build --destination "$fixture_root/Applications" > "$fixture_root/second-output" 2>&1 &
+        fi
+        second_pid=$!
+        for ((attempt = 0; attempt < 60; attempt++)); do
+            [[ -f "$TZ_TEST_SECOND_SIGNED" ]] && break
+            sleep 0.05
+        done
+        second_overlapped=0
+        [[ ! -f "$TZ_TEST_SECOND_SIGNED" ]] || second_overlapped=1
+        touch "$TZ_TEST_RELEASE"
+        first_status=0
+        second_status=0
+        wait "$first_pid" || first_status=$?
+        wait "$second_pid" || second_status=$?
+        [[ "$second_overlapped" -eq 0 ]] || fail "$selected_case signed another update while the first promotion was incomplete"
+        [[ "$first_status" -eq 0 && "$second_status" -eq 0 ]] || fail "$selected_case failed to complete both updates"
+        [[ "$(< "$TZ_TEST_DESTINATION/Contents/MacOS/TimeZoner")" == "new binary" ]] || fail "$selected_case did not leave an intact app"
+        test ! -e "$TZ_TEST_DESTINATION/TimeZoner.app" || fail "$selected_case nested one app inside another"
+        for leftover in "$fixture_root/Applications"/.TimeZoner-install.??????; do
+            test ! -d "$leftover" || fail "$selected_case left a staging directory"
         done
     done
 fi

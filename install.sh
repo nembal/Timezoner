@@ -167,6 +167,7 @@ stop_installed_app() {
     local pid remaining attempt
     remaining="$(running_installed_pids "$executable" "$snapshot")"
     [[ -n "$remaining" ]] || return 0
+    was_running=1
 
     while IFS= read -r pid; do
         [[ -n "$pid" ]] && kill -TERM "$pid"
@@ -213,11 +214,21 @@ verify_app_bundle "$APP_SOURCE"
 mkdir -p "$DESTINATION"
 reject_source_destination
 require_command plutil
+require_command lockf
+# Keep this descriptor open until the exit trap finishes restoring or cleaning up.
+exec 9> "$DESTINATION/.TimeZoner-install.lock"
+if ! lockf -t 30 9; then
+    echo "error: timed out waiting to update $APP_DESTINATION" >&2
+    exit 1
+fi
 stage_dir="$(mktemp -d "$DESTINATION/.TimeZoner-install.XXXXXX")"
 staged_app="$stage_dir/TimeZoner.app"
 previous_app="$stage_dir/previous.app"
+promoted=0
+was_running=0
 cleanup_install() {
     local status=$?
+    local restored=0
     trap - EXIT
     if [[ -e "$previous_app" || -L "$previous_app" ]]; then
         if [[ ! -e "$APP_DESTINATION" && ! -L "$APP_DESTINATION" ]]; then
@@ -225,9 +236,18 @@ cleanup_install() {
                 echo "error: could not restore the previous app; it remains at $previous_app" >&2
                 exit 1
             fi
+            restored=1
+        elif [[ "$promoted" -eq 0 ]]; then
+            echo "error: could not restore the previous app because $APP_DESTINATION is occupied; it remains at $previous_app" >&2
+            exit 1
         fi
     fi
     rm -rf "$stage_dir"
+    if [[ "$restored" -eq 1 && "$was_running" -eq 1 ]]; then
+        if ! open "$APP_DESTINATION"; then
+            echo "error: previous app restored but could not relaunch: $APP_DESTINATION" >&2
+        fi
+    fi
     exit "$status"
 }
 trap cleanup_install EXIT
@@ -249,11 +269,15 @@ if [[ -e "$APP_DESTINATION" || -L "$APP_DESTINATION" ]]; then
     mv "$APP_DESTINATION" "$previous_app"
 fi
 mv "$staged_app" "$APP_DESTINATION"
+promoted=1
 
 echo "Installed TimeZoner.app to $APP_DESTINATION"
 echo "Launch it with:"
 echo "  open \"$APP_DESTINATION\""
 
 if [[ "$OPEN_APP" -eq 1 ]]; then
-    open "$APP_DESTINATION"
+    if ! open "$APP_DESTINATION"; then
+        echo "error: installed but could not open $APP_DESTINATION" >&2
+        exit 1
+    fi
 fi
