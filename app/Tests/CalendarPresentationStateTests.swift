@@ -1,6 +1,23 @@
 import Foundation
 import TimeZonerLib
 
+private final class CalendarModeNotificationCenterFake: CalendarNotificationCenter {
+    func requestAuthorization() async throws -> Bool { false }
+    func currentAuthorizationStatus() async -> CalendarNotificationAuthorizationStatus { .denied }
+    func pendingRequests() async -> [CalendarNotificationRequest] { [] }
+    func addOrReplace(_ request: CalendarNotificationRequest) async throws {}
+    func removePendingRequests(withIdentifiers identifiers: [String]) async {}
+}
+
+private final class CalendarModeEventReaderFake: CalendarEventReading {
+    let authorizationStatus: CalendarAuthorizationStatus = .denied
+    let changes = AsyncStream<Void> { $0.finish() }
+
+    func requestAccess() async throws -> Bool { false }
+    func calendars() async throws -> [CalendarDescriptor] { [] }
+    func events(from start: Date, to end: Date, calendarIDs: Set<String>) async throws -> [CalendarEventSnapshot] { [] }
+}
+
 private func expectCalendarPresentation<T: Equatable>(
     _ actual: T,
     _ expected: T,
@@ -228,9 +245,55 @@ func runCalendarPresentationStateTests() {
         start: calendarPresentationDate(calendar, year: 2024, month: 5, day: 16, hour: 14),
         end: calendarPresentationDate(calendar, year: 2024, month: 5, day: 16, hour: 15)
     )
-    referenceMoment.selectEvent(selected, sourceZone: .current)
+    let eventViewSuite = "CalendarModeEventSelection.\(UUID().uuidString)"
+    let eventViewDefaults = UserDefaults(suiteName: eventViewSuite)!
+    defer { eventViewDefaults.removePersistentDomain(forName: eventViewSuite) }
+    let eventSettings = SettingsStore(userDefaults: eventViewDefaults)
+    let eventPreferences = CalendarPreferenceStore(userDefaults: eventViewDefaults)
+    let eventProvider = CalendarModeEventReaderFake()
+    let eventStore = CalendarStore(provider: eventProvider, preferenceStore: eventPreferences)
+    let eventNotifications = CalendarModeNotificationCenterFake()
+    let eventScheduler = CalendarNotificationScheduler(
+        eventReader: eventProvider,
+        preferenceStore: eventPreferences,
+        notificationCenter: eventNotifications
+    )
+    let eventLifecycle = CalendarAlertLifecycleCoordinator(
+        settings: eventSettings,
+        preferenceStore: eventPreferences,
+        calendarClock: CalendarClock(),
+        scheduler: eventScheduler,
+        notificationCenter: eventNotifications
+    )
+    let eventSettingsButton = CalendarSettingsButton(
+        owner: .calendar,
+        presentation: presentation,
+        onActivate: {},
+        onOwnedPopoverChanged: { _ in }
+    ) {
+        SettingsPopover(
+            settings: eventSettings,
+            calendarStore: eventStore,
+            calendarPreferences: eventPreferences,
+            calendarAlertLifecycle: eventLifecycle,
+            setAgendaWingRequested: { _ in },
+            openCalendarPrivacySettings: {},
+            openNotificationSettings: {}
+        )
+    }
+    let eventView = CalendarModeView(
+        calendarStore: eventStore,
+        referenceMoment: referenceMoment,
+        presentation: presentation,
+        settingsButton: eventSettingsButton,
+        onOpenPrivacySettings: {},
+        onOwnedPopoverChanged: { _ in }
+    )
+    eventView.selectTimedEvent(selected)
     expectCalendarPresentation(presentation.destination, .calendar, "calendar timed-event selection stays in calendar until an explicit return")
     expectCalendarPresentation(timeState.referenceDate, selected.startDate, "calendar timed-event selection sets the shared reference moment")
+    expectCalendarPresentation(timeState.sourceZoneId, TimeZone.current.identifier,
+                               "calendar timed-event selection uses the current source timezone")
     presentation.returnToTimeZoner()
     expectCalendarPresentation(presentation.destination, .timezoner, "explicit return restores TimeZoner")
 

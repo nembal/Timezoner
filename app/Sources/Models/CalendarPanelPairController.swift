@@ -208,9 +208,17 @@ public final class CalendarPanelPairController {
         }
     }
 
-    public func focusTimeZoner() {
-        guard main.isVisible else { return }
-        main.focus()
+    public func focusTimeZoner(postFocusChat: (() -> Void)? = nil) {
+        if main.isVisible {
+            main.focus()
+        }
+        postFocusChat?()
+    }
+
+    /// Reopen paired-panel interactions only after the caller restores its workspace content.
+    public func finishWorkspaceTransition(resetPresentation: () -> Void) {
+        resetPresentation()
+        transitionInProgress = false
     }
 
     public func setOwnedPopoverPresented(_ isPresented: Bool) {

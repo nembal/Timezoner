@@ -484,9 +484,26 @@ func runCalendarPanelCoordinatorTests() {
         pair.focusTimeZoner()
         expectCalendarPanel(main.isKey, "focusTimeZoner restores focus to a visible main panel")
 
+        var focusOrder: [String] = []
+        main.isKey = false
+        let priorOperationCount = main.operations.count
+        pair.focusTimeZoner(postFocusChat: {
+            if main.operations.count > priorOperationCount && main.operations.last == .focus {
+                focusOrder.append("makeKey")
+            }
+            focusOrder.append("focusChat")
+        })
+        expectCalendarPanel(focusOrder == ["makeKey", "focusChat"],
+                            "immediate restoration focuses a visible main panel before requesting chat focus")
+
         pair.hide()
         pair.focusTimeZoner()
         expectCalendarPanel(!main.isKey, "focusTimeZoner leaves a hidden main panel unfocused")
+
+        focusOrder = []
+        pair.focusTimeZoner(postFocusChat: { focusOrder.append("focusChat") })
+        expectCalendarPanel(focusOrder == ["focusChat"] && !main.isKey,
+                            "hidden restoration still posts chat focus without focusing the panel")
     }
 
     do {
@@ -502,9 +519,15 @@ func runCalendarPanelCoordinatorTests() {
         pair.show(showAgenda: false)
         pair.setTransitionInProgress(true)
 
-        pair.setTransitionInProgress(false)
+        var presentationResetBeforePairRelease = false
+        pair.finishWorkspaceTransition {
+            pair.resizeMain(to: CGSize(width: 550, height: 450), showAgenda: false)
+            presentationResetBeforePairRelease = main.frame.size == CGSize(width: 400, height: 500)
+        }
 
         pair.resizeMain(to: CGSize(width: 500, height: 400), showAgenda: false)
+        expectCalendarPanel(presentationResetBeforePairRelease,
+                            "workspace presentation resets while paired-panel interaction is still gated")
         expectCalendarPanel(
             main.frame.size == CGSize(width: 500, height: 400),
             "releasing the paired-panel interaction gate resumes normal resizing"

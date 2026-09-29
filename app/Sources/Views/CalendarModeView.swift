@@ -117,7 +117,7 @@ public struct CalendarModeView: View {
         )
     }
 
-    private func selectTimedEvent(_ event: CalendarEventSnapshot) {
+    public func selectTimedEvent(_ event: CalendarEventSnapshot) {
         // The timed event updates the shared reference moment; returning to TimeZoner remains
         // an explicit rail action so the selected event keeps the calendar workspace visible.
         referenceMoment.selectEvent(event, sourceZone: .current)

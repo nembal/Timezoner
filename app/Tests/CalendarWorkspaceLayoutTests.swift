@@ -44,6 +44,13 @@ func runCalendarWorkspaceLayoutTests() {
                     && stacked.calendar == CGRect(x: 90, y: -800, width: 500, height: 188.5),
                     "narrow workspace keeps its stacked panel frames")
 
+    let fallback = CalendarWorkspaceLayout.calculate(
+        main: CGRect(x: 40, y: 50, width: 400, height: 200),
+        agenda: nil, placement: .popover, visibleFrame: .zero)
+    workspaceExpect(fallback.main == CGRect(x: 40, y: 50, width: 200, height: 300)
+                    && fallback.calendar == CGRect(x: 250, y: 50, width: 360, height: 300),
+                    "unavailable visible frame uses the exact minimum workspace canvas")
+
     let snapshot = CalendarNormalLayoutSnapshot(main: main, agenda: agenda,
         placement: .right, screenID: "left", visibleFrame: screen, cityCount: 4)
     let restored = CalendarWorkspaceLayout.restore(snapshot, visibleFrame: screen,

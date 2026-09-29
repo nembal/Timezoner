@@ -206,10 +206,9 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
         }
         mainPanel.persistsNormalPosition = true
         refreshCalendar()
-        if mainPanel.isVisible {
-            mainPanel.makeKey()
+        pair.focusTimeZoner {
+            NotificationCenter.default.post(name: .focusChatField, object: nil)
         }
-        NotificationCenter.default.post(name: .focusChatField, object: nil)
     }
 
     func settleWorkspaceTransition() {
@@ -231,14 +230,15 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
             completeFrames(settled, focus: false)
         }
 
-        var transaction = Transaction()
-        transaction.disablesAnimations = true
-        withTransaction(transaction) {
-            presentation.workspaceContentOpacity = 1
-            presentation.workspaceContentOffset = 0
-            presentation.isWorkspaceTransitioning = false
+        pair.finishWorkspaceTransition {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) {
+                presentation.workspaceContentOpacity = 1
+                presentation.workspaceContentOffset = 0
+                presentation.isWorkspaceTransitioning = false
+            }
         }
-        pair.setTransitionInProgress(false)
         mainPanel.persistsNormalPosition = persistenceDestination == .timezoner
     }
 
