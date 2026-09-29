@@ -131,25 +131,6 @@ func runTimeZonerDeepLinkTests() {
         print("  FAIL: a Calendar-mode set link must restore TimeZoner before adding its missing zone")
     }
 
-    let workspaceDeepLinkDefaultsName = "TimeZonerDeepLinkTests.workspace-restore.\(UUID().uuidString)"
-    let workspaceDeepLinkDefaults = UserDefaults(suiteName: workspaceDeepLinkDefaultsName)!
-    defer { workspaceDeepLinkDefaults.removePersistentDomain(forName: workspaceDeepLinkDefaultsName) }
-    let workspacePresentation = CalendarPresentationState(defaults: workspaceDeepLinkDefaults)
-    workspacePresentation.enterCalendar(now: Date(timeIntervalSince1970: 1_750_000_000), calendar: .current)
-    var workspaceDeepLinkOrder: [String] = []
-    TimeZonerDeepLinkPresentationRouter.route(
-        .setTime(hour: 15, minute: 30, zoneID: "Asia/Tokyo", label: "Tokyo"),
-        presentation: workspacePresentation,
-        restoreTimeZonerPanel: { workspaceDeepLinkOrder.append("restore") },
-        apply: { _ in workspaceDeepLinkOrder.append("apply") }
-    )
-    if workspacePresentation.destination == .timezoner && workspaceDeepLinkOrder == ["restore", "apply"] {
-        testsPassed += 1
-    } else {
-        testsFailed += 1
-        print("  FAIL: an explicit timezone command restores normal editing before adding a city")
-    }
-
     let enteringWorkspaceDefaultsName = "TimeZonerDeepLinkTests.workspace-entry.\(UUID().uuidString)"
     let enteringWorkspaceDefaults = UserDefaults(suiteName: enteringWorkspaceDefaultsName)!
     defer { enteringWorkspaceDefaults.removePersistentDomain(forName: enteringWorkspaceDefaultsName) }

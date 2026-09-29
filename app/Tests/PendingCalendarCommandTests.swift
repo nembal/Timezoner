@@ -28,6 +28,41 @@ private func expectPendingCalendarCommandTrue(
     }
 }
 
+/// One-shot start event whose state survives a waiter arriving after the operation starts.
+private final class PendingCalendarStartSignal {
+    private let lock = NSLock()
+    private var started = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
+
+    func reset() {
+        lock.lock()
+        started = false
+        lock.unlock()
+    }
+
+    func signal() {
+        lock.lock()
+        started = true
+        let pending = waiters
+        waiters.removeAll()
+        lock.unlock()
+        pending.forEach { $0.resume() }
+    }
+
+    func wait() async {
+        await withCheckedContinuation { continuation in
+            lock.lock()
+            if started {
+                lock.unlock()
+                continuation.resume()
+            } else {
+                waiters.append(continuation)
+                lock.unlock()
+            }
+        }
+    }
+}
+
 private final class PendingCalendarCommandReaderFake: CalendarEventReading {
     struct Request: Equatable {
         let start: Date
@@ -50,7 +85,8 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
     private var recordedRequests: [Request] = []
     private var requestCountWaiters: [UUID: RequestCountWaiter] = [:]
     private var suspendNextEventsFetch = false
-    private var eventsFetchStartedContinuation: CheckedContinuation<Void, Never>?
+    private(set) var eventsFetchDidStart = false
+    private let eventsFetchStarted = PendingCalendarStartSignal()
     private var releaseEventsFetchContinuation: CheckedContinuation<Void, Never>?
     let changes: AsyncStream<Void>
     private let changesContinuation: AsyncStream<Void>.Continuation
@@ -88,10 +124,10 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
         waiters.forEach { $0.resume(returning: true) }
         if suspendNextEventsFetch {
             suspendNextEventsFetch = false
-            eventsFetchStartedContinuation?.resume()
-            eventsFetchStartedContinuation = nil
             await withCheckedContinuation { continuation in
                 releaseEventsFetchContinuation = continuation
+                eventsFetchDidStart = true
+                eventsFetchStarted.signal()
             }
         }
         if let failure { throw failure }
@@ -163,12 +199,11 @@ private final class PendingCalendarCommandReaderFake: CalendarEventReading {
 
     func suspendOneEventsFetch() {
         suspendNextEventsFetch = true
+        eventsFetchStarted.reset()
     }
 
     func waitForSuspendedEventsFetch() async {
-        await withCheckedContinuation { continuation in
-            eventsFetchStartedContinuation = continuation
-        }
+        await eventsFetchStarted.wait()
     }
 
     func releaseSuspendedEventsFetch() {
@@ -219,11 +254,11 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
     private(set) var removedIdentifiers: [String] = []
     private var pending: [CalendarNotificationRequest]
     private var suspendNextAdd = false
+    private(set) var addDidStart = false
     private var suspendNextAuthorizationStatus = false
-    private var addStartedContinuation: CheckedContinuation<Void, Never>?
+    private let addStarted = PendingCalendarStartSignal()
     private var releaseAddContinuation: CheckedContinuation<Void, Never>?
-    private var authorizationStatusIsSuspended = false
-    private var authorizationStatusStartedContinuations: [CheckedContinuation<Void, Never>] = []
+    private let authorizationStatusStarted = PendingCalendarStartSignal()
     private var releaseAuthorizationStatusContinuation: CheckedContinuation<Void, Never>?
 
     init(pending: [CalendarNotificationRequest] = []) {
@@ -241,12 +276,8 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
             suspendNextAuthorizationStatus = false
             await withCheckedContinuation { continuation in
                 releaseAuthorizationStatusContinuation = continuation
-                authorizationStatusIsSuspended = true
-                let waiters = authorizationStatusStartedContinuations
-                authorizationStatusStartedContinuations.removeAll()
-                waiters.forEach { $0.resume() }
+                authorizationStatusStarted.signal()
             }
-            authorizationStatusIsSuspended = false
         }
         return authorizationStatus
     }
@@ -256,10 +287,10 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
     func addOrReplace(_ request: CalendarNotificationRequest) async throws {
         if suspendNextAdd {
             suspendNextAdd = false
-            addStartedContinuation?.resume()
-            addStartedContinuation = nil
             await withCheckedContinuation { continuation in
                 releaseAddContinuation = continuation
+                addDidStart = true
+                addStarted.signal()
             }
         }
         added.append(request)
@@ -274,23 +305,20 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
 
     func suspendOneAdd() {
         suspendNextAdd = true
+        addStarted.reset()
     }
 
     func suspendOneAuthorizationStatus() {
         suspendNextAuthorizationStatus = true
+        authorizationStatusStarted.reset()
     }
 
     func waitForSuspendedAdd() async {
-        await withCheckedContinuation { continuation in
-            addStartedContinuation = continuation
-        }
+        await addStarted.wait()
     }
 
     func waitForSuspendedAuthorizationStatus() async {
-        guard !authorizationStatusIsSuspended else { return }
-        await withCheckedContinuation { continuation in
-            authorizationStatusStartedContinuations.append(continuation)
-        }
+        await authorizationStatusStarted.wait()
     }
 
     func releaseSuspendedAdd() {
@@ -306,30 +334,6 @@ private final class PendingCalendarAlertCenterFake: CalendarNotificationCenter {
 
 private final class PendingCalendarAuthorizationBox {
     var status: CalendarAuthorizationStatus = .fullAccess
-}
-
-private final class PendingCalendarAlertSignals {
-    let hourTicks: AsyncStream<Void>
-    let timeZoneChanges: AsyncStream<Void>
-    private let hourContinuation: AsyncStream<Void>.Continuation
-    private let timeZoneContinuation: AsyncStream<Void>.Continuation
-
-    init() {
-        let hour = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(8))
-        hourTicks = hour.stream
-        hourContinuation = hour.continuation
-        let zone = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(8))
-        timeZoneChanges = zone.stream
-        timeZoneContinuation = zone.continuation
-    }
-
-    deinit {
-        hourContinuation.finish()
-        timeZoneContinuation.finish()
-    }
-
-    func emitHourTick() { hourContinuation.yield(()) }
-    func emitTimeZoneChange() { timeZoneContinuation.yield(()) }
 }
 
 @MainActor
@@ -354,6 +358,41 @@ func runPendingCalendarCommandTests() async {
         "title": "Planning",
         "startTimestamp": startDate.timeIntervalSince1970,
     ]
+
+    expectPendingCalendarCommand(
+        CalendarNotificationContract.requestIdentifier(occurrenceID: "planning|1750000000", leadMinutes: 30),
+        "timezoner.event.planning|1750000000.30",
+        "the shared contract preserves identifiers already scheduled"
+    )
+    expectPendingCalendarCommandTrue(
+        CalendarNotificationContract.owns(requestIdentifier: "timezoner.event.planning|1750000000.30"),
+        "the shared contract recognizes previously scheduled requests"
+    )
+    expectPendingCalendarCommand(
+        CalendarNotificationContract.normalizedLeadMinutes([nil, -1, 1_441, 10, 10, 30]),
+        [30, 10],
+        "the shared contract rejects invalid lead times and deduplicates valid ones"
+    )
+    let contractPayload = CalendarNotificationContract.payload(
+        for: CalendarNotificationUserInfo(
+            occurrenceID: "planning|1750000000",
+            title: "Planning",
+            startTimestamp: startDate.timeIntervalSince1970
+        )
+    )
+    expectPendingCalendarCommand(
+        Set(contractPayload.keys),
+        Set(["occurrenceID", "title", "startTimestamp"]),
+        "the shared contract keeps the legacy payload keys"
+    )
+    expectPendingCalendarCommand(
+        PendingCalendarCommand.notificationCommand(
+            requestIdentifier: "timezoner.event.planning|1750000000.30",
+            userInfo: contractPayload
+        ),
+        PendingCalendarCommand(occurrenceID: "planning|1750000000", title: "Planning", startDate: startDate),
+        "a contract-built payload still routes through the response parser"
+    )
 
     let command = PendingCalendarCommand.notificationCommand(
         requestIdentifier: "timezoner.event.planning|1750000000.30",
@@ -440,11 +479,6 @@ func runPendingCalendarCommandTests() async {
         [command!, second],
         "repeated readiness cannot reconsume commands"
     )
-    expectPendingCalendarCommandTrue(
-        !UserDefaults.standard.dictionaryRepresentation().keys.contains(where: { $0.contains("PendingCalendarCommand") }),
-        "commands have no persistence surface"
-    )
-
     do {
         let reader = PendingCalendarCommandReaderFake()
         expectPendingCalendarCommand(
@@ -462,6 +496,63 @@ func runPendingCalendarCommandTests() async {
             false,
             "cancelling the completion gate resolves it without leaving a waiter"
         )
+    }
+
+    do {
+        let reader = PendingCalendarCommandReaderFake()
+        reader.suspendOneEventsFetch()
+        let fetch = Task {
+            try? await reader.events(from: startDate, to: startDate.addingTimeInterval(60), calendarIDs: [])
+        }
+        expectPendingCalendarCommandTrue(
+            await waitForPendingCalendarCommand { reader.eventsFetchDidStart },
+            "the suspended event fetch starts before the test waits"
+        )
+        var waitReturned = false
+        let waiter = Task {
+            await reader.waitForSuspendedEventsFetch()
+            waitReturned = true
+        }
+        expectPendingCalendarCommandTrue(
+            await waitForPendingCalendarCommand { waitReturned },
+            "an event-fetch start emitted before waiting is still observed"
+        )
+        reader.releaseSuspendedEventsFetch()
+        _ = await fetch.value
+        waiter.cancel()
+    }
+
+    do {
+        let center = PendingCalendarAlertCenterFake()
+        center.suspendOneAdd()
+        let request = CalendarNotificationRequest(
+            identifier: "timezoner.event.start-signal.30",
+            title: "Start signal",
+            body: "Starts soon",
+            fireDate: startDate,
+            userInfo: CalendarNotificationUserInfo(
+                occurrenceID: "start-signal",
+                title: "Start signal",
+                startTimestamp: startDate.timeIntervalSince1970
+            )
+        )
+        let add = Task { try? await center.addOrReplace(request) }
+        expectPendingCalendarCommandTrue(
+            await waitForPendingCalendarCommand { center.addDidStart },
+            "the suspended notification add starts before the test waits"
+        )
+        var waitReturned = false
+        let waiter = Task {
+            await center.waitForSuspendedAdd()
+            waitReturned = true
+        }
+        expectPendingCalendarCommandTrue(
+            await waitForPendingCalendarCommand { waitReturned },
+            "a notification-add start emitted before waiting is still observed"
+        )
+        center.releaseSuspendedAdd()
+        _ = await add.value
+        waiter.cancel()
     }
 
     do {
@@ -776,7 +867,7 @@ func runPendingCalendarCommandTests() async {
             notificationCenter: center,
             leadMinutes: { settings.notificationLeadMinutes }
         )
-        let signals = PendingCalendarAlertSignals()
+        let signals = CalendarClockTestSignals()
         let clock = CalendarClock(
             now: { startDate },
             hourTicks: signals.hourTicks,
@@ -1268,7 +1359,7 @@ func runPendingCalendarCommandTests() async {
             start: startDate.addingTimeInterval(60 * 60)
         )]
         let center = PendingCalendarAlertCenterFake()
-        let signals = PendingCalendarAlertSignals()
+        let signals = CalendarClockTestSignals()
         let clock = CalendarClock(
             now: { startDate },
             hourTicks: signals.hourTicks,

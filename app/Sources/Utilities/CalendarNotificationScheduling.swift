@@ -3,8 +3,8 @@ import Foundation
 /// Rebuilds the next seven days of TimeZoner-owned local notifications from calendar snapshots.
 @MainActor
 public final class CalendarNotificationScheduler {
-    public nonisolated static let defaultLeadMinutes = [30, 10]
-    public nonisolated static let requestIdentifierPrefix = "timezoner.event."
+    public nonisolated static let defaultLeadMinutes = CalendarNotificationContract.defaultLeadMinutes
+    public nonisolated static let requestIdentifierPrefix = CalendarNotificationContract.requestIdentifierPrefix
 
     private let eventReader: any CalendarEventReading
     private let preferenceStore: CalendarPreferenceStore
@@ -20,7 +20,7 @@ public final class CalendarNotificationScheduler {
         self.eventReader = eventReader
         self.preferenceStore = preferenceStore
         self.notificationCenter = notificationCenter
-        leadMinutesProvider = { Self.normalizedLeadMinutes(leadMinutes) }
+        leadMinutesProvider = { CalendarNotificationContract.normalizedLeadMinutes(leadMinutes.map(Optional.some)) }
     }
 
     /// Uses current settings when lead-time changes should reconcile without replacing scheduler ownership.
@@ -33,7 +33,7 @@ public final class CalendarNotificationScheduler {
         self.eventReader = eventReader
         self.preferenceStore = preferenceStore
         self.notificationCenter = notificationCenter
-        leadMinutesProvider = { Self.normalizedLeadMinutes(leadMinutes()) }
+        leadMinutesProvider = { CalendarNotificationContract.normalizedLeadMinutes(leadMinutes().map(Optional.some)) }
     }
 
     /// Fetches and reconciles a scheduler-owned, half-open seven-day horizon from `now`.
@@ -69,7 +69,7 @@ public final class CalendarNotificationScheduler {
         let pending = await notificationCenter.pendingRequests()
         guard await shouldContinue() else { return false }
         let staleIdentifiers = pending.compactMap { request in
-            request.identifier.hasPrefix(Self.requestIdentifierPrefix) && desired[request.identifier] == nil
+            CalendarNotificationContract.owns(requestIdentifier: request.identifier) && desired[request.identifier] == nil
                 ? request.identifier
                 : nil
         }
@@ -100,7 +100,10 @@ public final class CalendarNotificationScheduler {
                 let fireDate = event.startDate.addingTimeInterval(TimeInterval(-leadMinutes * 60))
                 guard fireDate > now else { continue }
 
-                let identifier = "\(Self.requestIdentifierPrefix)\(event.id).\(leadMinutes)"
+                let identifier = CalendarNotificationContract.requestIdentifier(
+                    occurrenceID: event.id,
+                    leadMinutes: leadMinutes
+                )
                 desired[identifier] = CalendarNotificationRequest(
                     identifier: identifier,
                     title: event.title,
@@ -136,9 +139,5 @@ public final class CalendarNotificationScheduler {
             return "BKK"
         }
         return timeZone.abbreviation(for: date) ?? timeZone.identifier
-    }
-
-    private static func normalizedLeadMinutes(_ values: [Int]) -> [Int] {
-        Array(Set(values.filter { (0...1_440).contains($0) })).sorted(by: >)
     }
 }

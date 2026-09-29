@@ -133,15 +133,12 @@ public final class SettingsStore {
            let decoded = try? JSONDecoder().decode([Int].self, from: data) {
             self.notificationLeadMinutes = Self.normalizedNotificationLeadMinutes(decoded.map(Optional.some))
         } else {
-            self.notificationLeadMinutes = [30, 10]
+            self.notificationLeadMinutes = CalendarNotificationContract.defaultLeadMinutes
         }
     }
 
     public static func normalizedNotificationLeadMinutes(_ values: [Int?]) -> [Int] {
-        Array(Set(values.compactMap { value in
-            guard let value, (0...1_440).contains(value) else { return nil }
-            return value
-        })).sorted(by: >)
+        CalendarNotificationContract.normalizedLeadMinutes(values)
     }
 
     public func setNotificationLeadMinutes(_ values: [Int?]) {

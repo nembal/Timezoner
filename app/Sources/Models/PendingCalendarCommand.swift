@@ -3,7 +3,7 @@ import Foundation
 /// Value-only data retained in memory between a TimeZoner alert response and the ready panels.
 /// It intentionally contains neither EventKit values nor persisted notification content.
 public struct PendingCalendarCommand: Equatable, Sendable {
-    public static let notificationRequestPrefix = "timezoner.event."
+    public static let notificationRequestPrefix = CalendarNotificationContract.requestIdentifierPrefix
 
     public let occurrenceID: String
     public let title: String
@@ -20,12 +20,12 @@ public struct PendingCalendarCommand: Equatable, Sendable {
         requestIdentifier: String,
         userInfo: [AnyHashable: Any]
     ) -> PendingCalendarCommand? {
-        guard requestIdentifier.hasPrefix(notificationRequestPrefix),
-              let occurrenceID = userInfo["occurrenceID"] as? String,
+        guard CalendarNotificationContract.owns(requestIdentifier: requestIdentifier),
+              let occurrenceID = userInfo[CalendarNotificationContract.PayloadKey.occurrenceID] as? String,
               !occurrenceID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let title = userInfo["title"] as? String,
+              let title = userInfo[CalendarNotificationContract.PayloadKey.title] as? String,
               !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let timestamp = timestamp(from: userInfo["startTimestamp"]),
+              let timestamp = timestamp(from: userInfo[CalendarNotificationContract.PayloadKey.startTimestamp]),
               timestamp.isFinite else {
             return nil
         }

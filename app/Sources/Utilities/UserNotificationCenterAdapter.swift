@@ -42,11 +42,7 @@ public final class UserNotificationCenterAdapter: CalendarNotificationCenter {
         content.title = request.title
         content.body = request.body
         content.sound = .default
-        content.userInfo = [
-            "occurrenceID": request.userInfo.occurrenceID,
-            "title": request.userInfo.title,
-            "startTimestamp": request.userInfo.startTimestamp
-        ]
+        content.userInfo = CalendarNotificationContract.payload(for: request.userInfo)
 
         var calendar = Calendar.autoupdatingCurrent
         calendar.timeZone = .autoupdatingCurrent
@@ -63,9 +59,9 @@ public final class UserNotificationCenterAdapter: CalendarNotificationCenter {
     }
 
     private func snapshot(from request: UNNotificationRequest) -> CalendarNotificationRequest {
-        let startTimestamp = (request.content.userInfo["startTimestamp"] as? NSNumber)?.doubleValue ?? 0
-        let occurrenceID = request.content.userInfo["occurrenceID"] as? String ?? ""
-        let title = request.content.userInfo["title"] as? String ?? request.content.title
+        let startTimestamp = (request.content.userInfo[CalendarNotificationContract.PayloadKey.startTimestamp] as? NSNumber)?.doubleValue ?? 0
+        let occurrenceID = request.content.userInfo[CalendarNotificationContract.PayloadKey.occurrenceID] as? String ?? ""
+        let title = request.content.userInfo[CalendarNotificationContract.PayloadKey.title] as? String ?? request.content.title
         return CalendarNotificationRequest(
             identifier: request.identifier,
             title: request.content.title,

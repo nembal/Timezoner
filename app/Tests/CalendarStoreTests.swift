@@ -15,6 +15,10 @@ private final class CalendarStoreProviderFake: CalendarEventReading {
     var requestAccessHandler: (() -> Void)?
     private(set) var accessRequestCount = 0
     private(set) var eventRequests: [EventRequest] = []
+    var onMissingEventRequest: (Int) -> Void = { index in
+        testsFailed += 1
+        print("  FAIL: event request \(index) was not recorded")
+    }
 
     let changes: AsyncStream<Void>
     private let changesContinuation: AsyncStream<Void>.Continuation
@@ -66,11 +70,20 @@ private final class CalendarStoreProviderFake: CalendarEventReading {
         _ index: Int,
         with result: Result<[CalendarEventSnapshot], Error>
     ) {
-        guard index < eventContinuations.count, let continuation = eventContinuations[index] else {
+        guard eventContinuations.indices.contains(index), let continuation = eventContinuations[index] else {
+            onMissingEventRequest(index)
             return
         }
         eventContinuations[index] = nil
         continuation.resume(with: result)
+    }
+
+    func eventRequest(at index: Int) -> EventRequest? {
+        guard eventRequests.indices.contains(index) else {
+            onMissingEventRequest(index)
+            return nil
+        }
+        return eventRequests[index]
     }
 
     func emitStoreChange() {
@@ -78,72 +91,10 @@ private final class CalendarStoreProviderFake: CalendarEventReading {
     }
 }
 
-private final class CalendarStoreClockSignals {
-    let minuteTicks: AsyncStream<Void>
-    let midnightTicks: AsyncStream<Void>
-    let hourTicks: AsyncStream<Void>
-    let wakeEvents: AsyncStream<Void>
-    let activationEvents: AsyncStream<Void>
-    let reopenEvents: AsyncStream<Void>
-    let timeZoneChanges: AsyncStream<Void>
-
-    private let minuteContinuation: AsyncStream<Void>.Continuation
-    private let midnightContinuation: AsyncStream<Void>.Continuation
-    private let hourContinuation: AsyncStream<Void>.Continuation
-    private let wakeContinuation: AsyncStream<Void>.Continuation
-    private let activationContinuation: AsyncStream<Void>.Continuation
-    private let reopenContinuation: AsyncStream<Void>.Continuation
-    private let timeZoneContinuation: AsyncStream<Void>.Continuation
-
-    init() {
-        let minute = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(8))
-        minuteTicks = minute.stream
-        minuteContinuation = minute.continuation
-        let midnight = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(8))
-        midnightTicks = midnight.stream
-        midnightContinuation = midnight.continuation
-        let hour = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(8))
-        hourTicks = hour.stream
-        hourContinuation = hour.continuation
-        let wake = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(8))
-        wakeEvents = wake.stream
-        wakeContinuation = wake.continuation
-        let activation = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(8))
-        activationEvents = activation.stream
-        activationContinuation = activation.continuation
-        let reopen = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(8))
-        reopenEvents = reopen.stream
-        reopenContinuation = reopen.continuation
-        let timeZone = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(8))
-        timeZoneChanges = timeZone.stream
-        timeZoneContinuation = timeZone.continuation
-    }
-
-    deinit {
-        [
-            minuteContinuation,
-            midnightContinuation,
-            hourContinuation,
-            wakeContinuation,
-            activationContinuation,
-            reopenContinuation,
-            timeZoneContinuation,
-        ].forEach { $0.finish() }
-    }
-
-    func emitMinuteTick() { minuteContinuation.yield(()) }
-    func emitMidnightTick() { midnightContinuation.yield(()) }
-    func emitHourTick() { hourContinuation.yield(()) }
-    func emitWake() { wakeContinuation.yield(()) }
-    func emitActivation() { activationContinuation.yield(()) }
-    func emitReopen() { reopenContinuation.yield(()) }
-    func emitTimeZoneChange() { timeZoneContinuation.yield(()) }
-}
-
 private func calendarStoreClock(
     now: @escaping () -> Date,
     calendar: @escaping () -> Calendar,
-    signals: CalendarStoreClockSignals
+    signals: CalendarClockTestSignals
 ) -> CalendarClock {
     CalendarClock(
         now: now,
@@ -229,6 +180,14 @@ private func waitForCalendarStore(
 func runCalendarStoreTests() async {
     print("Running CalendarStoreTests...")
 
+    do {
+        let provider = CalendarStoreProviderFake()
+        var missingIndices: [Int] = []
+        provider.onMissingEventRequest = { missingIndices.append($0) }
+        provider.completeEventRequest(0, with: .success([]))
+        expectCalendarStore(missingIndices, [0], "a missing async event request reports a test failure")
+    }
+
     var utcCalendar = Calendar(identifier: .gregorian)
     utcCalendar.locale = Locale(identifier: "en_US_POSIX")
     utcCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
@@ -237,7 +196,7 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         var alertInputChanges = 0
         let store = CalendarStore(
@@ -306,7 +265,7 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let suiteName = "CalendarStoreTests.preferences.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -348,7 +307,7 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
         let oldEvent = calendarStoreEvent(id: "old", start: morning)
@@ -368,7 +327,7 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
         let firstInterval = DateInterval(start: morning, duration: 60 * 60)
@@ -395,7 +354,7 @@ func runCalendarStoreTests() async {
         let hidden = calendarStoreDescriptor(id: "hidden", title: "Hidden")
         let visible = calendarStoreDescriptor(id: "visible", title: "Visible")
         let provider = CalendarStoreProviderFake(descriptors: [hidden, visible])
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let suiteName = "CalendarStoreTests.hidden.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -408,7 +367,7 @@ func runCalendarStoreTests() async {
         store.refresh(interval: initialInterval)
         expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 1 }, "visible-calendar request begins")
         expectCalendarStore(
-            provider.eventRequests[0].calendarIDs,
+            provider.eventRequest(at: 0)?.calendarIDs,
             Set([visible.id]),
             "hidden calendars are excluded from the UI event fetch"
         )
@@ -418,7 +377,7 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
         let firstInterval = DateInterval(start: morning, duration: 60 * 60)
@@ -452,7 +411,7 @@ func runCalendarStoreTests() async {
     do {
         var clockNow = morning
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { clockNow }, calendar: { utcCalendar }, signals: signals)
         let rebuiltInterval: (Date, Calendar) -> DateInterval = { now, calendar in
             CalendarDateIntervalCalculator.interval(for: .today, anchor: now, calendar: calendar)
@@ -468,7 +427,7 @@ func runCalendarStoreTests() async {
         signals.emitMidnightTick()
         expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 2 }, "midnight rebuilds and refetches the active range")
         expectCalendarStore(
-            provider.eventRequests[1].start,
+            provider.eventRequest(at: 1)?.start,
             rebuiltInterval(clockNow, utcCalendar).start,
             "midnight uses the wall clock rather than TimeState's reference date"
         )
@@ -479,7 +438,7 @@ func runCalendarStoreTests() async {
         signals.emitTimeZoneChange()
         expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 3 }, "timezone changes rebuild and refetch the active range")
         expectCalendarStore(
-            provider.eventRequests[2].start,
+            provider.eventRequest(at: 2)?.start,
             rebuiltInterval(clockNow, utcCalendar).start,
             "timezone rebuilding uses the injected wall clock calendar"
         )
@@ -495,7 +454,7 @@ func runCalendarStoreTests() async {
     do {
         var clockNow = morning
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { clockNow }, calendar: { utcCalendar }, signals: signals)
         let suiteName = "CalendarStoreTests.presentation.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -525,12 +484,12 @@ func runCalendarStoreTests() async {
         signals.emitMidnightTick()
         expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 2 }, "midnight refetches while calendar mode is active")
         expectCalendarStore(
-            provider.eventRequests[1].start,
+            provider.eventRequest(at: 1)?.start,
             historicalWeek.start,
             "midnight retains the active calendar range instead of resetting to the agenda range"
         )
         expectCalendarStore(
-            provider.eventRequests[1].end,
+            provider.eventRequest(at: 1)?.end,
             historicalWeek.end,
             "calendar-mode lifecycle refresh retains the active range end"
         )
@@ -541,15 +500,15 @@ func runCalendarStoreTests() async {
         signals.emitTimeZoneChange()
         expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 3 }, "timezone change refetches after returning to TimeZoner")
         let expectedAgenda = CalendarStore.agendaInterval(for: clockNow, calendar: utcCalendar)
-        expectCalendarStore(provider.eventRequests[2].start, expectedAgenda.start, "TimeZoner mode rebuilds the agenda interval")
-        expectCalendarStore(provider.eventRequests[2].end, expectedAgenda.end, "TimeZoner mode uses the agenda interval end")
+        expectCalendarStore(provider.eventRequest(at: 2)?.start, expectedAgenda.start, "TimeZoner mode rebuilds the agenda interval")
+        expectCalendarStore(provider.eventRequest(at: 2)?.end, expectedAgenda.end, "TimeZoner mode uses the agenda interval end")
         provider.completeEventRequest(2, with: .success([]))
         expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "TimeZoner-mode timezone refresh completes")
     }
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let suiteName = "CalendarStoreTests.presentation-refresh.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -568,8 +527,8 @@ func runCalendarStoreTests() async {
         let selectedWeek = presentation.activeInterval(calendar: utcCalendar)
         store.refreshPresentationInterval()
         expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 1 }, "presentation refresh begins for an open calendar range")
-        expectCalendarStore(provider.eventRequests[0].start, selectedWeek.start, "presentation refresh retains the selected Week start")
-        expectCalendarStore(provider.eventRequests[0].end, selectedWeek.end, "presentation refresh retains the selected Week end")
+        expectCalendarStore(provider.eventRequest(at: 0)?.start, selectedWeek.start, "presentation refresh retains the selected Week start")
+        expectCalendarStore(provider.eventRequest(at: 0)?.end, selectedWeek.end, "presentation refresh retains the selected Week end")
         provider.completeEventRequest(0, with: .success([]))
         expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "calendar presentation refresh completes")
 
@@ -577,15 +536,15 @@ func runCalendarStoreTests() async {
         store.refreshPresentationInterval()
         expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 2 }, "presentation refresh starts after returning to TimeZoner")
         let expectedAgenda = CalendarStore.agendaInterval(for: morning, calendar: utcCalendar)
-        expectCalendarStore(provider.eventRequests[1].start, expectedAgenda.start, "returning to TimeZoner refreshes the normal agenda interval")
-        expectCalendarStore(provider.eventRequests[1].end, expectedAgenda.end, "normal agenda refresh uses the three-day interval end")
+        expectCalendarStore(provider.eventRequest(at: 1)?.start, expectedAgenda.start, "returning to TimeZoner refreshes the normal agenda interval")
+        expectCalendarStore(provider.eventRequest(at: 1)?.end, expectedAgenda.end, "normal agenda refresh uses the three-day interval end")
         provider.completeEventRequest(1, with: .success([]))
         expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "normal agenda presentation refresh completes")
     }
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         weak var releasedStore: CalendarStore?
 
@@ -605,7 +564,7 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
 
@@ -632,7 +591,7 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         var permissionLossCount = 0
         var notificationRemovalCount = 0
@@ -678,7 +637,7 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let suiteName = "CalendarStoreTests.permission-composition.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -747,7 +706,7 @@ func runCalendarStoreTests() async {
 
     do {
         let deniedProvider = CalendarStoreProviderFake(authorizationStatus: .denied)
-        let deniedSignals = CalendarStoreClockSignals()
+        let deniedSignals = CalendarClockTestSignals()
         let deniedClock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: deniedSignals)
         let deniedStore = CalendarStore(provider: deniedProvider, clock: deniedClock)
         deniedStore.refreshPresentationInterval()
@@ -759,7 +718,7 @@ func runCalendarStoreTests() async {
     do {
         let provider = CalendarStoreProviderFake(authorizationStatus: .notDetermined)
         provider.requestAccessHandler = { provider.authorizationStatus = .fullAccess }
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
 
@@ -775,7 +734,7 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
         let dayStart = utcCalendar.startOfDay(for: morning)

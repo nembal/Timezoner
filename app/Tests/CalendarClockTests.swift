@@ -11,7 +11,7 @@ private final class CalendarClockNotificationCenterProbe: NotificationCenter, @u
     }
 }
 
-private final class CalendarClockTestSignals {
+final class CalendarClockTestSignals {
     let minuteTicks: AsyncStream<Void>
     let midnightTicks: AsyncStream<Void>
     let hourTicks: AsyncStream<Void>
@@ -28,26 +28,26 @@ private final class CalendarClockTestSignals {
     private let reopenContinuation: AsyncStream<Void>.Continuation
     private let timeZoneContinuation: AsyncStream<Void>.Continuation
 
-    init() {
-        let minute = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+    init(bufferSize: Int = 8) {
+        let minute = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(bufferSize))
         minuteTicks = minute.stream
         minuteContinuation = minute.continuation
-        let midnight = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let midnight = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(bufferSize))
         midnightTicks = midnight.stream
         midnightContinuation = midnight.continuation
-        let hour = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let hour = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(bufferSize))
         hourTicks = hour.stream
         hourContinuation = hour.continuation
-        let wake = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let wake = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(bufferSize))
         wakeEvents = wake.stream
         wakeContinuation = wake.continuation
-        let activation = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let activation = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(bufferSize))
         activationEvents = activation.stream
         activationContinuation = activation.continuation
-        let reopen = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let reopen = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(bufferSize))
         reopenEvents = reopen.stream
         reopenContinuation = reopen.continuation
-        let timeZone = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let timeZone = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(bufferSize))
         timeZoneChanges = timeZone.stream
         timeZoneContinuation = timeZone.continuation
     }
@@ -64,9 +64,9 @@ private final class CalendarClockTestSignals {
         ].forEach { $0.finish() }
     }
 
-    func emitMinute() { minuteContinuation.yield(()) }
-    func emitMidnight() { midnightContinuation.yield(()) }
-    func emitHour() { hourContinuation.yield(()) }
+    func emitMinuteTick() { minuteContinuation.yield(()) }
+    func emitMidnightTick() { midnightContinuation.yield(()) }
+    func emitHourTick() { hourContinuation.yield(()) }
     func emitWake() { wakeContinuation.yield(()) }
     func emitActivation() { activationContinuation.yield(()) }
     func emitReopen() { reopenContinuation.yield(()) }
@@ -141,7 +141,7 @@ func runCalendarClockTests() async {
     var utcCalendar = Calendar(identifier: .gregorian)
     utcCalendar.locale = Locale(identifier: "en_US_POSIX")
     utcCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
-    let signals = CalendarClockTestSignals()
+    let signals = CalendarClockTestSignals(bufferSize: 1)
     let clock = CalendarClock(
         now: { fixedNow },
         calendar: { utcCalendar },
@@ -157,17 +157,17 @@ func runCalendarClockTests() async {
     expectCalendarClock(clock.now(), fixedNow, "the clock exposes the injected wall-clock now")
     expectCalendarClock(clock.calendar.timeZone, utcCalendar.timeZone, "the clock exposes the injected wall-clock calendar")
     expectCalendarClock(
-        await awaitCalendarClockEvent(clock.minuteTicks, emit: signals.emitMinute),
+        await awaitCalendarClockEvent(clock.minuteTicks, emit: signals.emitMinuteTick),
         true,
         "the clock forwards injected minute-boundary ticks"
     )
     expectCalendarClock(
-        await awaitCalendarClockEvent(clock.midnightTicks, emit: signals.emitMidnight),
+        await awaitCalendarClockEvent(clock.midnightTicks, emit: signals.emitMidnightTick),
         true,
         "the clock forwards injected midnight-boundary ticks"
     )
     expectCalendarClock(
-        await awaitCalendarClockEvent(clock.hourTicks, emit: signals.emitHour),
+        await awaitCalendarClockEvent(clock.hourTicks, emit: signals.emitHourTick),
         true,
         "the clock forwards injected hourly-boundary ticks"
     )

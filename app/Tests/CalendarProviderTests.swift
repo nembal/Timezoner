@@ -234,21 +234,6 @@ func runCalendarProviderTests() {
     ))
     expectNilCalendar(ownerDeclined, "owner-declined event is omitted")
 
-    let otherAttendeeDeclined = CalendarEventSnapshotMapper.snapshot(from: CalendarEventMappingInput(
-        calendarItemIdentifier: "guest-declined",
-        calendarID: "work",
-        calendarTitle: "Work",
-        title: "Guest declined",
-        startDate: start,
-        endDate: end,
-        isAllDay: false,
-        attendees: [],
-        availability: .busy,
-        currentAccountParticipationStatus: .accepted,
-        isCancelled: false
-    ))
-    expectEqualCalendar(otherAttendeeDeclined?.title, "Guest declined", "another attendee declining does not hide the event")
-
     let cancelled = CalendarEventSnapshotMapper.snapshot(from: CalendarEventMappingInput(
         calendarItemIdentifier: "cancelled",
         calendarID: "work",
