@@ -85,7 +85,24 @@ func runZoneCardOrderingTests() {
     card.performAccessibilityAction(.moveLater)
     workspaceExpect(store.zones.map(\.label) == ["Paris", "Tokyo"],
                     "the card's later action reorders the real zone store")
-    card.performAccessibilityAction(.remove)
+    let cardAtEnd = ZoneCard(
+        zone: zone,
+        referenceMoment: ReferenceMomentController(timeState: TimeState()),
+        isSource: false,
+        editingZoneId: Binding(get: { editingZoneId }, set: { editingZoneId = $0 }),
+        canMoveEarlier: true,
+        canMoveLater: false,
+        onRemove: { store.remove(id: zone.id) },
+        onMoveEarlier: { store.move(from: IndexSet(integer: 1), to: 0) },
+        onMoveLater: { store.move(from: IndexSet(integer: 1), to: 0) }
+    )
+    cardAtEnd.performAccessibilityAction(.moveEarlier)
+    workspaceExpect(store.zones.map(\.label) == ["Tokyo", "Paris"],
+                    "the available earlier action restores the city's position in the real zone store")
+    cardAtEnd.performAccessibilityAction(.moveLater)
+    workspaceExpect(store.zones.map(\.label) == ["Tokyo", "Paris"],
+                    "an unavailable later action cannot reorder beyond the last card")
+    cardAtEnd.performAccessibilityAction(.remove)
     workspaceExpect(store.zones.map(\.label) == ["Paris"],
                     "the card's remove action removes the city from the real zone store")
 }

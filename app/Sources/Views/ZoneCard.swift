@@ -155,19 +155,41 @@ public struct ZoneCard: View {
         .shadow(color: Theme.shadow, radius: isDragging ? 8 : 3, y: isDragging ? 4 : 2)
         .scaleEffect(isDragging ? 1.03 : 1.0)
         .overlay(alignment: .topTrailing) {
-            if isHovering && !isEditing && !isDragging {
-                Button(action: { performAccessibilityAction(.remove) }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(Theme.textTertiary)
-                        .padding(4)
-                        .background(Theme.background, in: Circle())
+            HStack(spacing: 2) {
+                if isHovering && !isEditing && !isDragging {
+                    Button(action: { performAccessibilityAction(.remove) }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(Theme.textTertiary)
+                            .padding(4)
+                            .background(Theme.background, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove \(zone.label)")
+                    .transition(.opacity)
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Remove \(zone.label)")
-                .padding(6)
-                .transition(.opacity)
+
+                Menu {
+                    Button("Edit time") { performAccessibilityAction(.editTime) }
+                    Button("Remove city") { performAccessibilityAction(.remove) }
+                    Divider()
+                    Button("Move earlier") { performAccessibilityAction(.moveEarlier) }
+                        .disabled(!canMoveEarlier)
+                    Button("Move later") { performAccessibilityAction(.moveLater) }
+                        .disabled(!canMoveLater)
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(Theme.textTertiary)
+                        .frame(width: 20, height: 20)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .accessibilityLabel("Actions for \(zone.label)")
+                .help("Edit, remove, or move \(zone.label)")
             }
+            .padding(6)
         }
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
