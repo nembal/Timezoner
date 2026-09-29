@@ -56,24 +56,6 @@ public final class CalendarStore {
         observeClockAndProvider()
     }
 
-    /// Compatibility for callers that still distinguish the three alert-input sources.
-    public convenience init(
-        provider: any CalendarEventReading,
-        preferenceStore: CalendarPreferenceStore,
-        clock: CalendarClock,
-        onCalendarProviderChange: @escaping @MainActor () -> Void,
-        onHourTick: @escaping @MainActor () -> Void,
-        onTimeZoneChange: @escaping @MainActor () -> Void
-    ) {
-        self.init(provider: provider, preferenceStore: preferenceStore, clock: clock, onAlertInputsChanged: { change in
-            switch change {
-            case .provider: onCalendarProviderChange()
-            case .hour: onHourTick()
-            case .timeZone: onTimeZoneChange()
-            }
-        })
-    }
-
     isolated deinit {
         observationTasks.forEach { $0.cancel() }
     }

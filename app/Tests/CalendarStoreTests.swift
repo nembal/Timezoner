@@ -234,7 +234,7 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        let signals = CalendarStoreClockSignals()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
 

@@ -1378,16 +1378,15 @@ func runPendingCalendarCommandTests() async {
             provider: provider,
             preferenceStore: preferences,
             clock: clock,
-            onCalendarProviderChange: {
-                providerForwards += 1
-                lifecycle?.requestReconciliation()
-            },
-            onHourTick: {
-                hourForwards += 1
-                lifecycle?.requestReconciliation()
-            },
-            onTimeZoneChange: {
-                timeZoneForwards += 1
+            onAlertInputsChanged: { change in
+                switch change {
+                case .provider:
+                    providerForwards += 1
+                case .hour:
+                    hourForwards += 1
+                case .timeZone:
+                    timeZoneForwards += 1
+                }
                 lifecycle?.requestReconciliation()
             }
         )
