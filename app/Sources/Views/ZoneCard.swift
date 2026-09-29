@@ -1,13 +1,24 @@
 import SwiftUI
 
 public struct ZoneCard: View {
+    public enum AccessibilityAction {
+        case editTime
+        case remove
+        case moveEarlier
+        case moveLater
+    }
+
     public let zone: ZoneInfo
     public let referenceMoment: ReferenceMomentController
     public let isSource: Bool
     public let isHighlighted: Bool
     @Binding public var editingZoneId: UUID?
     public let isDragging: Bool
+    public let canMoveEarlier: Bool
+    public let canMoveLater: Bool
     public let onRemove: () -> Void
+    public let onMoveEarlier: () -> Void
+    public let onMoveLater: () -> Void
     public let onDragChanged: (CGSize) -> Void
     public let onDragEnded: () -> Void
 
@@ -30,7 +41,11 @@ public struct ZoneCard: View {
     public init(zone: ZoneInfo, referenceMoment: ReferenceMomentController, isSource: Bool, isHighlighted: Bool = false,
                 editingZoneId: Binding<UUID?>,
                 isDragging: Bool = false,
+                canMoveEarlier: Bool = false,
+                canMoveLater: Bool = false,
                 onRemove: @escaping () -> Void,
+                onMoveEarlier: @escaping () -> Void = {},
+                onMoveLater: @escaping () -> Void = {},
                 onDragChanged: @escaping (CGSize) -> Void = { _ in },
                 onDragEnded: @escaping () -> Void = {}) {
         self.zone = zone
@@ -39,7 +54,11 @@ public struct ZoneCard: View {
         self.isHighlighted = isHighlighted
         self._editingZoneId = editingZoneId
         self.isDragging = isDragging
+        self.canMoveEarlier = canMoveEarlier
+        self.canMoveLater = canMoveLater
         self.onRemove = onRemove
+        self.onMoveEarlier = onMoveEarlier
+        self.onMoveLater = onMoveLater
         self.onDragChanged = onDragChanged
         self.onDragEnded = onDragEnded
     }
@@ -99,21 +118,22 @@ public struct ZoneCard: View {
                         liveUpdate(newValue)
                     }
             } else {
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text(TimeFormatter.formatTimeDigits(date, in: tz))
-                        .font(.system(size: 32, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Theme.textPrimary)
-                        .contentTransition(.numericText())
+                Button {
+                    performAccessibilityAction(.editTime)
+                } label: {
+                    HStack(alignment: .firstTextBaseline, spacing: 3) {
+                        Text(TimeFormatter.formatTimeDigits(date, in: tz))
+                            .font(.system(size: 32, weight: .semibold, design: .rounded))
+                            .foregroundStyle(Theme.textPrimary)
+                            .contentTransition(.numericText())
 
-                    Text(TimeFormatter.formatAmPm(date, in: tz))
-                        .font(.system(size: 16, weight: .medium, design: .rounded))
-                        .foregroundStyle(Theme.textTertiary)
+                        Text(TimeFormatter.formatAmPm(date, in: tz))
+                            .font(.system(size: 16, weight: .medium, design: .rounded))
+                            .foregroundStyle(Theme.textTertiary)
+                    }
                 }
-                .onTapGesture {
-                    editText = ""
-                    editingZoneId = zone.id
-                    editFieldFocused = true
-                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Edit time in \(zone.label)")
             }
 
             // Date
@@ -136,7 +156,7 @@ public struct ZoneCard: View {
         .scaleEffect(isDragging ? 1.03 : 1.0)
         .overlay(alignment: .topTrailing) {
             if isHovering && !isEditing && !isDragging {
-                Button(action: onRemove) {
+                Button(action: { performAccessibilityAction(.remove) }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(Theme.textTertiary)
@@ -144,6 +164,7 @@ public struct ZoneCard: View {
                         .background(Theme.background, in: Circle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityLabel("Remove \(zone.label)")
                 .padding(6)
                 .transition(.opacity)
             }
@@ -152,6 +173,33 @@ public struct ZoneCard: View {
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovering = hovering
             }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(zone.label), \(TimeFormatter.formatTime(date, in: tz)), \(TimeFormatter.formatDate(date, in: tz)), \(TimeFormatter.gmtOffset(for: tz, at: date))")
+        .accessibilityActions {
+            Button("Edit time") { performAccessibilityAction(.editTime) }
+            Button("Remove city") { performAccessibilityAction(.remove) }
+            if canMoveEarlier {
+                Button("Move earlier") { performAccessibilityAction(.moveEarlier) }
+            }
+            if canMoveLater {
+                Button("Move later") { performAccessibilityAction(.moveLater) }
+            }
+        }
+    }
+
+    public func performAccessibilityAction(_ action: AccessibilityAction) {
+        switch action {
+        case .editTime:
+            editText = ""
+            editingZoneId = zone.id
+            editFieldFocused = true
+        case .remove:
+            onRemove()
+        case .moveEarlier:
+            if canMoveEarlier { onMoveEarlier() }
+        case .moveLater:
+            if canMoveLater { onMoveLater() }
         }
     }
 

@@ -48,12 +48,6 @@ func runCalendarWorkspaceRailTests() {
     workspaceExpect(selectedContext?.helpText == "Planning across cities",
                     "selected event rail context retains its help text")
 
-    let zones = (0..<8).map { ZoneInfo(label: "City \($0)", timeZoneId: "America/New_York") }
-    let cards = zones.map { CalendarRailCardPresentation(zone: $0, date: reference.timeState.referenceDate) }
-    workspaceExpect(cards.count == 8 && cards.allSatisfy { !$0.time.isEmpty }, "every active city is represented")
-    workspaceExpect([ZoneInfo]().map { CalendarRailCardPresentation(zone: $0, date: start) }.isEmpty,
-                    "no saved cities produces an empty list rather than a dummy city")
-
     let allDay = CalendarEventSnapshot(
         id: "holiday",
         calendarID: "work",

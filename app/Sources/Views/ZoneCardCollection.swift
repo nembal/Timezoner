@@ -15,6 +15,7 @@ public struct ZoneCardCollection: View {
     public let onMove: (IndexSet, Int) -> Void
 
     @State private var draggingZoneId: UUID?
+    @State private var dragOriginIndex: Int?
     @State private var dragOffset: CGSize = .zero
     @State private var cardSize = CGSize(width: 150, height: 120)
 
@@ -73,11 +74,15 @@ public struct ZoneCardCollection: View {
             isHighlighted: highlightedZoneIds.contains(zone.id),
             editingZoneId: $editingZoneId,
             isDragging: isDragging,
+            canMoveEarlier: index > 0,
+            canMoveLater: index < zones.count - 1,
             onRemove: {
                 withAnimation(.easeInOut(duration: 0.3)) {
                     onRemove(zone.id)
                 }
             },
+            onMoveEarlier: { move(zone: zone, by: -1) },
+            onMoveLater: { move(zone: zone, by: 1) },
             onDragChanged: { translation in
                 handleDrag(index: index, zone: zone, translation: translation)
             },
@@ -100,14 +105,21 @@ public struct ZoneCardCollection: View {
     }
 
     private func handleDrag(index: Int, zone: ZoneInfo, translation: CGSize) {
+        if draggingZoneId != zone.id {
+            dragOriginIndex = index
+        }
         draggingZoneId = zone.id
-        dragOffset = translation
         editingZoneId = nil
 
+        let currentIndex = zones.firstIndex(where: { $0.id == zone.id }) ?? index
+        let originIndex = dragOriginIndex ?? currentIndex
         let primaryTranslation = axis == .horizontal ? translation.width : translation.height
         let slotExtent = axis == .horizontal ? cardSize.width + 36 : cardSize.height + 10
+        let residual = primaryTranslation - CGFloat(currentIndex - originIndex) * slotExtent
+        dragOffset = axis == .horizontal ? CGSize(width: residual, height: 0) : CGSize(width: 0, height: residual)
         guard let destination = ZoneCardOrdering.destination(
-            sourceIndex: index,
+            sourceIndex: currentIndex,
+            originIndex: originIndex,
             translation: primaryTranslation,
             slotExtent: slotExtent,
             count: zones.count
@@ -116,13 +128,25 @@ public struct ZoneCardCollection: View {
         }
 
         withAnimation(.easeInOut(duration: 0.2)) {
+            onMove(IndexSet(integer: currentIndex), destination)
+        }
+        let targetIndex = destination > currentIndex ? destination - 1 : destination
+        let targetResidual = primaryTranslation - CGFloat(targetIndex - originIndex) * slotExtent
+        dragOffset = axis == .horizontal ? CGSize(width: targetResidual, height: 0) : CGSize(width: 0, height: targetResidual)
+    }
+
+    private func move(zone: ZoneInfo, by step: Int) {
+        guard let index = zones.firstIndex(where: { $0.id == zone.id }),
+              (0..<zones.count).contains(index + step) else { return }
+        let destination = step < 0 ? index - 1 : index + 2
+        withAnimation(.easeInOut(duration: 0.2)) {
             onMove(IndexSet(integer: index), destination)
         }
-        dragOffset = .zero
     }
 
     private func endDrag() {
         dragOffset = .zero
+        dragOriginIndex = nil
         withAnimation(.easeOut(duration: 0.15)) {
             draggingZoneId = nil
         }
