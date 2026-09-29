@@ -13,6 +13,7 @@ private final class CalendarNotificationReaderFake: CalendarEventReading {
     let snapshots: [CalendarEventSnapshot]
     let changes: AsyncStream<Void>
     private(set) var eventRequests: [EventRequest] = []
+    var beforeReturningEvents: (() async -> Void)?
 
     init(descriptors: [CalendarDescriptor], snapshots: [CalendarEventSnapshot]) {
         self.descriptors = descriptors
@@ -36,7 +37,33 @@ private final class CalendarNotificationReaderFake: CalendarEventReading {
         calendarIDs: Set<String>
     ) async throws -> [CalendarEventSnapshot] {
         eventRequests.append(EventRequest(start: start, end: end, calendarIDs: calendarIDs))
+        await beforeReturningEvents?()
         return snapshots.filter { calendarIDs.contains($0.calendarID) }
+    }
+}
+
+private final class LeadMinutesThreadProbe: @unchecked Sendable {
+    private let lock = NSLock()
+    private var minutes = [30, 10]
+    private var readWasOnMainThread: Bool?
+
+    func set(_ minutes: [Int]) {
+        lock.lock()
+        self.minutes = minutes
+        lock.unlock()
+    }
+
+    func read() -> [Int] {
+        lock.lock()
+        defer { lock.unlock() }
+        readWasOnMainThread = Thread.isMainThread
+        return minutes
+    }
+
+    func wasReadOnMainThread() -> Bool? {
+        lock.lock()
+        defer { lock.unlock() }
+        return readWasOnMainThread
     }
 }
 
@@ -151,6 +178,7 @@ private func calendarNotificationEvent(
     )
 }
 
+@MainActor
 func runCalendarNotificationTests() async {
     print("Running CalendarNotificationTests...")
 
@@ -444,6 +472,84 @@ func runCalendarNotificationTests() async {
             reader.eventRequests.first?.end,
             Date(timeIntervalSince1970: 1_704_679_200),
             "the notification fetch owns a half-open seven-day horizon"
+        )
+    }
+
+    do {
+        let losAngeles = TimeZone(identifier: "America/Los_Angeles")!
+        let formatter = ISO8601DateFormatter()
+        let winterNow = formatter.date(from: "2027-01-01T00:00:00Z")!
+        let winterEvent = calendarNotificationEvent(
+            id: "winter-la",
+            startDate: formatter.date(from: "2027-01-02T18:00:00Z")!, // 10:00 PST
+            endDate: formatter.date(from: "2027-01-02T19:00:00Z")!
+        )
+        let center = CalendarNotificationCenterFake()
+        let scheduler = CalendarNotificationScheduler(
+            eventReader: CalendarNotificationReaderFake(
+                descriptors: [calendarNotificationDescriptor("work")],
+                snapshots: [winterEvent]
+            ),
+            preferenceStore: preferenceStore(),
+            notificationCenter: center
+        )
+
+        _ = await reconcileCalendarNotifications(scheduler, now: winterNow, timeZone: losAngeles)
+
+        expectCalendarNotificationEqual(
+            center.addedOrReplaced.first?.body,
+            "Starts in 10 min · 10:00 PST",
+            "future winter Los Angeles notification uses the event's PST abbreviation"
+        )
+    }
+
+    do {
+        let preferences = preferenceStore()
+        let leadProbe = LeadMinutesThreadProbe()
+        let entered = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let release = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let reader = CalendarNotificationReaderFake(
+            descriptors: [calendarNotificationDescriptor("work"), calendarNotificationDescriptor("personal")],
+            snapshots: [
+                calendarNotificationEvent(id: "work-while-suspended", calendarID: "work", startDate: now.addingTimeInterval(3_600), endDate: now.addingTimeInterval(7_200)),
+                calendarNotificationEvent(id: "personal-while-suspended", calendarID: "personal", startDate: now.addingTimeInterval(3_600), endDate: now.addingTimeInterval(7_200))
+            ]
+        )
+        reader.beforeReturningEvents = {
+            entered.continuation.yield(())
+            for await _ in release.stream { break }
+        }
+        let center = CalendarNotificationCenterFake()
+        let scheduler = CalendarNotificationScheduler(
+            eventReader: reader,
+            preferenceStore: preferences,
+            notificationCenter: center,
+            leadMinutes: { leadProbe.read() }
+        )
+
+        let reconciliation = Task.detached {
+            try await scheduler.reconcile(now: now, timeZone: bangkok)
+        }
+        for await _ in entered.stream { break }
+        preferences.setAlertsEnabled(false, calendarID: "work")
+        leadProbe.set([5])
+        release.continuation.yield(())
+        do {
+            _ = try await reconciliation.value
+        } catch {
+            testsFailed += 1
+            print("  FAIL suspended reconciliation threw: \(error)")
+        }
+
+        expectCalendarNotificationEqual(
+            center.addedOrReplaced.map(\.identifier),
+            ["timezoner.event.personal-while-suspended.5"],
+            "suspended reconciliation reads edited preferences and lead settings"
+        )
+        expectCalendarNotificationEqual(
+            leadProbe.wasReadOnMainThread(),
+            true,
+            "lead settings are read on the owner actor even when reconciliation begins off actor"
         )
     }
 }

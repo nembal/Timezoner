@@ -1,5 +1,15 @@
+import AppKit
 import Foundation
 import TimeZonerLib
+
+private final class CalendarClockNotificationCenterProbe: NotificationCenter, @unchecked Sendable {
+    private(set) var removedCount = 0
+
+    override func removeObserver(_ observer: Any) {
+        removedCount += 1
+        super.removeObserver(observer)
+    }
+}
 
 private final class CalendarClockTestSignals {
     let minuteTicks: AsyncStream<Void>
@@ -192,5 +202,31 @@ func runCalendarClockTests() async {
         await awaitCalendarClockEvent(productionReopenClock.reopenEvents, emit: productionReopenClock.reopen),
         true,
         "the production clock exposes an AppDelegate-driven reopen signal"
+    )
+
+    let wakeCenter = CalendarClockNotificationCenterProbe()
+    var cleanupClock: CalendarClock? = CalendarClock(
+        now: { fixedNow },
+        calendar: { utcCalendar },
+        minuteTicks: signals.minuteTicks,
+        midnightTicks: signals.midnightTicks,
+        hourTicks: signals.hourTicks,
+        activationEvents: signals.activationEvents,
+        reopenEvents: signals.reopenEvents,
+        timeZoneChanges: signals.timeZoneChanges,
+        wakeNotificationCenter: wakeCenter
+    )
+    expectCalendarClock(
+        await awaitCalendarClockEvent(cleanupClock!.wakeEvents) {
+            wakeCenter.post(name: NSWorkspace.didWakeNotification, object: nil)
+        },
+        true,
+        "the clock receives wake notifications from its registered center"
+    )
+    cleanupClock = nil
+    expectCalendarClock(
+        wakeCenter.removedCount,
+        1,
+        "clock deinit removes wake observer through its registration center"
     )
 }

@@ -1,9 +1,10 @@
 import Foundation
 
 /// Rebuilds the next seven days of TimeZoner-owned local notifications from calendar snapshots.
+@MainActor
 public final class CalendarNotificationScheduler {
-    public static let defaultLeadMinutes = [30, 10]
-    public static let requestIdentifierPrefix = "timezoner.event."
+    public nonisolated static let defaultLeadMinutes = [30, 10]
+    public nonisolated static let requestIdentifierPrefix = "timezoner.event."
 
     private let eventReader: any CalendarEventReading
     private let preferenceStore: CalendarPreferenceStore
@@ -125,16 +126,16 @@ public final class CalendarNotificationScheduler {
     }
 
     private func formattedStart(_ date: Date, timeZone: TimeZone) -> String {
-        "\(TimeFormatter.formatTimeEditable(date, in: timeZone)) \(timeZoneLabel(for: timeZone))"
+        "\(TimeFormatter.formatTimeEditable(date, in: timeZone)) \(timeZoneLabel(for: timeZone, at: date))"
     }
 
-    private func timeZoneLabel(for timeZone: TimeZone) -> String {
+    private func timeZoneLabel(for timeZone: TimeZone, at date: Date) -> String {
         // DateFormatter exposes Bangkok as "GMT+7" on macOS, while the product's compact
         // time input and notification copy use the familiar BKK label.
         if timeZone.identifier == "Asia/Bangkok" {
             return "BKK"
         }
-        return timeZone.abbreviation() ?? timeZone.identifier
+        return timeZone.abbreviation(for: date) ?? timeZone.identifier
     }
 
     private static func normalizedLeadMinutes(_ values: [Int]) -> [Int] {

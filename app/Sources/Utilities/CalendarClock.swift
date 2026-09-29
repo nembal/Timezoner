@@ -17,7 +17,7 @@ public final class CalendarClock {
 
     private let calendarProvider: () -> Calendar
     private var continuations: [AsyncStream<Void>.Continuation] = []
-    private var observerTokens: [NSObjectProtocol] = []
+    private var observerTokens: [(center: NotificationCenter, token: NSObjectProtocol)] = []
     private var timers: [DispatchSourceTimer] = []
     private var reopenContinuation: AsyncStream<Void>.Continuation?
 
@@ -30,7 +30,8 @@ public final class CalendarClock {
         wakeEvents: AsyncStream<Void>? = nil,
         activationEvents: AsyncStream<Void>? = nil,
         reopenEvents: AsyncStream<Void>? = nil,
-        timeZoneChanges: AsyncStream<Void>? = nil
+        timeZoneChanges: AsyncStream<Void>? = nil,
+        wakeNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter
     ) {
         self.now = now
         calendarProvider = calendar
@@ -123,7 +124,7 @@ public final class CalendarClock {
         }
         if let wakeContinuation {
             observe(
-                NSWorkspace.shared.notificationCenter,
+                wakeNotificationCenter,
                 name: NSWorkspace.didWakeNotification,
                 continuation: wakeContinuation
             )
@@ -145,7 +146,7 @@ public final class CalendarClock {
     }
 
     deinit {
-        observerTokens.forEach(NotificationCenter.default.removeObserver)
+        observerTokens.forEach { $0.center.removeObserver($0.token) }
         timers.forEach { $0.cancel() }
         continuations.forEach { $0.finish() }
     }
@@ -170,7 +171,7 @@ public final class CalendarClock {
         let token = center.addObserver(forName: name, object: nil, queue: .main) { _ in
             continuation.yield(())
         }
-        observerTokens.append(token)
+        observerTokens.append((center, token))
     }
 
     private func scheduleWallClockTimer(

@@ -51,16 +51,14 @@ public struct TimeFormatter {
 
     /// "GMT+7" or "GMT-8" -- timezone offset label
     public static func gmtOffset(for zone: TimeZone, at date: Date) -> String {
-        let seconds = zone.secondsFromGMT(for: date)
-        let hours = Double(seconds) / 3600.0
-        if hours == hours.rounded() {
-            let h = Int(hours)
-            return h >= 0 ? "GMT+\(h)" : "GMT\(h)"
-        } else {
-            return hours >= 0
-                ? String(format: "GMT+%.1f", hours)
-                : String(format: "GMT%.1f", hours)
-        }
+        let totalMinutes = zone.secondsFromGMT(for: date) / 60
+        let absoluteMinutes = abs(totalMinutes)
+        let sign = totalMinutes < 0 ? "-" : "+"
+        let hours = absoluteMinutes / 60
+        let minutes = absoluteMinutes % 60
+        return minutes == 0
+            ? "GMT\(sign)\(hours)"
+            : String(format: "GMT%@%d:%02d", sign, hours, minutes)
     }
 
     /// "11:30" -- for editable text field (24h format)
@@ -77,23 +75,22 @@ public struct TimeFormatter {
     public static func relativeOffset(from: TimeZone, to: TimeZone, at date: Date) -> String {
         let fromSeconds = from.secondsFromGMT(for: date)
         let toSeconds = to.secondsFromGMT(for: date)
-        let diffSeconds = toSeconds - fromSeconds
-        let diffHours = Double(diffSeconds) / 3600.0
+        let diffMinutes = (toSeconds - fromSeconds) / 60
+        let absoluteMinutes = abs(diffMinutes)
+        let sign = diffMinutes < 0 ? "-" : "+"
 
-        if diffHours.truncatingRemainder(dividingBy: 1) == 0 {
-            let intHours = Int(diffHours)
-            return intHours >= 0 ? "+\(intHours)h" : "\(intHours)h"
+        if absoluteMinutes % 60 == 0 {
+            return "\(sign)\(absoluteMinutes / 60)h"
+        }
+        if absoluteMinutes % 15 == 0 {
+            return "\(sign)\(formatFractionalHours(absoluteMinutes))h"
         } else {
-            let formatted = formatFractionalHours(abs(diffHours))
-            return diffHours >= 0 ? "+\(formatted)h" : "-\(formatted)h"
+            return "\(sign)\(absoluteMinutes / 60)h\(absoluteMinutes % 60)m"
         }
     }
 
-    private static func formatFractionalHours(_ hours: Double) -> String {
-        let formatted = String(format: "%.1f", hours)
-        if formatted.hasSuffix(".0") {
-            return String(formatted.dropLast(2))
-        }
-        return formatted
+    private static func formatFractionalHours(_ minutes: Int) -> String {
+        let formatted = String(format: "%.2f", Double(minutes) / 60.0)
+        return formatted.hasSuffix("0") ? String(formatted.dropLast()) : formatted
     }
 }
