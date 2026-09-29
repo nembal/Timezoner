@@ -63,6 +63,7 @@ public struct TimezoneMapView: View {
     public let highlightedZoneIds: Set<UUID>
     public let mapPresentation: CalendarPresentationState
     public var onManualMapToggle: () -> Void
+    public var onMapExpansionWillChange: () -> Void
     public var onAddZone: ((String, String) -> Void)?
     public var onOwnedPopoverChanged: (Bool) -> Void
 
@@ -76,6 +77,7 @@ public struct TimezoneMapView: View {
     public init(zones: [ZoneInfo], timeState: TimeState, highlightedZoneIds: Set<UUID>,
                 mapPresentation: CalendarPresentationState,
                 onManualMapToggle: @escaping () -> Void = {},
+                onMapExpansionWillChange: @escaping () -> Void = {},
                 onAddZone: ((String, String) -> Void)? = nil,
                 onOwnedPopoverChanged: @escaping (Bool) -> Void) {
         self.zones = zones
@@ -83,6 +85,7 @@ public struct TimezoneMapView: View {
         self.highlightedZoneIds = highlightedZoneIds
         self.mapPresentation = mapPresentation
         self.onManualMapToggle = onManualMapToggle
+        self.onMapExpansionWillChange = onMapExpansionWillChange
         self.onAddZone = onAddZone
         self.onOwnedPopoverChanged = onOwnedPopoverChanged
     }
@@ -139,6 +142,9 @@ public struct TimezoneMapView: View {
         VStack(spacing: 0) {
             // Toggle — full-width hit target
             Button(action: {
+                if !mapPresentation.isMapExpanded {
+                    onMapExpansionWillChange()
+                }
                 withAnimation(.easeInOut(duration: 0.25)) {
                     if mapPresentation.isMapExpanded {
                         setZoneBrowserPresented(false)

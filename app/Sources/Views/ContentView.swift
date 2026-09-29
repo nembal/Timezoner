@@ -77,17 +77,14 @@ public struct ContentView: View {
         referenceMoment.timeState
     }
 
-    private var idealWidth: CGFloat {
-        CalendarPanelMetrics.normalWidth(cityCount: zoneStore.zones.count)
-    }
-
     private var isTimeAdjusted: Bool {
         !timeState.isLive
     }
 
-    private var timeZonerPanelHeight: CGFloat {
-        CalendarPanelMetrics.timeZonerHeight(
-            mapExpanded: presentation.isMapExpanded,
+    private func timeZonerPanelSize(mapExpanded: Bool) -> CGSize {
+        CalendarPanelMetrics.timeZonerSize(
+            cityCount: zoneStore.zones.count,
+            mapExpanded: mapExpanded,
             hasSelectedEvent: referenceMoment.selectedEvent != nil
         )
     }
@@ -172,6 +169,9 @@ public struct ContentView: View {
                 mapPresentation: presentation,
                 onManualMapToggle: {
                     referenceMoment.didManuallyToggleMap()
+                },
+                onMapExpansionWillChange: {
+                    resizeTimeZonerPanel(mapExpanded: true)
                 },
                 onAddZone: { label, ianaId in
                     withAnimation(.easeInOut(duration: 0.3)) {
@@ -304,8 +304,13 @@ public struct ContentView: View {
         guard presentation.destination == .timezoner else { return }
         DispatchQueue.main.async {
             guard presentation.destination == .timezoner else { return }
-            panelController?.resizeMain(to: CGSize(width: idealWidth, height: timeZonerPanelHeight))
+            resizeTimeZonerPanel(mapExpanded: presentation.isMapExpanded)
         }
+    }
+
+    private func resizeTimeZonerPanel(mapExpanded: Bool) {
+        guard presentation.destination == .timezoner else { return }
+        panelController?.resizeMain(to: timeZonerPanelSize(mapExpanded: mapExpanded))
     }
 
     private func ensureDefaultSource() {

@@ -40,4 +40,15 @@ public enum CalendarPanelMetrics {
         guard !mapExpanded else { return preferredHeight }
         return hasSelectedEvent ? compactTimeZonerHeightWithEventContext : compactTimeZonerHeight
     }
+
+    public static func timeZonerSize(
+        cityCount: Int,
+        mapExpanded: Bool,
+        hasSelectedEvent: Bool
+    ) -> CGSize {
+        CGSize(
+            width: normalWidth(cityCount: cityCount),
+            height: timeZonerHeight(mapExpanded: mapExpanded, hasSelectedEvent: hasSelectedEvent)
+        )
+    }
 }

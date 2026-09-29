@@ -30,4 +30,9 @@ func runCalendarWorkspaceContractsTests() {
         CalendarPanelMetrics.timeZonerHeight(mapExpanded: false, hasSelectedEvent: true) == 310,
         "a collapsed map still reserves room for a selected event context"
     )
+    workspaceExpect(
+        CalendarPanelMetrics.timeZonerSize(cityCount: 4, mapExpanded: true, hasSelectedEvent: false)
+            == CGSize(width: 768, height: 580),
+        "map expansion can resize the TimeZoner panel to its final size before content is inserted"
+    )
 }
