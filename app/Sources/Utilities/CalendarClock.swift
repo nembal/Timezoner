@@ -14,6 +14,7 @@ public final class CalendarClock {
     public let activationEvents: AsyncStream<Void>
     public let reopenEvents: AsyncStream<Void>
     public let timeZoneChanges: AsyncStream<Void>
+    public let systemClockChanges: AsyncStream<Void>
 
     private let calendarProvider: () -> Calendar
     private var continuations: [AsyncStream<Void>.Continuation] = []
@@ -32,6 +33,7 @@ public final class CalendarClock {
         activationEvents: AsyncStream<Void>? = nil,
         reopenEvents: AsyncStream<Void>? = nil,
         timeZoneChanges: AsyncStream<Void>? = nil,
+        systemClockChanges: AsyncStream<Void>? = nil,
         wakeNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
         scheduleTimer: @escaping (DispatchSourceTimer, TimeInterval) -> Void = { timer, delay in
             timer.schedule(deadline: .now() + delay, repeating: .never)
@@ -46,6 +48,7 @@ public final class CalendarClock {
         var wakeContinuation: AsyncStream<Void>.Continuation?
         var activationContinuation: AsyncStream<Void>.Continuation?
         var timeZoneContinuation: AsyncStream<Void>.Continuation?
+        var systemClockContinuation: AsyncStream<Void>.Continuation?
 
         if let minuteTicks {
             self.minuteTicks = minuteTicks
@@ -110,6 +113,15 @@ public final class CalendarClock {
             timeZoneContinuation = stream.continuation
         }
 
+        if let systemClockChanges {
+            self.systemClockChanges = systemClockChanges
+        } else {
+            let stream = Self.makeStream()
+            self.systemClockChanges = stream.stream
+            continuations.append(stream.continuation)
+            systemClockContinuation = stream.continuation
+        }
+
         if let minuteContinuation {
             scheduleWallClockTimer(minuteContinuation, matching: DateComponents(second: 0))
         }
@@ -156,6 +168,7 @@ public final class CalendarClock {
             queue: .main
         ) { [weak self] _ in
             self?.rescheduleWallClockTimers()
+            systemClockContinuation?.yield(())
         }
         observerTokens.append((NotificationCenter.default, systemClockToken))
     }

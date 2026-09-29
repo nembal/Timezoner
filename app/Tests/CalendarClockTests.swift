@@ -112,6 +112,18 @@ private func awaitCalendarClockEvent(
     return received
 }
 
+@MainActor
+private func awaitCalendarClockScheduleCount(
+    _ count: Int,
+    scheduledDelays: () -> [TimeInterval]
+) async {
+    for _ in 0 ..< 200 {
+        if scheduledDelays().count >= count { return }
+        await Task.yield()
+    }
+}
+
+@MainActor
 func runCalendarClockTests() async {
     print("Running CalendarClockTests...")
 
@@ -129,11 +141,13 @@ func runCalendarClockTests() async {
     scheduledDelays.removeAll()
     boundaryCalendar.timeZone = TimeZone(secondsFromGMT: 7 * 3_600)!
     NotificationCenter.default.post(name: .NSSystemTimeZoneDidChange, object: nil)
+    await awaitCalendarClockScheduleCount(3) { scheduledDelays }
     expectCalendarClock(scheduledDelays, [30, 15_930, 1_530], "timezone changes recalculate every wall-clock deadline")
 
     scheduledDelays.removeAll()
     boundaryNow = ISO8601DateFormatter().date(from: "2024-01-01T12:50:40Z")!
     NotificationCenter.default.post(name: .NSSystemClockDidChange, object: nil)
+    await awaitCalendarClockScheduleCount(3) { scheduledDelays }
     expectCalendarClock(scheduledDelays, [20, 14_960, 560], "system-clock changes recalculate every wall-clock deadline")
     withExtendedLifetime(boundaryClock) {}
 

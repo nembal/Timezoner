@@ -10,6 +10,7 @@ public final class CalendarStore {
         case provider
         case hour
         case timeZone
+        case systemClock
     }
     public typealias AlertInputTrigger = @MainActor (AlertInputChange) -> Void
 
@@ -298,6 +299,13 @@ public final class CalendarStore {
                     guard !Task.isCancelled else { return }
                     self?.refreshForWallClockRangeChange()
                     self?.onAlertInputsChanged(.timeZone)
+                }
+            },
+            Task { [weak self, clock] in
+                for await _ in clock.systemClockChanges {
+                    guard !Task.isCancelled else { return }
+                    self?.refreshForWallClockRangeChange()
+                    self?.onAlertInputsChanged(.systemClock)
                 }
             },
             Task { [weak self, clock] in

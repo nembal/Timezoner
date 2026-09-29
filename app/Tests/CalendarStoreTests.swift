@@ -235,6 +235,36 @@ func runCalendarStoreTests() async {
     do {
         let provider = CalendarStoreProviderFake()
         let signals = CalendarClockTestSignals()
+        var wallClockNow = morning
+        let clock = calendarStoreClock(now: { wallClockNow }, calendar: { utcCalendar }, signals: signals)
+        var alertInputChanges = 0
+        let store = CalendarStore(
+            provider: provider,
+            clock: clock,
+            intervalBuilder: { now, _ in DateInterval(start: now, duration: 60 * 60) },
+            onAlertInputsChanged: { _ in alertInputChanges += 1 }
+        )
+        store.refresh(interval: initialInterval)
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 1 }, "clock-correction setup fetch begins")
+        provider.completeEventRequest(0, with: .success([]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "clock-correction setup fetch completes")
+
+        wallClockNow = morning.addingTimeInterval(2 * 24 * 60 * 60)
+        NotificationCenter.default.post(name: .NSSystemClockDidChange, object: nil)
+        expectCalendarStoreTrue(
+            await waitForCalendarStore { store.currentDate == wallClockNow && provider.eventRequests.count == 2 },
+            "system-clock correction updates today and refreshes the presentation range"
+        )
+        expectCalendarStore(provider.eventRequest(at: 1)?.start, wallClockNow, "clock correction fetches the corrected range")
+        expectCalendarStore(alertInputChanges, 1, "one clock correction requests one alert reconciliation")
+        provider.completeEventRequest(1, with: .success([]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "clock-correction refresh completes")
+        expectCalendarStore(provider.eventRequests.count, 2, "one clock correction does not duplicate presentation fetches")
+    }
+
+    do {
+        let provider = CalendarStoreProviderFake()
+        let signals = CalendarClockTestSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
 

@@ -1360,8 +1360,9 @@ func runPendingCalendarCommandTests() async {
         )]
         let center = PendingCalendarAlertCenterFake()
         let signals = CalendarClockTestSignals()
+        var wallClockNow = startDate
         let clock = CalendarClock(
-            now: { startDate },
+            now: { wallClockNow },
             hourTicks: signals.hourTicks,
             timeZoneChanges: signals.timeZoneChanges
         )
@@ -1374,19 +1375,16 @@ func runPendingCalendarCommandTests() async {
         var providerForwards = 0
         var hourForwards = 0
         var timeZoneForwards = 0
+        var totalForwards = 0
         let calendarStore = CalendarStore(
             provider: provider,
             preferenceStore: preferences,
             clock: clock,
             onAlertInputsChanged: { change in
-                switch change {
-                case .provider:
-                    providerForwards += 1
-                case .hour:
-                    hourForwards += 1
-                case .timeZone:
-                    timeZoneForwards += 1
-                }
+                totalForwards += 1
+                if case .provider = change { providerForwards += 1 }
+                if case .hour = change { hourForwards += 1 }
+                if case .timeZone = change { timeZoneForwards += 1 }
                 lifecycle?.requestReconciliation()
             }
         )
@@ -1463,6 +1461,32 @@ func runPendingCalendarCommandTests() async {
             Set(provider.requests.map { $0.end.timeIntervalSince($0.start) }),
             Set([3 * 24 * 60 * 60, 7 * 24 * 60 * 60]),
             "timezone changes complete the refreshed presentation and seven-day alert fetches"
+        )
+
+        provider.clearRequests()
+        wallClockNow = startDate.addingTimeInterval(2 * 24 * 60 * 60)
+        NotificationCenter.default.post(name: .NSSystemClockDidChange, object: nil)
+        let clockChangeCompleted = await provider.waitForRequestCount(2)
+        expectPendingCalendarCommandTrue(
+            clockChangeCompleted,
+            "clock-correction fan-out records both required fetches within the completion timeout"
+        )
+        expectPendingCalendarCommand(calendarStore.currentDate, wallClockNow, "clock correction updates the presented current date")
+        expectPendingCalendarCommand(totalForwards, 4, "one clock correction forwards one alert reconciliation")
+        expectPendingCalendarCommand(
+            provider.requests.count,
+            2,
+            "one clock correction records exactly one presentation and one alert fetch"
+        )
+        expectPendingCalendarCommand(
+            Set(provider.requests.map { $0.end.timeIntervalSince($0.start) }),
+            Set([3 * 24 * 60 * 60, 7 * 24 * 60 * 60]),
+            "clock correction completes the corrected presentation and seven-day alert fetches"
+        )
+        expectPendingCalendarCommand(
+            provider.requests.first(where: { $0.end.timeIntervalSince($0.start) == 7 * 24 * 60 * 60 })?.start,
+            wallClockNow,
+            "clock correction reconciles alerts from the corrected instant"
         )
     }
 }
