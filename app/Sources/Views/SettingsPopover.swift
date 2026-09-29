@@ -1,6 +1,16 @@
 import AppKit
 import SwiftUI
 
+public enum AppearanceAccessibility {
+    public static func value(for appearance: SettingsStore.AppearancePref) -> String {
+        switch appearance {
+        case .system: "System"
+        case .light: "Light"
+        case .dark: "Dark"
+        }
+    }
+}
+
 public struct SettingsPopover: View {
     @Bindable var settings: SettingsStore
     public let calendarStore: CalendarStore
@@ -64,13 +74,15 @@ public struct SettingsPopover: View {
     private var appearanceSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             sectionTitle("Appearance")
-            Picker("", selection: $settings.appearance) {
+            Picker("Appearance", selection: $settings.appearance) {
                 Text("System").tag(SettingsStore.AppearancePref.system)
                 Text("Light").tag(SettingsStore.AppearancePref.light)
                 Text("Dark").tag(SettingsStore.AppearancePref.dark)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
+            .accessibilityLabel("Appearance")
+            .accessibilityValue(AppearanceAccessibility.value(for: settings.appearance))
         }
     }
 

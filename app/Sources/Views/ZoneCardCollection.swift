@@ -1,5 +1,21 @@
 import SwiftUI
 
+public struct ZoneCardDragMeasurement {
+    public enum Axis { case horizontal, vertical }
+    public private(set) var size = CGSize(width: 150, height: 120)
+
+    public init() {}
+
+    public mutating func update(_ newSize: CGSize) {
+        guard newSize.width > 0, newSize.height > 0 else { return }
+        size = newSize
+    }
+
+    public func slotExtent(for axis: Axis) -> CGFloat {
+        axis == .horizontal ? size.width + 36 : size.height + 10
+    }
+}
+
 public struct ZoneCardCollection: View {
     public enum Axis: Equatable {
         case horizontal
@@ -17,7 +33,7 @@ public struct ZoneCardCollection: View {
     @State private var draggingZoneId: UUID?
     @State private var dragOriginIndex: Int?
     @State private var dragOffset: CGSize = .zero
-    @State private var cardSize = CGSize(width: 150, height: 120)
+    @State private var cardMeasurement = ZoneCardDragMeasurement()
 
     private var timeState: TimeState {
         referenceMoment.timeState
@@ -97,7 +113,10 @@ public struct ZoneCardCollection: View {
         .background(
             GeometryReader { geo in
                 Color.clear.onAppear {
-                    cardSize = geo.size
+                    cardMeasurement.update(geo.size)
+                }
+                .onChange(of: geo.size) { _, newSize in
+                    cardMeasurement.update(newSize)
                 }
             }
         )
@@ -114,7 +133,7 @@ public struct ZoneCardCollection: View {
         let currentIndex = zones.firstIndex(where: { $0.id == zone.id }) ?? index
         let originIndex = dragOriginIndex ?? currentIndex
         let primaryTranslation = axis == .horizontal ? translation.width : translation.height
-        let slotExtent = axis == .horizontal ? cardSize.width + 36 : cardSize.height + 10
+        let slotExtent = cardMeasurement.slotExtent(for: axis == .horizontal ? .horizontal : .vertical)
         let residual = primaryTranslation - CGFloat(currentIndex - originIndex) * slotExtent
         dragOffset = axis == .horizontal ? CGSize(width: residual, height: 0) : CGSize(width: 0, height: residual)
         guard let destination = ZoneCardOrdering.destination(

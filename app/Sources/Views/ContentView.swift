@@ -1,13 +1,36 @@
 import SwiftUI
 
+@Observable
+@MainActor
+public final class ZoneHighlightCoordinator {
+    public private(set) var ids: Set<UUID> = []
+    @ObservationIgnored private var clearTask: Task<Void, Never>?
+
+    public init() {}
+
+    public func show(_ ids: Set<UUID>, clearAfter delay: Duration = .seconds(3)) {
+        clearTask?.cancel()
+        withAnimation(.easeInOut(duration: 0.2)) {
+            self.ids = ids
+        }
+        clearTask = Task { [weak self] in
+            do { try await Task.sleep(for: delay) }
+            catch { return }
+            guard !Task.isCancelled else { return }
+            withAnimation(.easeInOut(duration: 0.5)) {
+                self?.ids = []
+            }
+        }
+    }
+}
+
 public struct ContentView: View {
     @State private var referenceMoment: ReferenceMomentController
     @State private var presentation: CalendarPresentationState
     @State private var zoneStore: ZoneStore
     @State private var calendarStore: CalendarStore
     @State private var editingZoneId: UUID? = nil
-    @State private var highlightedZoneIds: Set<UUID> = []
-    @State private var highlightClearToken = UUID()
+    @State private var zoneHighlights = ZoneHighlightCoordinator()
     @AccessibilityFocusState private var selectedEventContextFocused: Bool
     private let settings: SettingsStore
     private let calendarPreferences: CalendarPreferenceStore
@@ -83,7 +106,7 @@ public struct ContentView: View {
                 referenceMoment: referenceMoment,
                 zoneStore: zoneStore,
                 editingZoneId: $editingZoneId,
-                highlightedZoneIds: $highlightedZoneIds
+                highlights: zoneHighlights
             )
             .frame(maxWidth: .infinity)
             .layoutPriority(1)
@@ -125,7 +148,7 @@ public struct ContentView: View {
                 zones: zoneStore.zones,
                 referenceMoment: referenceMoment,
                 editingZoneId: $editingZoneId,
-                highlightedZoneIds: highlightedZoneIds,
+                highlightedZoneIds: zoneHighlights.ids,
                 onRemove: { id in
                     withAnimation(.easeInOut(duration: 0.3)) {
                         zoneStore.remove(id: id)
@@ -139,7 +162,7 @@ public struct ContentView: View {
             TimezoneMapView(
                 zones: zoneStore.zones,
                 timeState: timeState,
-                highlightedZoneIds: highlightedZoneIds,
+                highlightedZoneIds: zoneHighlights.ids,
                 mapPresentation: presentation,
                 onManualMapToggle: {
                     referenceMoment.didManuallyToggleMap()
@@ -182,7 +205,7 @@ public struct ContentView: View {
                     referenceMoment: referenceMoment,
                     presentation: presentation,
                     editingZoneId: $editingZoneId,
-                    highlightedZoneIds: highlightedZoneIds,
+                    highlightedZoneIds: zoneHighlights.ids,
                     onRemove: { id in
                         withAnimation(.easeInOut(duration: 0.3)) {
                             zoneStore.remove(id: id)
@@ -358,17 +381,7 @@ public struct ContentView: View {
 
     private func highlightZones(matchingZoneID zoneID: String) {
         let ids = Set(zoneStore.zones.filter { $0.timeZoneId == zoneID }.map(\.id))
-        let token = UUID()
-        highlightClearToken = token
-        withAnimation(.easeInOut(duration: 0.2)) {
-            highlightedZoneIds = ids
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            guard highlightClearToken == token else { return }
-            withAnimation(.easeInOut(duration: 0.5)) {
-                highlightedZoneIds = []
-            }
-        }
+        zoneHighlights.show(ids)
     }
 
     private func focusChatField() {

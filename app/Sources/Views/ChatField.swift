@@ -4,7 +4,7 @@ public struct ChatField: View {
     public let referenceMoment: ReferenceMomentController
     public let zoneStore: ZoneStore
     @Binding public var editingZoneId: UUID?
-    @Binding public var highlightedZoneIds: Set<UUID>
+    public let highlights: ZoneHighlightCoordinator
 
     @State private var inputText = ""
     @State private var shakeOffset: CGFloat = 0
@@ -14,11 +14,11 @@ public struct ChatField: View {
         referenceMoment.timeState
     }
 
-    public init(referenceMoment: ReferenceMomentController, zoneStore: ZoneStore, editingZoneId: Binding<UUID?>, highlightedZoneIds: Binding<Set<UUID>>) {
+    public init(referenceMoment: ReferenceMomentController, zoneStore: ZoneStore, editingZoneId: Binding<UUID?>, highlights: ZoneHighlightCoordinator) {
         self.referenceMoment = referenceMoment
         self.zoneStore = zoneStore
         self._editingZoneId = editingZoneId
-        self._highlightedZoneIds = highlightedZoneIds
+        self.highlights = highlights
     }
 
     /// The active zone: whatever was last edited, or the first zone as default
@@ -136,15 +136,7 @@ public struct ChatField: View {
         let ids = Set(zones.compactMap { tz in
             zoneStore.zones.first(where: { $0.timeZoneId == tz.identifier })?.id
         })
-        withAnimation(.easeInOut(duration: 0.2)) {
-            highlightedZoneIds = ids
-        }
-        // Clear after 3 seconds
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            withAnimation(.easeInOut(duration: 0.5)) {
-                highlightedZoneIds = []
-            }
-        }
+        highlights.show(ids)
     }
 
     /// Adds the zone to the store if it's not already present

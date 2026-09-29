@@ -42,6 +42,7 @@ public struct HotkeyRecorderField: NSViewRepresentable {
             label.translatesAutoresizingMaskIntoConstraints = false
             label.font = .systemFont(ofSize: 13, weight: .medium)
             label.alignment = .center
+            label.setAccessibilityElement(false)
             addSubview(label)
             NSLayoutConstraint.activate([
                 label.centerXAnchor.constraint(equalTo: centerXAnchor),
@@ -56,6 +57,18 @@ public struct HotkeyRecorderField: NSViewRepresentable {
 
         public override var acceptsFirstResponder: Bool { true }
         public override var canBecomeKeyView: Bool { true }
+        public override func isAccessibilityElement() -> Bool { true }
+        public override func accessibilityRole() -> NSAccessibility.Role? { .button }
+        public override func accessibilityLabel() -> String? { "Global hotkey" }
+        public override func accessibilityValue() -> Any? { label.stringValue }
+        public override func accessibilityHelp() -> String? {
+            capturing ? "Press a key combination to record it, or Escape to cancel" : "Press to record a global hotkey"
+        }
+        public override func accessibilityPerformPress() -> Bool {
+            window?.makeFirstResponder(self)
+            capturing = true
+            return true
+        }
 
         public override func mouseDown(with event: NSEvent) {
             if !capturing {
@@ -99,7 +112,7 @@ public struct HotkeyRecorderField: NSViewRepresentable {
             applyColors()
         }
 
-        func render(_ shortcut: SettingsStore.Shortcut?) {
+        public func render(_ shortcut: SettingsStore.Shortcut?) {
             current = shortcut
             refreshLabel()
         }

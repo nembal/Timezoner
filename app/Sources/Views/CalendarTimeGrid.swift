@@ -1,6 +1,34 @@
 import Foundation
 import SwiftUI
 
+public enum CalendarGridAccessibility {
+    private static func formatter(_ format: String, calendar: Calendar) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.calendar = calendar
+        formatter.locale = calendar.locale ?? .current
+        formatter.timeZone = calendar.timeZone
+        formatter.dateFormat = format
+        return formatter
+    }
+
+    public static func eventLabel(_ event: CalendarEventSnapshot, calendar: Calendar) -> String {
+        let date = formatter("EEE, MMM d", calendar: calendar).string(from: event.startDate)
+        let time = formatter("h:mm a z", calendar: calendar)
+        return "\(event.title), \(date), \(time.string(from: event.startDate)) to \(time.string(from: event.endDate)), \(event.calendarTitle)"
+    }
+
+    public static func allDayLabel(_ event: CalendarEventSnapshot, calendar: Calendar) -> String {
+        let date = formatter("EEE, MMM d", calendar: calendar).string(from: event.startDate)
+        return "\(event.title), all-day, \(date), \(event.calendarTitle)"
+    }
+
+    public static func overlapLabel(_ group: CalendarGridTimedGroup, calendar: Calendar) -> String {
+        let date = formatter("EEE, MMM d", calendar: calendar).string(from: group.startDate)
+        let time = formatter("h:mm a z", calendar: calendar)
+        return "\(group.segments.count) overlapping events, \(date), \(time.string(from: group.startDate)) to \(time.string(from: group.endDate))"
+    }
+}
+
 public struct CalendarGridTimedFrame: Equatable, Sendable {
     public let x: CGFloat
     public let y: CGFloat
@@ -640,7 +668,7 @@ public struct CalendarTimeGrid: View {
             .background(color.opacity(CalendarGridColor.fillOpacity), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("\(event.title), all-day, \(event.calendarTitle)")
+        .accessibilityLabel(CalendarGridAccessibility.allDayLabel(event, calendar: calendar))
         .accessibilityHint("Opens event details. Does not set a time.")
         .popover(isPresented: eventDetailPopoverBinding(for: event), arrowEdge: .bottom) {
             CalendarEventDetailsPopover(event: event, timeZone: calendar.timeZone)
@@ -717,7 +745,7 @@ public struct CalendarTimeGrid: View {
             .background(color.opacity(CalendarGridColor.fillOpacity), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
         .menuStyle(.borderlessButton)
-        .accessibilityLabel("\(group.segments.count) overlapping events, \(timeFormatter.string(from: group.startDate)) to \(timeFormatter.string(from: group.endDate))")
+        .accessibilityLabel(CalendarGridAccessibility.overlapLabel(group, calendar: calendar))
         .accessibilityHint("Opens a menu of calendar events to set TimeZoner to an event start")
     }
 
@@ -773,11 +801,11 @@ public struct CalendarTimeGrid: View {
     }
 
     private func eventAccessibilityLabel(_ event: CalendarEventSnapshot) -> String {
-        "\(event.title), \(timeFormatter.string(from: event.startDate)) to \(timeFormatter.string(from: event.endDate)), \(event.calendarTitle)"
+        CalendarGridAccessibility.eventLabel(event, calendar: calendar)
     }
 
     private func eventMenuTitle(_ event: CalendarEventSnapshot) -> String {
-        "\(event.title) — \(timeFormatter.string(from: event.startDate)) to \(timeFormatter.string(from: event.endDate)) — \(event.calendarTitle)"
+        "\(event.title) — \(dayFormatter.string(from: event.startDate)), \(timeFormatter.string(from: event.startDate)) to \(timeFormatter.string(from: event.endDate)) — \(event.calendarTitle)"
     }
 
     private func scrollToInitialHour(proxy: ScrollViewProxy, dayStarts: [Date]) {

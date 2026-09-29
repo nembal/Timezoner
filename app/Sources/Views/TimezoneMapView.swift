@@ -1,5 +1,11 @@
 import SwiftUI
 
+public enum TimezoneMapAccessibility {
+    public static func toggleValue(isExpanded: Bool) -> String {
+        isExpanded ? "Expanded" : "Collapsed"
+    }
+}
+
 // Preference key to capture Canvas size without side effects
 private struct MapSizeKey: PreferenceKey {
     static var defaultValue: CGSize = .zero
@@ -84,6 +90,9 @@ public struct TimezoneMapView: View {
                 .foregroundStyle(Theme.textTertiary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Timezone map")
+            .accessibilityValue(TimezoneMapAccessibility.toggleValue(isExpanded: mapPresentation.isMapExpanded))
+            .accessibilityHint("Shows or hides the interactive timezone map")
             .overlay(alignment: .trailing) {
                 if let offset = hoveredOffset {
                     Text(gmtLabel(for: offset))
