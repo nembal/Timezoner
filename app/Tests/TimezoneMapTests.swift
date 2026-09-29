@@ -47,6 +47,35 @@ func runTimezoneMapTests() {
     expectTrue(coords[0] == -74.0, "coordinate order: first element is longitude")
     expectTrue(coords[1] == 40.0, "coordinate order: second element is latitude")
 
+    // A keyboard/VoiceOver browser must offer the same mapped zones as the Canvas.
+    let browseJSON = """
+    {"type":"FeatureCollection","features":[
+      {"type":"Feature","properties":{"tzid":"America/New_York"},"geometry":{"type":"Polygon","coordinates":[[[-74,40],[-74,41],[-73,41],[-73,40],[-74,40]]]}},
+      {"type":"Feature","properties":{"tzid":"Asia/Bangkok"},"geometry":{"type":"Polygon","coordinates":[[[100,13],[100,14],[101,14],[101,13],[100,13]]]}},
+      {"type":"Feature","properties":{"tzid":"America/New_York"},"geometry":{"type":"Polygon","coordinates":[[[-75,40],[-75,41],[-74,41],[-74,40],[-75,40]]]}},
+      {"type":"Feature","properties":{"tzid":"Invalid/Zone"},"geometry":{"type":"Polygon","coordinates":[[[0,0],[0,1],[1,1],[1,0],[0,0]]]}}
+    ]}
+    """.data(using: .utf8)!
+    let browseFeatures = try! JSONDecoder().decode(GeoJSONFeatureCollection.self, from: browseJSON).features
+    let browseInstant = Date(timeIntervalSince1970: 1_751_344_200) // 2025-07-01 04:30 UTC
+    let browseOptions = TimezoneMapAccessibility.zoneOptions(
+        features: browseFeatures, query: "", userZoneIds: ["Asia/Bangkok"], at: browseInstant)
+    expectTrue(browseOptions.map(\.id) == ["Asia/Bangkok", "America/New_York"],
+               "map browser: unique valid mapped zones sorted by city")
+    expectTrue(browseOptions.first?.label == "Bangkok" && browseOptions.first?.localTime == "11:30 am"
+        && browseOptions.first?.gmtOffset == "GMT+7" && browseOptions.first?.isAdded == true,
+               "map browser: existing zone exposes its local time and added status")
+    expectTrue(browseOptions.last?.label == "New York" && browseOptions.last?.localTime == "12:30 am"
+        && browseOptions.last?.gmtOffset == "GMT-4" && browseOptions.last?.isAdded == false,
+               "map browser: unadded zone exposes its local time and add action state")
+    let cityMatches = TimezoneMapAccessibility.zoneOptions(
+        features: browseFeatures, query: "new york", userZoneIds: [], at: browseInstant)
+    let ianaMatches = TimezoneMapAccessibility.zoneOptions(
+        features: browseFeatures, query: "america/new_york", userZoneIds: [], at: browseInstant)
+    expectTrue(cityMatches.map(\.id) == ["America/New_York"]
+        && ianaMatches.map(\.id) == ["America/New_York"],
+               "map browser: search finds city names and IANA identifiers")
+
     // ── Bundle Loading ───────────────────────────────────────────────
 
     if let bundled = GeoJSONLoader.loadFromBundle() {

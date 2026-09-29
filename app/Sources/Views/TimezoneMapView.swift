@@ -1,8 +1,36 @@
 import SwiftUI
 
 public enum TimezoneMapAccessibility {
+    public struct ZoneOption: Identifiable, Equatable {
+        public let id: String
+        public let label: String
+        public let localTime: String
+        public let gmtOffset: String
+        public let isAdded: Bool
+    }
+
     public static func toggleValue(isExpanded: Bool) -> String {
         isExpanded ? "Expanded" : "Collapsed"
+    }
+
+    public static func zoneOptions(features: [GeoJSONFeature], query: String,
+                                   userZoneIds: Set<String>, at date: Date) -> [ZoneOption] {
+        let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return Set(features.map(\.properties.tzid)).compactMap { id in
+            guard let zone = TimeZone(identifier: id) else { return nil }
+            let label = (id.components(separatedBy: "/").last ?? id)
+                .replacingOccurrences(of: "_", with: " ")
+            guard search.isEmpty || label.localizedCaseInsensitiveContains(search)
+                    || id.localizedCaseInsensitiveContains(search) else { return nil }
+            return ZoneOption(id: id, label: label,
+                              localTime: TimeFormatter.formatTime(date, in: zone),
+                              gmtOffset: TimeFormatter.gmtOffset(for: zone, at: date),
+                              isAdded: userZoneIds.contains(id))
+        }
+        .sorted { lhs, rhs in
+            let comparison = lhs.label.localizedStandardCompare(rhs.label)
+            return comparison == .orderedSame ? lhs.id < rhs.id : comparison == .orderedAscending
+        }
     }
 }
 
@@ -25,6 +53,8 @@ public struct TimezoneMapView: View {
     @State private var geoData: GeoJSONFeatureCollection?
     @State private var hoveredTzid: String?
     @State private var hoveredOffset: Int?
+    @State private var isZoneBrowserPresented = false
+    @State private var zoneSearch = ""
     @State private var mapSize: CGSize = .zero
     @State private var cachedPaths: [(tzid: String, paths: [CGPath])] = []
 
@@ -48,6 +78,12 @@ public struct TimezoneMapView: View {
         Set(highlightedZoneIds.compactMap { id in
             zones.first(where: { $0.id == id })?.timeZoneId
         })
+    }
+
+    private var browserOptions: [TimezoneMapAccessibility.ZoneOption] {
+        TimezoneMapAccessibility.zoneOptions(
+            features: geoData?.features ?? [], query: zoneSearch,
+            userZoneIds: userIanaIds, at: timeState.referenceDate)
     }
 
     private func gmtLabel(for offsetSeconds: Int) -> String {
@@ -266,6 +302,7 @@ public struct TimezoneMapView: View {
                         let label = labelFromIana(tzid)
                         onAddZone?(label, tzid)
                     }
+                    .accessibilityHidden(true)
 
                     GeometryReader { proxy in
                         ZStack(alignment: .topLeading) {
@@ -289,6 +326,19 @@ public struct TimezoneMapView: View {
                         .strokeBorder(Theme.border, lineWidth: 1)
                 )
                 .transition(.opacity.combined(with: .move(edge: .top)))
+
+                Button("Browse map zones") {
+                    zoneSearch = ""
+                    isZoneBrowserPresented = true
+                }
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.textSecondary)
+                .accessibilityHint("Search mapped timezones and add one to your cards")
+                .popover(isPresented: $isZoneBrowserPresented) {
+                    zoneBrowser
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .onAppear {
@@ -296,6 +346,61 @@ public struct TimezoneMapView: View {
                 geoData = GeoJSONLoader.loadFromBundle()
             }
         }
+    }
+
+    private var zoneBrowser: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Map zones")
+                .font(.headline)
+            TextField("Search city or timezone", text: $zoneSearch)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Search map zones")
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(browserOptions) { option in
+                        if option.isAdded {
+                            zoneBrowserRow(option, status: "Added")
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("\(option.label), \(option.id), \(option.localTime), \(option.gmtOffset), already added")
+                        } else {
+                            Button {
+                                onAddZone?(option.label, option.id)
+                                isZoneBrowserPresented = false
+                            } label: {
+                                zoneBrowserRow(option, status: "Add")
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(onAddZone == nil)
+                            .accessibilityLabel("Add \(option.label), \(option.id), \(option.localTime), \(option.gmtOffset)")
+                            .accessibilityHint("Adds this timezone to your cards")
+                        }
+                    }
+                }
+            }
+            .frame(height: 240)
+        }
+        .padding(12)
+        .frame(width: 320)
+    }
+
+    private func zoneBrowserRow(_ option: TimezoneMapAccessibility.ZoneOption,
+                                status: String) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(option.label)
+                    .font(.system(size: 12, weight: .medium))
+                Text("\(option.id) · \(option.localTime) · \(option.gmtOffset)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer()
+            Text(status)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
     }
 
     // ── Cached hit testing ──
