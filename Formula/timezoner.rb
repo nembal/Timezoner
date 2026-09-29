@@ -44,13 +44,86 @@ class Timezoner < Formula
       #!/bin/bash
       set -euo pipefail
 
-      destination="${1:-$HOME/Applications}"
+      destination="$HOME/Applications"
+      destination_set=0
+      open_app=0
+      for argument in "$@"; do
+        case "$argument" in
+          --open)
+            open_app=1
+            ;;
+          --*)
+            echo "error: unknown option: $argument" >&2
+            exit 64
+            ;;
+          *)
+            if [[ "$destination_set" -eq 1 ]]; then
+              echo "error: expected one destination directory" >&2
+              exit 64
+            fi
+            destination="$argument"
+            destination_set=1
+            ;;
+        esac
+      done
+
+      source_app="#{prefix}/TimeZoner.app"
+      source_parent="$(cd -P "#{prefix}" && pwd -P)"
+      if [[ -d "$destination" ]]; then
+        destination_parent="$(cd -P "$destination" && pwd -P)"
+        if [[ "$source_parent" == "$destination_parent" ]] || \
+           { [[ -e "$source_app" && -e "$destination/TimeZoner.app" ]] && \
+             [[ "$(realpath "$source_app")" == "$(realpath "$destination/TimeZoner.app")" ]]; }; then
+          echo "error: install destination is the source app bundle" >&2
+          exit 64
+        fi
+      fi
+
+      running_installed_pids() {
+        local executable="$1"
+        local line pid command
+        while IFS= read -r line; do
+          if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]+(.+)$ ]]; then
+            pid="${BASH_REMATCH[1]}"
+            command="${BASH_REMATCH[2]}"
+            if [[ "$command" == "$executable" ]] || \
+               { [[ -e "$command" ]] && [[ "$(realpath "$command")" == "$executable" ]]; }; then
+              printf '%s\\n' "$pid"
+            fi
+          fi
+        done < <(ps -axo pid=,comm=)
+      }
+
+      stop_installed_app() {
+        local executable="$1"
+        local pid remaining attempt
+        remaining="$(running_installed_pids "$executable")"
+        [[ -n "$remaining" ]] || return 0
+        while IFS= read -r pid; do
+          [[ -n "$pid" ]] && kill -TERM "$pid"
+        done <<< "$remaining"
+        for ((attempt = 0; attempt < 50; attempt++)); do
+          remaining="$(running_installed_pids "$executable")"
+          [[ -z "$remaining" ]] && return 0
+          sleep 0.1
+        done
+        echo "error: timed out waiting for installed TimeZoner to quit: $executable" >&2
+        exit 1
+      }
+
       mkdir -p "$destination"
+      if [[ "$open_app" -eq 1 ]]; then
+        installed_executable="$(cd -P "$destination" && pwd -P)/TimeZoner.app/Contents/MacOS/TimeZoner"
+        stop_installed_app "$installed_executable"
+      fi
       rm -rf "$destination/TimeZoner.app"
-      cp -R "#{prefix}/TimeZoner.app" "$destination/TimeZoner.app"
+      cp -R "$source_app" "$destination/TimeZoner.app"
       codesign --force --sign - "$destination/TimeZoner.app"
       echo "Installed TimeZoner.app to $destination/TimeZoner.app"
       echo "Launch with: open $destination/TimeZoner.app"
+      if [[ "$open_app" -eq 1 ]]; then
+        open "$destination/TimeZoner.app"
+      fi
     EOS
 
     chmod 0755, bin/"timezoner"
@@ -66,6 +139,9 @@ class Timezoner < Formula
 
       Install a copy into ~/Applications:
         timezoner-install-app
+
+      Replace a running installed copy and relaunch it:
+        timezoner-install-app --open
 
       Install explicitly into /Applications:
         timezoner-install-app /Applications

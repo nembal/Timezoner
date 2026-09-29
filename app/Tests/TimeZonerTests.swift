@@ -8,6 +8,7 @@ struct TestRunner {
         runZoneStoreTests()
         runInputParserTests()
         runTimeZonerDeepLinkTests()
+        runTimeZonerLaunchTests()
         runTimeFormatterTests()
         runTimezoneMapTests()
         runSettingsStoreTests()

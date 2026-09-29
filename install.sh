@@ -100,6 +100,51 @@ done
 APP_SOURCE="$ROOT/app/${APP_NAME}.app"
 APP_DESTINATION="$DESTINATION/${APP_NAME}.app"
 
+canonical_source_parent="$(cd -P "$ROOT/app" && pwd -P)"
+if [[ -d "$DESTINATION" ]]; then
+    canonical_destination_parent="$(cd -P "$DESTINATION" && pwd -P)"
+    if [[ "$canonical_source_parent" == "$canonical_destination_parent" ]] || \
+       { [[ -e "$APP_SOURCE" && -e "$APP_DESTINATION" ]] && \
+         [[ "$(realpath "$APP_SOURCE")" == "$(realpath "$APP_DESTINATION")" ]]; }; then
+        echo "error: install destination is the source app bundle" >&2
+        exit 64
+    fi
+fi
+
+running_installed_pids() {
+    local executable="$1"
+    local line pid command
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]+(.+)$ ]]; then
+            pid="${BASH_REMATCH[1]}"
+            command="${BASH_REMATCH[2]}"
+            if [[ "$command" == "$executable" ]] || \
+               { [[ -e "$command" ]] && [[ "$(realpath "$command")" == "$executable" ]]; }; then
+                printf '%s\n' "$pid"
+            fi
+        fi
+    done < <(ps -axo pid=,comm=)
+}
+
+stop_installed_app() {
+    local executable="$1"
+    local pid remaining attempt
+    remaining="$(running_installed_pids "$executable")"
+    [[ -n "$remaining" ]] || return 0
+
+    while IFS= read -r pid; do
+        [[ -n "$pid" ]] && kill -TERM "$pid"
+    done <<< "$remaining"
+
+    for ((attempt = 0; attempt < 50; attempt++)); do
+        remaining="$(running_installed_pids "$executable")"
+        [[ -z "$remaining" ]] && return 0
+        sleep 0.1
+    done
+    echo "error: timed out waiting for installed TimeZoner to quit: $executable" >&2
+    exit 1
+}
+
 if [[ "$DRY_RUN" -eq 1 ]]; then
     if [[ "$SKIP_BUILD" -eq 1 ]]; then
         echo "Would build TimeZoner.app locally: skipped by --skip-build"
@@ -129,6 +174,10 @@ fi
 verify_app_bundle "$APP_SOURCE"
 
 mkdir -p "$DESTINATION"
+if [[ "$OPEN_APP" -eq 1 ]]; then
+    installed_executable="$(cd -P "$DESTINATION" && pwd -P)/${APP_NAME}.app/Contents/MacOS/TimeZoner"
+    stop_installed_app "$installed_executable"
+fi
 rm -rf "$APP_DESTINATION"
 cp -R "$APP_SOURCE" "$APP_DESTINATION"
 codesign --force --sign - "$APP_DESTINATION"

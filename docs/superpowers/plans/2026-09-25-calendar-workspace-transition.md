@@ -2160,7 +2160,7 @@ When implementation/installation has been authorized, inspect running TimeZoner 
 ```bash
 ./install.sh --skip-build --destination /Users/team/Applications
 codesign --verify --deep --strict /Users/team/Applications/TimeZoner.app
-open -n /Users/team/Applications/TimeZoner.app
+open /Users/team/Applications/TimeZoner.app
 ```
 
 Confirm the process executable is `/Users/team/Applications/TimeZoner.app/Contents/MacOS/TimeZoner`. Another same-bundle-ID copy exists under `/Applications`; do not rely on `open -a TimeZoner`. If the rebuild resets Calendar permission, let the user grant it; record the actual permission state and continue with permission-free geometry checks meanwhile.

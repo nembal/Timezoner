@@ -7,10 +7,64 @@ import UserNotifications
 struct TimeZonerApp {
     static func main() {
         let app = NSApplication.shared
+        let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.timezoner.app"
+        let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+        let candidates = running.map {
+            TimeZonerRunningInstance(processID: $0.processIdentifier, launchDate: $0.launchDate)
+        }
+        if let incumbent = TimeZonerLaunchCoordinator.incumbent(
+            currentProcessID: ProcessInfo.processInfo.processIdentifier,
+            candidates: candidates
+        ), let incumbentApp = running.first(where: { $0.processIdentifier == incumbent.processID }) {
+            let duplicateDelegate = DuplicateLaunchDelegate(incumbent: incumbentApp)
+            app.delegate = duplicateDelegate
+            app.setActivationPolicy(.accessory)
+            app.run()
+            return
+        }
+
         let delegate = AppDelegate()
         app.delegate = delegate
         app.setActivationPolicy(.accessory)
         app.run()
+    }
+}
+
+@MainActor
+private final class DuplicateLaunchDelegate: NSObject, NSApplicationDelegate {
+    private let router: TimeZonerDuplicateLaunchRouter
+
+    init(incumbent: NSRunningApplication) {
+        router = TimeZonerDuplicateLaunchRouter(
+            activateIncumbent: { _ = incumbent.activate() },
+            forwardURL: { url in
+                guard let bundleURL = incumbent.bundleURL else {
+                    NSWorkspace.shared.open(url)
+                    return
+                }
+                let configuration = NSWorkspace.OpenConfiguration()
+                configuration.createsNewApplicationInstance = false
+                NSWorkspace.shared.open([url], withApplicationAt: bundleURL, configuration: configuration) { _, _ in }
+            }
+        )
+        super.init()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        router.didLaunch()
+        router.open(urls: ProcessInfo.processInfo.arguments.compactMap(URL.init(string:)))
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+            NSApplication.shared.terminate(nil)
+        }
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        router.open(urls: urls)
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        router.didLaunch()
+        return false
     }
 }
 
