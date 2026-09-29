@@ -122,33 +122,10 @@ func runCalendarWorkspaceSessionTests() {
         )
         let savedSnapshot = session.normalLayoutSnapshot
 
-        var gate = CalendarWorkspaceTransitionGate()
-        let cancellation = CalendarWorkspaceTransitionCancellation(
-            cancelling: &gate,
-            currentPresentationDestination: .calendar
-        )
-        workspaceExpect(
-            cancellation.targetDestination == nil,
-            "a targetless gate cancellation has no TimeZoner restoration to apply"
-        )
-
         session.finishTimeZonerRestoration()
         workspaceExpect(
             session.normalLayoutSnapshot == savedSnapshot,
-            "targetless cancellation cannot clear an existing normal layout snapshot"
-        )
-    }
-
-    do {
-        var events: [String] = []
-        CalendarWorkspaceFocusOrder.restoreTimeZonerChat(
-            mainPanelIsVisible: true,
-            makeMainPanelKey: { events.append("makeKey") },
-            postFocusChat: { events.append("focusChat") }
-        )
-        workspaceExpect(
-            events == ["makeKey", "focusChat"],
-            "immediate TimeZoner restoration makes the visible main panel key before focusing chat"
+            "finishing without a pending restoration keeps the normal layout snapshot"
         )
     }
 }

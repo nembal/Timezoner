@@ -228,7 +228,7 @@ func runCalendarPresentationStateTests() {
         start: calendarPresentationDate(calendar, year: 2024, month: 5, day: 16, hour: 14),
         end: calendarPresentationDate(calendar, year: 2024, month: 5, day: 16, hour: 15)
     )
-    CalendarModeView.selectTimedEvent(selected, referenceMoment: referenceMoment)
+    referenceMoment.selectEvent(selected, sourceZone: .current)
     expectCalendarPresentation(presentation.destination, .calendar, "calendar timed-event selection stays in calendar until an explicit return")
     expectCalendarPresentation(timeState.referenceDate, selected.startDate, "calendar timed-event selection sets the shared reference moment")
     presentation.returnToTimeZoner()

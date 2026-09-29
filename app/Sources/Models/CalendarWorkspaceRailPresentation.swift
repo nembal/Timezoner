@@ -15,9 +15,3 @@ public struct CalendarRailContextPresentation: Equatable, Sendable {
         helpText = title
     }
 }
-
-public enum CalendarWorkspaceEventActivation {
-    public static func select(_ event: CalendarEventSnapshot, referenceMoment: ReferenceMomentController) {
-        referenceMoment.selectEvent(event, sourceZone: .current)
-    }
-}

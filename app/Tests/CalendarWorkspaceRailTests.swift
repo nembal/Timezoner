@@ -31,9 +31,11 @@ func runCalendarWorkspaceRailTests() {
         availability: .busy,
         participationStatus: .accepted
     )
-    CalendarWorkspaceEventActivation.select(event, referenceMoment: reference)
+    reference.selectEvent(event, sourceZone: .current)
     workspaceExpect(presentation.destination == .calendar, "timed selection stays in workspace")
     workspaceExpect(reference.timeState.referenceDate == start, "rail receives event instant")
+    workspaceExpect(reference.timeState.sourceZoneId == TimeZone.current.identifier,
+                    "event selection records the current source timezone")
     let selectedContext = CalendarRailContextPresentation(
         selectedEvent: reference.selectedEvent,
         date: reference.timeState.referenceDate,
@@ -60,7 +62,7 @@ func runCalendarWorkspaceRailTests() {
         availability: .free,
         participationStatus: .accepted
     )
-    CalendarWorkspaceEventActivation.select(allDay, referenceMoment: reference)
+    reference.selectEvent(allDay, sourceZone: .current)
     workspaceExpect(reference.timeState.referenceDate == start, "all-day activation cannot change rail instant")
     workspaceExpect(reference.selectedEvent?.id == event.id, "timed activation sets selected event context")
 

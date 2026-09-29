@@ -60,15 +60,15 @@ public enum CalendarWorkspaceLayout {
             ? visibleFrame
             : CGRect(
                 origin: main.origin,
-                size: CGSize(width: max(main.width, 570), height: max(main.height, 300))
+                size: CGSize(width: max(main.width, CalendarPanelMetrics.narrowThreshold), height: max(main.height, 300))
             )
         let height = min(CalendarPanelMetrics.preferredHeight, visible.height)
         let top = min(max(main.maxY, visible.minY + height), visible.maxY)
 
         if visible.width >= CalendarPanelMetrics.narrowThreshold {
             let rail = min(CalendarPanelMetrics.railWidth, max(200, visible.width - 370))
-            let calendar = min(CalendarPanelMetrics.calendarWidth, visible.width - rail - 10)
-            let width = rail + 10 + calendar
+            let calendar = min(CalendarPanelMetrics.calendarWidth, visible.width - rail - CalendarPanelMetrics.gap)
+            let width = rail + CalendarPanelMetrics.gap + calendar
             let desiredRight = placement == .right ? (agenda?.maxX ?? main.maxX) : main.maxX
             let right = min(max(desiredRight, visible.minX + width), visible.maxX)
             let left = right - width
@@ -76,7 +76,7 @@ public enum CalendarWorkspaceLayout {
             return CalendarWorkspaceFrames(
                 main: CGRect(x: left, y: top - height, width: rail, height: height),
                 calendar: CGRect(
-                    x: left + rail + 10,
+                    x: left + rail + CalendarPanelMetrics.gap,
                     y: top - height,
                     width: calendar,
                     height: height
@@ -85,7 +85,7 @@ public enum CalendarWorkspaceLayout {
             )
         }
 
-        let gap = min(10, visible.height / 10)
+        let gap = min(CalendarPanelMetrics.gap, visible.height / 10)
         let railHeight = min(180, (visible.height - gap) * 0.35)
         let calendarHeight = visible.height - railHeight - gap
 
@@ -147,7 +147,10 @@ public enum CalendarWorkspaceLayout {
             agenda: AgendaPlacementCalculator.calculate(
                 mainFrame: main,
                 visibleFrame: visibleFrame,
-                wingSize: CGSize(width: AgendaPlacementCalculator.wingWidth, height: 580)
+                wingSize: CGSize(
+                    width: AgendaPlacementCalculator.wingWidth,
+                    height: CalendarPanelMetrics.preferredHeight
+                )
             )
         )
     }

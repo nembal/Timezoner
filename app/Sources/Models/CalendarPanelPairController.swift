@@ -187,10 +187,10 @@ public final class CalendarPanelPairController {
         workspaceFrames = nil
         main.setFrame(restored.main)
         agenda.setFrame(restored.agenda.frame ?? CGRect(
-            x: restored.main.maxX + 10,
-            y: restored.main.maxY - 580,
-            width: 220,
-            height: 580
+            x: restored.main.maxX + AgendaPlacementCalculator.gap,
+            y: restored.main.maxY - CalendarPanelMetrics.preferredHeight,
+            width: AgendaPlacementCalculator.wingWidth,
+            height: CalendarPanelMetrics.preferredHeight
         ))
         placement = restored.agenda.location
         if !showAgenda {

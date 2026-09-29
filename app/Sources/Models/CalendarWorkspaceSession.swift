@@ -56,39 +56,3 @@ public struct CalendarWorkspaceSession {
         hasPendingTimeZonerRestoration = false
     }
 }
-
-/// Keeps the observable main-window focus and SwiftUI chat-focus request in one ordering seam.
-public enum CalendarWorkspaceFocusOrder {
-    public static func restoreTimeZonerChat(
-        mainPanelIsVisible: Bool,
-        makeMainPanelKey: () -> Void,
-        postFocusChat: () -> Void
-    ) {
-        if mainPanelIsVisible {
-            makeMainPanelKey()
-        }
-        postFocusChat()
-    }
-}
-
-/// Records a transition cancellation before the native coordinator settles its final frames.
-public struct CalendarWorkspaceTransitionCancellation: Equatable, Sendable {
-    public let targetDestination: CalendarDestination?
-    public let persistenceDestination: CalendarDestination
-
-    public init(
-        cancelling gate: inout CalendarWorkspaceTransitionGate,
-        currentPresentationDestination: CalendarDestination
-    ) {
-        targetDestination = gate.cancel()
-        persistenceDestination = targetDestination ?? currentPresentationDestination
-    }
-
-    public func releaseInteractionGates(
-        resetSwiftUI: () -> Void,
-        resetPair: () -> Void
-    ) {
-        resetSwiftUI()
-        resetPair()
-    }
-}

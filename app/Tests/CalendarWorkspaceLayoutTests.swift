@@ -9,6 +9,9 @@ func runCalendarWorkspaceLayoutTests() {
         main: main, agenda: agenda, placement: .right, visibleFrame: screen)
     workspaceExpect(frames.main.width == 240 && frames.calendar.width == 760,
                     "preferred rail and calendar widths")
+    workspaceExpect(frames.main == CGRect(x: -1200, y: 240, width: 240, height: 580)
+                    && frames.calendar == CGRect(x: -950, y: 240, width: 760, height: 580),
+                    "normal workspace keeps the exact anchored panel frames")
     workspaceExpect(frames.calendar.maxX == agenda.maxX, "calendar retains right anchor")
     workspaceExpect(frames.main.maxY == main.maxY && frames.calendar.maxY == main.maxY,
                     "both panels retain the top anchor")
@@ -27,6 +30,19 @@ func runCalendarWorkspaceLayoutTests() {
         workspaceExpect(result.arrangement == (size.width >= 570 ? .sideBySide : .stacked),
                         "narrow fallback is explicit")
     }
+    let constrained = CalendarWorkspaceLayout.calculate(
+        main: main, agenda: nil, placement: .popover,
+        visibleFrame: CGRect(x: 90, y: -800, width: 570, height: 400))
+    workspaceExpect(constrained.main == CGRect(x: 90, y: -800, width: 200, height: 400)
+                    && constrained.calendar == CGRect(x: 300, y: -800, width: 360, height: 400),
+                    "threshold-width workspace keeps its constrained side-by-side frames")
+
+    let stacked = CalendarWorkspaceLayout.calculate(
+        main: main, agenda: nil, placement: .popover,
+        visibleFrame: CGRect(x: 90, y: -800, width: 500, height: 300))
+    workspaceExpect(stacked.main == CGRect(x: 90, y: -601.5, width: 500, height: 101.5)
+                    && stacked.calendar == CGRect(x: 90, y: -800, width: 500, height: 188.5),
+                    "narrow workspace keeps its stacked panel frames")
 
     let snapshot = CalendarNormalLayoutSnapshot(main: main, agenda: agenda,
         placement: .right, screenID: "left", visibleFrame: screen, cityCount: 4)

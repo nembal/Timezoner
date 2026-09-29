@@ -206,21 +206,16 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
         }
         mainPanel.persistsNormalPosition = true
         refreshCalendar()
-        CalendarWorkspaceFocusOrder.restoreTimeZonerChat(
-            mainPanelIsVisible: mainPanel.isVisible,
-            makeMainPanelKey: { [mainPanel] in mainPanel.makeKey() },
-            postFocusChat: {
-                NotificationCenter.default.post(name: .focusChatField, object: nil)
-            }
-        )
+        if mainPanel.isVisible {
+            mainPanel.makeKey()
+        }
+        NotificationCenter.default.post(name: .focusChatField, object: nil)
     }
 
     func settleWorkspaceTransition() {
-        let cancellation = CalendarWorkspaceTransitionCancellation(
-            cancelling: &transitionGate,
-            currentPresentationDestination: presentation.destination
-        )
-        if let cancellationDestination = cancellation.targetDestination,
+        let cancellationDestination = transitionGate.cancel()
+        let persistenceDestination = cancellationDestination ?? presentation.destination
+        if let cancellationDestination,
            let settled = target(for: cancellationDestination) {
             // A display can disappear while a transition is in flight. Recalculate from the
             // current visible frame instead of reusing a stale animator target.
@@ -236,19 +231,15 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
             completeFrames(settled, focus: false)
         }
 
-        cancellation.releaseInteractionGates(
-            resetSwiftUI: {
-                var transaction = Transaction()
-                transaction.disablesAnimations = true
-                withTransaction(transaction) {
-                    presentation.workspaceContentOpacity = 1
-                    presentation.workspaceContentOffset = 0
-                    presentation.isWorkspaceTransitioning = false
-                }
-            },
-            resetPair: { pair.setTransitionInProgress(false) }
-        )
-        mainPanel.persistsNormalPosition = cancellation.persistenceDestination == .timezoner
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            presentation.workspaceContentOpacity = 1
+            presentation.workspaceContentOffset = 0
+            presentation.isWorkspaceTransitioning = false
+        }
+        pair.setTransitionInProgress(false)
+        mainPanel.persistsNormalPosition = persistenceDestination == .timezoner
     }
 
     func setOwnedPopoverPresented(_ isPresented: Bool) {
@@ -422,10 +413,10 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     }
 
     private func temporaryAgendaFrame(around main: CGRect, visibleFrame: CGRect) -> CGRect {
-        let width = min(CGFloat(220), visibleFrame.width)
-        let height = min(CGFloat(580), visibleFrame.height)
+        let width = min(AgendaPlacementCalculator.wingWidth, visibleFrame.width)
+        let height = min(CalendarPanelMetrics.preferredHeight, visibleFrame.height)
         return CGRect(
-            x: min(max(main.maxX + 10, visibleFrame.minX), visibleFrame.maxX - width),
+            x: min(max(main.maxX + AgendaPlacementCalculator.gap, visibleFrame.minX), visibleFrame.maxX - width),
             y: min(max(main.maxY - height, visibleFrame.minY), visibleFrame.maxY - height),
             width: width,
             height: height

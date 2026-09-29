@@ -47,15 +47,6 @@ public struct CalendarModeView: View {
         }
     }
 
-    /// The calendar's timed-event action changes only the shared reference moment. Returning to
-    /// TimeZoner remains an explicit rail action, so a selected event keeps the workspace visible.
-    public static func selectTimedEvent(
-        _ event: CalendarEventSnapshot,
-        referenceMoment: ReferenceMomentController
-    ) {
-        CalendarWorkspaceEventActivation.select(event, referenceMoment: referenceMoment)
-    }
-
     private var minimumGridWidth: CGFloat {
         switch presentation.range {
         case .today: 0
@@ -127,7 +118,9 @@ public struct CalendarModeView: View {
     }
 
     private func selectTimedEvent(_ event: CalendarEventSnapshot) {
-        Self.selectTimedEvent(event, referenceMoment: referenceMoment)
+        // The timed event updates the shared reference moment; returning to TimeZoner remains
+        // an explicit rail action so the selected event keeps the calendar workspace visible.
+        referenceMoment.selectEvent(event, sourceZone: .current)
     }
 
     private func showEventDetails(_ event: CalendarEventSnapshot) {

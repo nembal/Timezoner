@@ -502,37 +502,12 @@ func runCalendarPanelCoordinatorTests() {
         pair.show(showAgenda: false)
         pair.setTransitionInProgress(true)
 
-        var gate = CalendarWorkspaceTransitionGate()
-        let cancellation = CalendarWorkspaceTransitionCancellation(
-            cancelling: &gate,
-            currentPresentationDestination: .calendar
-        )
-        var isWorkspaceTransitioning = true
-        var completionOrder: [String] = []
-        cancellation.releaseInteractionGates(
-            resetSwiftUI: {
-                isWorkspaceTransitioning = false
-                completionOrder.append("swiftUI")
-            },
-            resetPair: {
-                pair.setTransitionInProgress(false)
-                completionOrder.append("pair")
-            }
-        )
+        pair.setTransitionInProgress(false)
 
         pair.resizeMain(to: CGSize(width: 500, height: 400), showAgenda: false)
         expectCalendarPanel(
-            cancellation.targetDestination == nil
-                && cancellation.persistenceDestination == .calendar,
-            "targetless cancellation preserves the current presentation destination for normal persistence"
-        )
-        expectCalendarPanel(
-            !isWorkspaceTransitioning && main.frame.size == CGSize(width: 500, height: 400),
-            "targetless cancellation releases the SwiftUI and paired-panel interaction gates"
-        )
-        expectCalendarPanel(
-            completionOrder == ["swiftUI", "pair"],
-            "transition settlement restores SwiftUI interaction before the paired-panel gate"
+            main.frame.size == CGSize(width: 500, height: 400),
+            "releasing the paired-panel interaction gate resumes normal resizing"
         )
     }
 
@@ -584,5 +559,21 @@ func runCalendarPanelCoordinatorTests() {
         pair.endWorkspace(restored, showAgenda: false, focusMain: false)
         expectCalendarPanel(!main.isKey,
                             "transition settlement can restore geometry without stealing final focus")
+    }
+
+    do {
+        let mainFrame = CGRect(x: 300, y: 100, width: 400, height: 500)
+        let main = CalendarPanelSurfaceFake(frame: mainFrame)
+        let agenda = CalendarPanelSurfaceFake(frame: .zero)
+        let popover = CalendarPanelPopoverFake()
+        let pair = CalendarPanelPairController(
+            main: main, agenda: agenda, agendaPopover: popover, visibleFrame: { visible })
+        let restoration = CalendarWorkspaceRestoration(
+            main: mainFrame, agenda: AgendaPlacementResult(location: .popover, frame: nil))
+
+        pair.endWorkspace(restoration, showAgenda: false, focusMain: false)
+        expectCalendarPanel(agenda.frame == CGRect(x: 710, y: 20, width: 220, height: 580),
+                            "popover restoration keeps the hidden agenda panel at its fallback frame")
+        expectCalendarPanel(!main.isKey, "geometry restoration does not focus the main panel early")
     }
 }
