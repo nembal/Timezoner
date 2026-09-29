@@ -4,6 +4,8 @@ I work across Bangkok, San Francisco, New York, and London. Every day I need to 
 
 TimeZoner is a tiny macOS app that floats over everything. Type a time, see it in all your zones. That's it.
 
+The latest tagged release is **v0.3.0**.
+
 ![TimeZoner docked to menu bar](docs/images/timezoner-docked.png)
 *Docked to the menu bar*
 
@@ -53,6 +55,8 @@ open ~/Applications/TimeZoner.app
 ```
 
 `timezoner-install-app` copies the built app bundle to `~/Applications/TimeZoner.app`, so it is available from Finder, Spotlight, and Launchpad. The `timezoner` command also opens the Homebrew Cellar app bundle directly.
+
+After `brew upgrade timezoner`, run `timezoner-install-app` again to update the separate copy in `~/Applications`. Homebrew upgrades its Cellar bundle; the helper refreshes the Finder- and Spotlight-visible copy.
 
 Homebrew may require the `brew trust` step for third-party taps before it loads the formula. To build the latest `main` instead of the tagged release:
 
@@ -202,7 +206,7 @@ cd Timezoner
 open app/TimeZoner.app
 ```
 
-Create a Manual DMG: `./scripts/create-dmg.sh 0.2.0`
+Create a Manual DMG: `./scripts/create-dmg.sh 0.3.0`. Omit the argument to use the script's default version (`0.1.0`).
 
 Run checks:
 
