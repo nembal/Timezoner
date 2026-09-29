@@ -316,6 +316,56 @@ func runCalendarPanelCoordinatorTests() {
     }
 
     do {
+        let scheduler = CalendarPanelDeferredSchedulerFake()
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 300, y: 100, width: 400, height: 500))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let pair = CalendarPanelPairController(
+            main: main, agenda: agenda, agendaPopover: popover,
+            visibleFrame: { visible }, scheduleDeferredDismissal: scheduler.schedule
+        )
+        let suiteName = "MapPopoverOwnership.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let presentation = CalendarPresentationState(defaults: defaults)
+
+        pair.show(showAgenda: false)
+        main.isKey = false
+        TimezoneMapPopoverOwnership.setPresented(
+            true, presentation: presentation, onOwnedPopoverChanged: pair.setOwnedPopoverPresented)
+        pair.panelDidResignKey()
+        scheduler.runAll()
+        expectCalendarPanel(main.isVisible && presentation.hasOwnedPopover,
+                            "map zone browser retains its panel while keyboard focus enters the popover")
+
+        CalendarSettingsOwnership.setPresented(
+            true, owner: .timezoner, presentation: presentation,
+            onOwnedPopoverChanged: pair.setOwnedPopoverPresented)
+        CalendarSettingsOwnership.setPresented(
+            false, owner: .timezoner, presentation: presentation,
+            onOwnedPopoverChanged: pair.setOwnedPopoverPresented)
+        scheduler.runAll()
+        expectCalendarPanel(main.isVisible && presentation.hasOwnedPopover,
+                            "closing settings does not release a still-open map browser")
+
+        CalendarSettingsOwnership.setPresented(
+            true, owner: .timezoner, presentation: presentation,
+            onOwnedPopoverChanged: pair.setOwnedPopoverPresented)
+        TimezoneMapPopoverOwnership.setPresented(
+            false, presentation: presentation, onOwnedPopoverChanged: pair.setOwnedPopoverPresented)
+        scheduler.runAll()
+        expectCalendarPanel(main.isVisible && presentation.hasOwnedPopover,
+                            "closing the map browser preserves another owned popover")
+
+        CalendarSettingsOwnership.setPresented(
+            false, owner: .timezoner, presentation: presentation,
+            onOwnedPopoverChanged: pair.setOwnedPopoverPresented)
+        scheduler.runAll()
+        expectCalendarPanel(!main.isVisible && !presentation.hasOwnedPopover,
+                            "closing the last owned popover releases normal focus dismissal")
+    }
+
+    do {
         let main = CalendarPanelSurfaceFake(frame: CGRect(x: 200, y: 100, width: 600, height: 500))
         let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
         let popover = CalendarPanelPopoverFake()

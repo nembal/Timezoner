@@ -177,6 +177,9 @@ public struct ContentView: View {
                     withAnimation(.easeInOut(duration: 0.3)) {
                         zoneStore.add(label: label, timezoneId: ianaId)
                     }
+                },
+                onOwnedPopoverChanged: { isPresented in
+                    panelController?.setOwnedPopoverPresented(isPresented)
                 }
             )
         }

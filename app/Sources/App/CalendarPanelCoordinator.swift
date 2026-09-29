@@ -152,6 +152,7 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
     func hide() {
         settleWorkspaceTransition()
         presentation.isSettingsPresented = false
+        presentation.isMapZoneBrowserPresented = false
         presentation.attendeePopoverEventID = nil
         pair.setOwnedPopoverPresented(false)
         pair.hide()
@@ -550,6 +551,7 @@ final class CalendarPanelCoordinator: NSObject, CalendarPanelControlling {
 
     private func closeOwnedPopovers() {
         presentation.isSettingsPresented = false
+        presentation.isMapZoneBrowserPresented = false
         presentation.eventDetailPopoverTarget = nil
         pair.setOwnedPopoverPresented(false)
     }

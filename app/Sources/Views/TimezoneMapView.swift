@@ -34,6 +34,21 @@ public enum TimezoneMapAccessibility {
     }
 }
 
+/// Tracks the map browser with the same aggregate popover ownership used by settings and
+/// calendar details, so moving keyboard focus into it does not dismiss the floating panel.
+public enum TimezoneMapPopoverOwnership {
+    public static func setPresented(
+        _ value: Bool,
+        presentation: CalendarPresentationState,
+        onOwnedPopoverChanged: (Bool) -> Void
+    ) {
+        guard !value || presentation.destination == .timezoner else { return }
+        guard presentation.isMapZoneBrowserPresented != value else { return }
+        presentation.isMapZoneBrowserPresented = value
+        onOwnedPopoverChanged(presentation.hasOwnedPopover)
+    }
+}
+
 // Preference key to capture Canvas size without side effects
 private struct MapSizeKey: PreferenceKey {
     static var defaultValue: CGSize = .zero
@@ -49,11 +64,11 @@ public struct TimezoneMapView: View {
     public let mapPresentation: CalendarPresentationState
     public var onManualMapToggle: () -> Void
     public var onAddZone: ((String, String) -> Void)?
+    public var onOwnedPopoverChanged: (Bool) -> Void
 
     @State private var geoData: GeoJSONFeatureCollection?
     @State private var hoveredTzid: String?
     @State private var hoveredOffset: Int?
-    @State private var isZoneBrowserPresented = false
     @State private var zoneSearch = ""
     @State private var mapSize: CGSize = .zero
     @State private var cachedPaths: [(tzid: String, paths: [CGPath])] = []
@@ -61,13 +76,15 @@ public struct TimezoneMapView: View {
     public init(zones: [ZoneInfo], timeState: TimeState, highlightedZoneIds: Set<UUID>,
                 mapPresentation: CalendarPresentationState,
                 onManualMapToggle: @escaping () -> Void = {},
-                onAddZone: ((String, String) -> Void)? = nil) {
+                onAddZone: ((String, String) -> Void)? = nil,
+                onOwnedPopoverChanged: @escaping (Bool) -> Void) {
         self.zones = zones
         self.timeState = timeState
         self.highlightedZoneIds = highlightedZoneIds
         self.mapPresentation = mapPresentation
         self.onManualMapToggle = onManualMapToggle
         self.onAddZone = onAddZone
+        self.onOwnedPopoverChanged = onOwnedPopoverChanged
     }
 
     private var userIanaIds: Set<String> {
@@ -84,6 +101,19 @@ public struct TimezoneMapView: View {
         TimezoneMapAccessibility.zoneOptions(
             features: geoData?.features ?? [], query: zoneSearch,
             userZoneIds: userIanaIds, at: timeState.referenceDate)
+    }
+
+    private var zoneBrowserPresented: Binding<Bool> {
+        Binding(
+            get: { mapPresentation.isMapZoneBrowserPresented },
+            set: { setZoneBrowserPresented($0) }
+        )
+    }
+
+    private func setZoneBrowserPresented(_ value: Bool) {
+        TimezoneMapPopoverOwnership.setPresented(
+            value, presentation: mapPresentation,
+            onOwnedPopoverChanged: onOwnedPopoverChanged)
     }
 
     private func gmtLabel(for offsetSeconds: Int) -> String {
@@ -110,6 +140,9 @@ public struct TimezoneMapView: View {
             // Toggle — full-width hit target
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.25)) {
+                    if mapPresentation.isMapExpanded {
+                        setZoneBrowserPresented(false)
+                    }
                     mapPresentation.toggleMapManually()
                     onManualMapToggle()
                 }
@@ -329,14 +362,17 @@ public struct TimezoneMapView: View {
 
                 Button("Browse map zones") {
                     zoneSearch = ""
-                    isZoneBrowserPresented = true
+                    setZoneBrowserPresented(true)
                 }
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .buttonStyle(.plain)
                 .foregroundStyle(Theme.textSecondary)
                 .accessibilityHint("Search mapped timezones and add one to your cards")
-                .popover(isPresented: $isZoneBrowserPresented) {
+                .popover(isPresented: zoneBrowserPresented) {
                     zoneBrowser
+                }
+                .onDisappear {
+                    setZoneBrowserPresented(false)
                 }
                 .frame(maxWidth: .infinity, alignment: .trailing)
             }
@@ -366,7 +402,7 @@ public struct TimezoneMapView: View {
                         } else {
                             Button {
                                 onAddZone?(option.label, option.id)
-                                isZoneBrowserPresented = false
+                                setZoneBrowserPresented(false)
                             } label: {
                                 zoneBrowserRow(option, status: "Add")
                             }
