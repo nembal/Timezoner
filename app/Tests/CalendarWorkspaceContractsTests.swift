@@ -17,4 +17,17 @@ func runCalendarWorkspaceContractsTests() {
     workspaceExpect(CalendarPanelMetrics.navHeight == 40, "shared nav height")
     workspaceExpect(CalendarPanelMetrics.normalWidth(cityCount: 4) == 768,
                     "normal width retains existing card formula")
+    workspaceExpect(
+        CalendarPanelMetrics.timeZonerHeight(mapExpanded: true, hasSelectedEvent: false)
+            == CalendarPanelMetrics.preferredHeight,
+        "an expanded map retains the full TimeZoner panel height"
+    )
+    workspaceExpect(
+        CalendarPanelMetrics.timeZonerHeight(mapExpanded: false, hasSelectedEvent: false) == 260,
+        "a collapsed map returns the normal TimeZoner panel to its compact height"
+    )
+    workspaceExpect(
+        CalendarPanelMetrics.timeZonerHeight(mapExpanded: false, hasSelectedEvent: true) == 310,
+        "a collapsed map still reserves room for a selected event context"
+    )
 }

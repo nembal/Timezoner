@@ -27,10 +27,17 @@ public enum CalendarPanelMetrics {
     public static let railWidth: CGFloat = 240
     public static let calendarWidth: CGFloat = 760
     public static let preferredHeight: CGFloat = 580
+    public static let compactTimeZonerHeight: CGFloat = 260
+    public static let compactTimeZonerHeightWithEventContext: CGFloat = 310
     public static let narrowThreshold: CGFloat = 570
     public static let compactToolbarThreshold: CGFloat = 600
     public static func normalWidth(cityCount: Int) -> CGFloat {
         let count = CGFloat(max(cityCount, 2))
         return count * 155 + max(count - 1, 0) * 36 + 40
+    }
+
+    public static func timeZonerHeight(mapExpanded: Bool, hasSelectedEvent: Bool) -> CGFloat {
+        guard !mapExpanded else { return preferredHeight }
+        return hasSelectedEvent ? compactTimeZonerHeightWithEventContext : compactTimeZonerHeight
     }
 }

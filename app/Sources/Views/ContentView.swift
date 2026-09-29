@@ -56,6 +56,13 @@ public struct ContentView: View {
         !timeState.isLive
     }
 
+    private var timeZonerPanelHeight: CGFloat {
+        CalendarPanelMetrics.timeZonerHeight(
+            mapExpanded: presentation.isMapExpanded,
+            hasSelectedEvent: referenceMoment.selectedEvent != nil
+        )
+    }
+
     private var normalContent: some View {
         CalendarPanelChrome(
             isHugging: presentation.mainPanelHugsMenuBar,
@@ -196,12 +203,7 @@ public struct ContentView: View {
         }
         .onAppear {
             ensureDefaultSource()
-            if presentation.destination == .timezoner {
-                panelController?.resizeMain(to: CGSize(
-                    width: idealWidth,
-                    height: CalendarPanelMetrics.preferredHeight
-                ))
-            }
+            scheduleTimeZonerPanelResize()
             consumePendingDeepLink()
         }
         .onChange(of: deepLinkRouter.pendingCommand) {
@@ -209,6 +211,15 @@ public struct ContentView: View {
         }
         .onChange(of: calendarStore.authorizationStatus) {
             resolveCalendarAccessDestination()
+        }
+        .onChange(of: presentation.isMapExpanded) {
+            scheduleTimeZonerPanelResize()
+        }
+        .onChange(of: presentation.destination) {
+            scheduleTimeZonerPanelResize()
+        }
+        .onChange(of: referenceMoment.selectedEvent?.id) {
+            scheduleTimeZonerPanelResize()
         }
         .onReceive(NotificationCenter.default.publisher(for: .focusSelectedEventContext)) { _ in
             guard presentation.destination == .timezoner,
@@ -253,10 +264,15 @@ public struct ContentView: View {
                 .hidden()
         }
         .onChange(of: zoneStore.zones.count) {
+            scheduleTimeZonerPanelResize()
+        }
+    }
+
+    private func scheduleTimeZonerPanelResize() {
+        guard presentation.destination == .timezoner else { return }
+        DispatchQueue.main.async {
             guard presentation.destination == .timezoner else { return }
-            DispatchQueue.main.async {
-                panelController?.resizeMain(to: CGSize(width: idealWidth, height: 580))
-            }
+            panelController?.resizeMain(to: CGSize(width: idealWidth, height: timeZonerPanelHeight))
         }
     }
 
