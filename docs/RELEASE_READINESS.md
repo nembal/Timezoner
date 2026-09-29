@@ -1,19 +1,21 @@
 # Release Readiness
 
-**Status as of 2026-07-02:** PR #2 is merged, `v0.3.0` is tagged, the Manual DMG is attached to GitHub Releases, Homebrew can build from the stable release tarball, and the Raycast Store submission PR is open at https://github.com/raycast/extensions/pull/29168. Public Raycast Store distribution still depends on screenshot metadata, Raycast review, and PR merge.
+**Release baseline (2026-07-02):** PR #2 was merged, `v0.3.0` was tagged, the Manual DMG was attached to GitHub Releases, and Homebrew could build from the stable release tarball. The Raycast Store submission PR was open at https://github.com/raycast/extensions/pull/29168. Those dated observations do not establish a newer release or a Raycast Store merge.
+
+The current source branch contains unreleased Calendar Companion work and identifies its bundles as version `0.4.0`. `app/Info.plist` is the version source for current source builds and Manual DMGs; the Homebrew formula uses the release tag's version only for the older v0.3.0 source archive, whose plist has no version keys. The metadata does not make this branch a published v0.4.0 release.
 
 ## Ready Now
 
 - Source checkout install: `./install.sh --open`, defaulting to `~/Applications/TimeZoner.app`.
 - Homebrew source build: `brew tap nembal/timezoner https://github.com/nembal/Timezoner && brew trust --formula nembal/timezoner/timezoner && brew install timezoner`.
 - Homebrew HEAD build: `brew install --HEAD timezoner` for current `main`.
-- Homebrew helpers: `timezoner` opens the Cellar app, and `timezoner-install-app [destination]` copies a signed app bundle to `~/Applications` or `/Applications`.
+- Homebrew helpers: `timezoner` opens the Cellar app, and `timezoner-install-app [destination] [--open]` copies a signed app bundle to `~/Applications` or `/Applications`. After `brew upgrade timezoner`, run `timezoner-install-app` again to update the separate copy. The helper stops the exact running destination before replacement and relaunches only with `--open`; a different running TimeZoner copy blocks the update.
 - Manual DMG fallback: `scripts/create-dmg.sh` builds an ad-hoc signed app, includes the SwiftPM resource bundle, and labels the output as a Manual DMG.
 - Native URL scheme: `timezoner://open` and `timezoner://set?hour=15&minute=30&zone=America%2FLos_Angeles&label=SF`.
 - Raycast source extension: one `tz` TimeZoner command for live world clock, same-screen card time editing through the search bar, one-click edit retargeting between cards, static map preview under the timezone cards, time conversion, Raycast-local add/edit/remove zone commands, and `Cmd+O` into TimeZoner.app.
 - Raycast Store submission: https://github.com/raycast/extensions/pull/29168, with initial Greptile review feedback addressed except for real screenshot PNGs.
 
-## Verified On This Branch
+## Historical v0.3.0 release verification
 
 - `scripts/test-install.sh`
 - `cd app && swift run TimeZonerTests` with 162 passing tests
@@ -35,7 +37,7 @@ The final Calendar UI code presents interval-aware Today and Tomorrow agenda gro
 
 ### Current-branch automated and package evidence
 
-Completed on 2026-09-25 against final code SHA `08eae90` immediately before this evidence-refresh documentation-only change:
+Completed on 2026-09-25 against code SHA `08eae90`; these results are historical and do not certify the current cleanup branch:
 
 - `cd app && swift run TimeZonerTests` — **659 passed, 0 failed**.
 - Final bounded full-suite repeat — **20/20 consecutive passes**, each with a 10-second deadline. This establishes deterministic test stability, not a native macOS notification result.

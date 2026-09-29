@@ -4,6 +4,8 @@ I work across Bangkok, San Francisco, New York, and London. Every day I need to 
 
 TimeZoner is a tiny macOS app that floats over everything. Type a time, see it in all your zones. That's it.
 
+The latest tagged release is **v0.3.0**. Calendar Companion described below is available only in the current source branch; it has not been released in the v0.3.0 DMG or stable Homebrew formula.
+
 ![TimeZoner docked to menu bar](docs/images/timezoner-docked.png)
 *Docked to the menu bar*
 
@@ -53,6 +55,8 @@ open ~/Applications/TimeZoner.app
 ```
 
 `timezoner-install-app` copies the built app bundle to `~/Applications/TimeZoner.app`, so it is available from Finder, Spotlight, and Launchpad. The `timezoner` command also opens the Homebrew Cellar app bundle directly.
+
+After `brew upgrade timezoner`, run `timezoner-install-app` again to update the separate copy in `~/Applications`. The helper stops an exact running destination bundle before replacing it; add `--open` if you want it relaunched. It refuses an update when another TimeZoner copy is running, so quit that copy first. Upgrading Homebrew alone updates only its Cellar bundle.
 
 Homebrew may require the `brew trust` step for third-party taps before it loads the formula. To build the latest `main` instead of the tagged release:
 
@@ -143,7 +147,7 @@ Click the ⚙ in the panel (or press **⌘,**) to open Settings:
 - **Launch at login** — opens automatically when you sign in
 - **Input formats** — quick reference for the chat parser
 
-### Calendar companion
+### Calendar companion (current source branch, unreleased)
 
 TimeZoner can show a read-only agenda from the event calendars macOS Calendar already makes available. There is no Google sign-in, Google Calendar API, TimeZoner account, or direct network calendar client: macOS Calendar remains the account and sync source. The compact calendar is visible by default when the preference is unset; the calendar button hides or shows it. Opening it without access presents an in-app explanation, and only choosing **Enable Calendar Access** asks macOS for **Full Access**. TimeZoner never creates, edits, deletes, accepts, or declines calendar events.
 
@@ -210,7 +214,7 @@ cd Timezoner
 open app/TimeZoner.app
 ```
 
-Create a Manual DMG: `./scripts/create-dmg.sh 0.2.0`
+Create a Manual DMG for this checkout's version: `./scripts/create-dmg.sh`. The version comes from `app/Info.plist`; an optional version argument must match it. Current source uses `0.4.0` as build metadata for unreleased Calendar work, not as a release announcement.
 
 Run checks:
 

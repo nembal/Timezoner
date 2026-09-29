@@ -5,7 +5,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT/app"
 
-VERSION="${1:-0.1.0}"
+VERSION="$(plutil -extract CFBundleShortVersionString raw -o - "$ROOT/app/Info.plist")"
+BUILD_VERSION="$(plutil -extract CFBundleVersion raw -o - "$ROOT/app/Info.plist")"
+if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ || "$BUILD_VERSION" != "$VERSION" ]]; then
+    echo "error: app/Info.plist must contain matching numeric version and build values" >&2
+    exit 1
+fi
+if [[ $# -gt 1 || ( $# -eq 1 && "$1" != "$VERSION" ) ]]; then
+    echo "error: DMG version must match app/Info.plist: $VERSION" >&2
+    exit 64
+fi
 APP_NAME="TimeZoner"
 DMG_NAME="${APP_NAME}-${VERSION}-arm64"
 RESOURCE_BUNDLE_NAME="TimeZoner_TimeZonerLib.bundle"
@@ -13,40 +22,7 @@ RESOURCE_JSON="${APP_NAME}.app/Contents/Resources/${RESOURCE_BUNDLE_NAME}/Conten
 
 echo "Building ${APP_NAME} v${VERSION}..."
 
-developer_dir="$(xcode-select -p 2>/dev/null || true)"
-if [[ "$developer_dir" == *"/Library/Developer/CommandLineTools"* ]]; then
-    bash "$ROOT/app/fix-spm.sh" >/dev/null
-    export SWIFT_EXEC="/tmp/spm-fix/swiftc-wrapper.sh"
-fi
-
-# Build release
-swift build -c release --product TimeZoner
-
-release_products_dir="$(swift build -c release --show-bin-path)"
-resource_bundle="$release_products_dir/$RESOURCE_BUNDLE_NAME"
-executable_path="$release_products_dir/TimeZoner"
-if [[ ! -d "$resource_bundle" ]]; then
-    echo "error: ${RESOURCE_BUNDLE_NAME} not found in $release_products_dir" >&2
-    exit 1
-fi
-if [[ ! -x "$executable_path" ]]; then
-    echo "error: TimeZoner executable not found in $release_products_dir" >&2
-    exit 1
-fi
-
-# Assemble .app bundle
-rm -rf "${APP_NAME}.app"
-mkdir -p "${APP_NAME}.app/Contents/MacOS"
-mkdir -p "${APP_NAME}.app/Contents/Resources"
-cp "$executable_path" "${APP_NAME}.app/Contents/MacOS/"
-cp Info.plist "${APP_NAME}.app/Contents/"
-cp -R "$resource_bundle" "${APP_NAME}.app/Contents/Resources/${RESOURCE_BUNDLE_NAME}"
-
-# Add version to Info.plist
-/usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string ${VERSION}" "${APP_NAME}.app/Contents/Info.plist" 2>/dev/null || \
-/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${VERSION}" "${APP_NAME}.app/Contents/Info.plist"
-/usr/libexec/PlistBuddy -c "Add :CFBundleVersion string ${VERSION}" "${APP_NAME}.app/Contents/Info.plist" 2>/dev/null || \
-/usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${VERSION}" "${APP_NAME}.app/Contents/Info.plist"
+bash "$ROOT/scripts/build.sh"
 
 if [[ ! -f "$RESOURCE_JSON" ]]; then
     echo "error: missing resource JSON: $RESOURCE_JSON" >&2

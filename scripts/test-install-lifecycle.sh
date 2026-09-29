@@ -51,7 +51,7 @@ case "${1:-all}" in
         grep -qi 'source.*destination\|destination.*source' "$equal_root/output" || \
             fail "equal source and destination did not explain the rejection"
         ;;
-    open|formula|formula-open|crosspath|formula-crosspath)
+    open|formula|formula-open|crosspath|formula-crosspath|default|formula-default)
         ;;
     *)
         fail "unknown case: $1"
@@ -216,6 +216,13 @@ if [[ "${1:-all}" == "formula-crosspath" || "${1:-all}" == "all" ]]; then
     test ! -f "$TZ_TEST_OPENED" || fail "Homebrew cross-path conflict opened a new bundle"
     grep -F -- "$TZ_TEST_OTHER_EXECUTABLE" "$formula_conflict_root/output" >/dev/null || \
         fail "Homebrew cross-path conflict did not identify the running copy"
+    if PATH="$formula_conflict_root/bin:$PATH" BASH_ENV="$formula_conflict_root/bash-env" \
+        "$formula_conflict_root/timezoner-install-app" "$formula_conflict_root/Applications" \
+        > "$formula_conflict_root/default-output" 2>&1; then
+        fail "Homebrew default update replaced a bundle while another copy was running"
+    fi
+    [[ "$(< "$formula_conflict_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner")" == "old binary" ]] || \
+        fail "Homebrew default conflict replaced the installed bundle"
 fi
 
 if [[ "${1:-all}" == "formula-open" || "${1:-all}" == "all" ]]; then
@@ -258,6 +265,50 @@ if [[ "${1:-all}" == "formula-open" || "${1:-all}" == "all" ]]; then
         }
     test -f "$TZ_TEST_KILLED" || fail "Homebrew helper did not stop the installed process"
     test -f "$TZ_TEST_OPENED" || fail "Homebrew helper did not launch the installed bundle"
+fi
+
+if [[ "${1:-all}" == "default" || "${1:-all}" == "formula-default" || "${1:-all}" == "all" ]]; then
+    for install_kind in source formula; do
+        [[ "${1:-all}" == "all" || ( "${1:-all}" == "default" && "$install_kind" == "source" ) || ( "${1:-all}" == "formula-default" && "$install_kind" == "formula" ) ]] || continue
+        default_root="$test_root/$install_kind-default"
+        make_source_bundle "$default_root"
+        mkdir -p "$default_root/Applications/TimeZoner.app/Contents/MacOS" "$default_root/bin"
+        printf 'old binary\n' > "$default_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner"
+        chmod +x "$default_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner"
+        if [[ "$install_kind" == "formula" ]]; then
+            mkdir -p "$default_root/prefix"
+            cp -R "$default_root/app/TimeZoner.app" "$default_root/prefix/TimeZoner.app"
+            write_formula_helper "$default_root/prefix" "$default_root/timezoner-install-app"
+            installer="$default_root/timezoner-install-app"
+        else
+            installer="$default_root/install.sh"
+        fi
+        export TZ_TEST_DESTINATION="$default_root/Applications/TimeZoner.app"
+        export TZ_TEST_KILLED="$default_root/killed"
+        export TZ_TEST_OPENED="$default_root/opened"
+        printf '#!/bin/bash\nexit 0\n' > "$default_root/bin/codesign"
+        printf '%s\n' '#!/bin/bash' \
+            'if [[ ! -f "$TZ_TEST_KILLED" ]]; then' \
+            '  printf "42424 %s/Contents/MacOS/TimeZoner\n" "$TZ_TEST_DESTINATION"' \
+            'fi' > "$default_root/bin/ps"
+        printf '#!/bin/bash\ntouch "$TZ_TEST_OPENED"\n' > "$default_root/bin/open"
+        printf '%s\n' 'kill() {' \
+            '  [[ "$1" == "-TERM" && "$2" == "42424" ]] || return 1' \
+            '  [[ "$(< "$TZ_TEST_DESTINATION/Contents/MacOS/TimeZoner")" == "old binary" ]] || return 1' \
+            '  touch "$TZ_TEST_KILLED"' \
+            '}' > "$default_root/bash-env"
+        chmod +x "$default_root/bin/"*
+        if [[ "$install_kind" == "formula" ]]; then
+            PATH="$default_root/bin:$PATH" BASH_ENV="$default_root/bash-env" \
+                "$installer" "$default_root/Applications" > "$default_root/output" 2>&1 || fail "Homebrew default update failed"
+        else
+            PATH="$default_root/bin:$PATH" BASH_ENV="$default_root/bash-env" \
+                "$installer" --skip-build --destination "$default_root/Applications" > "$default_root/output" 2>&1 || fail "source default update failed"
+        fi
+        test -f "$TZ_TEST_KILLED" || fail "$install_kind default update replaced a running bundle without stopping it"
+        test ! -f "$TZ_TEST_OPENED" || fail "$install_kind default update launched the app without --open"
+        [[ "$(< "$TZ_TEST_DESTINATION/Contents/MacOS/TimeZoner")" == "new binary" ]] || fail "$install_kind default update did not copy the new bundle"
+    done
 fi
 
 echo "install lifecycle checks passed"

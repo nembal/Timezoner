@@ -197,16 +197,14 @@ verify_app_bundle "$APP_SOURCE"
 
 mkdir -p "$DESTINATION"
 reject_source_destination
-if [[ "$OPEN_APP" -eq 1 ]]; then
-    require_command plutil
-    installed_executable="$(cd -P "$DESTINATION" && pwd -P)/${APP_NAME}.app/Contents/MacOS/TimeZoner"
-    other_executables="$(running_other_timezoner_executables "$installed_executable")"
-    if [[ -n "$other_executables" ]]; then
-        echo "error: another TimeZoner copy is running at $other_executables; quit it before using --open" >&2
-        exit 1
-    fi
-    stop_installed_app "$installed_executable"
+require_command plutil
+installed_executable="$(cd -P "$DESTINATION" && pwd -P)/${APP_NAME}.app/Contents/MacOS/TimeZoner"
+other_executables="$(running_other_timezoner_executables "$installed_executable")"
+if [[ -n "$other_executables" ]]; then
+    echo "error: another TimeZoner copy is running at $other_executables; quit it before updating" >&2
+    exit 1
 fi
+stop_installed_app "$installed_executable"
 rm -rf "$APP_DESTINATION"
 cp -R "$APP_SOURCE" "$APP_DESTINATION"
 codesign --force --sign - "$APP_DESTINATION"

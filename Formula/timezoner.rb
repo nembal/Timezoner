@@ -32,6 +32,21 @@ class Timezoner < Formula
     cp Pathname.new(release_products_dir)/"TimeZoner", app_bundle/"Contents/MacOS/TimeZoner"
     cp "app/Info.plist", app_bundle/"Contents/Info.plist"
     cp_r resource_bundle, app_bundle/"Contents/Resources/TimeZoner_TimeZonerLib.bundle"
+    plist = app_bundle/"Contents/Info.plist"
+    read_plist_value = lambda do |key|
+      IO.popen(["/usr/libexec/PlistBuddy", "-c", "Print :#{key}", plist.to_s], err: File::NULL, &:read).strip
+    end
+    bundle_version = read_plist_value.call("CFBundleShortVersionString")
+    build_version = read_plist_value.call("CFBundleVersion")
+    if bundle_version.empty? && build_version.empty?
+      # The v0.3.0 tagged source predates version keys; its tag is the fallback.
+      bundle_version = version.to_s
+      system "/usr/libexec/PlistBuddy", "-c", "Add :CFBundleShortVersionString string #{bundle_version}", plist
+      system "/usr/libexec/PlistBuddy", "-c", "Add :CFBundleVersion string #{bundle_version}", plist
+      build_version = bundle_version
+    end
+    odie "Info.plist has inconsistent version metadata" unless bundle_version.match?(/\A\d+\.\d+\.\d+\z/) &&
+                                                              build_version == bundle_version
     system "codesign", "--force", "--sign", "-", app_bundle
 
     (bin/"timezoner").write <<~EOS
@@ -135,16 +150,14 @@ class Timezoner < Formula
 
       mkdir -p "$destination"
       reject_source_destination
-      if [[ "$open_app" -eq 1 ]]; then
-        command -v plutil >/dev/null 2>&1 || { echo "error: plutil is required" >&2; exit 1; }
-        installed_executable="$(cd -P "$destination" && pwd -P)/TimeZoner.app/Contents/MacOS/TimeZoner"
-        other_executables="$(running_other_timezoner_executables "$installed_executable")"
-        if [[ -n "$other_executables" ]]; then
-          echo "error: another TimeZoner copy is running at $other_executables; quit it before using --open" >&2
-          exit 1
-        fi
-        stop_installed_app "$installed_executable"
+      command -v plutil >/dev/null 2>&1 || { echo "error: plutil is required" >&2; exit 1; }
+      installed_executable="$(cd -P "$destination" && pwd -P)/TimeZoner.app/Contents/MacOS/TimeZoner"
+      other_executables="$(running_other_timezoner_executables "$installed_executable")"
+      if [[ -n "$other_executables" ]]; then
+        echo "error: another TimeZoner copy is running at $other_executables; quit it before updating" >&2
+        exit 1
       fi
+      stop_installed_app "$installed_executable"
       rm -rf "$destination/TimeZoner.app"
       cp -R "$source_app" "$destination/TimeZoner.app"
       codesign --force --sign - "$destination/TimeZoner.app"
@@ -169,7 +182,10 @@ class Timezoner < Formula
       Install a copy into ~/Applications:
         timezoner-install-app
 
-      Replace a running installed copy and relaunch it:
+      After brew upgrade, update the separately copied app in ~/Applications:
+        timezoner-install-app
+
+      Update a running installed copy and relaunch it:
         timezoner-install-app --open
 
       Install explicitly into /Applications:
