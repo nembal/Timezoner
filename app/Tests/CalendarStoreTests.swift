@@ -15,10 +15,7 @@ private final class CalendarStoreProviderFake: CalendarEventReading {
     var requestAccessHandler: (() -> Void)?
     private(set) var accessRequestCount = 0
     private(set) var eventRequests: [EventRequest] = []
-    var onMissingEventRequest: (Int) -> Void = { index in
-        testsFailed += 1
-        print("  FAIL: event request \(index) was not recorded")
-    }
+    var missingRequestDiagnostic: (String) -> Void = { print($0) }
 
     let changes: AsyncStream<Void>
     private let changesContinuation: AsyncStream<Void>.Continuation
@@ -71,7 +68,7 @@ private final class CalendarStoreProviderFake: CalendarEventReading {
         with result: Result<[CalendarEventSnapshot], Error>
     ) {
         guard eventContinuations.indices.contains(index), let continuation = eventContinuations[index] else {
-            onMissingEventRequest(index)
+            reportMissingEventRequest(index)
             return
         }
         eventContinuations[index] = nil
@@ -80,7 +77,7 @@ private final class CalendarStoreProviderFake: CalendarEventReading {
 
     func eventRequest(at index: Int) -> EventRequest? {
         guard eventRequests.indices.contains(index) else {
-            onMissingEventRequest(index)
+            reportMissingEventRequest(index)
             return nil
         }
         return eventRequests[index]
@@ -88,6 +85,11 @@ private final class CalendarStoreProviderFake: CalendarEventReading {
 
     func emitStoreChange() {
         changesContinuation.yield(())
+    }
+
+    private func reportMissingEventRequest(_ index: Int) {
+        testsFailed += 1
+        missingRequestDiagnostic("  FAIL: event request \(index) was not recorded")
     }
 }
 
@@ -182,10 +184,12 @@ func runCalendarStoreTests() async {
 
     do {
         let provider = CalendarStoreProviderFake()
-        var missingIndices: [Int] = []
-        provider.onMissingEventRequest = { missingIndices.append($0) }
+        provider.missingRequestDiagnostic = { _ in }
+        let failuresBefore = testsFailed
         provider.completeEventRequest(0, with: .success([]))
-        expectCalendarStore(missingIndices, [0], "a missing async event request reports a test failure")
+        let reportedFailures = testsFailed - failuresBefore
+        testsFailed = failuresBefore
+        expectCalendarStore(reportedFailures, 1, "a missing async event request increments the runner failure count")
     }
 
     var utcCalendar = Calendar(identifier: .gregorian)
