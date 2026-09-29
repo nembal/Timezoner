@@ -166,6 +166,31 @@ class Timezoner < Formula
       mkdir -p "$destination"
       reject_source_destination
       command -v plutil >/dev/null 2>&1 || { echo "error: plutil is required" >&2; exit 1; }
+      stage_dir="$(mktemp -d "$destination/.TimeZoner-install.XXXXXX")"
+      staged_app="$stage_dir/TimeZoner.app"
+      previous_app="$stage_dir/previous.app"
+      installed_app="$destination/TimeZoner.app"
+      cleanup_install() {
+        local status=$?
+        trap - EXIT
+        if [[ -e "$previous_app" || -L "$previous_app" ]]; then
+          if [[ ! -e "$installed_app" && ! -L "$installed_app" ]]; then
+            if ! mv "$previous_app" "$installed_app"; then
+              echo "error: could not restore the previous app; it remains at $previous_app" >&2
+              exit 1
+            fi
+          fi
+        fi
+        rm -rf "$stage_dir"
+        exit "$status"
+      }
+      trap cleanup_install EXIT
+      trap 'exit 130' INT
+      trap 'exit 143' TERM
+      trap 'exit 129' HUP
+      cp -R "$source_app" "$staged_app"
+      codesign --force --sign - "$staged_app"
+      codesign --verify "$staged_app"
       installed_executable="$(cd -P "$destination" && pwd -P)/TimeZoner.app/Contents/MacOS/TimeZoner"
       process_snapshot="$(read_process_snapshot)" || exit 1
       other_executables="$(running_other_timezoner_executables "$installed_executable" "$process_snapshot")"
@@ -174,9 +199,10 @@ class Timezoner < Formula
         exit 1
       fi
       stop_installed_app "$installed_executable" "$process_snapshot"
-      rm -rf "$destination/TimeZoner.app"
-      cp -R "$source_app" "$destination/TimeZoner.app"
-      codesign --force --sign - "$destination/TimeZoner.app"
+      if [[ -e "$installed_app" || -L "$installed_app" ]]; then
+        mv "$installed_app" "$previous_app"
+      fi
+      mv "$staged_app" "$installed_app"
       echo "Installed TimeZoner.app to $destination/TimeZoner.app"
       echo "Launch with: open $destination/TimeZoner.app"
       if [[ "$open_app" -eq 1 ]]; then

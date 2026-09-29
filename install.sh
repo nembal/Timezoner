@@ -213,6 +213,30 @@ verify_app_bundle "$APP_SOURCE"
 mkdir -p "$DESTINATION"
 reject_source_destination
 require_command plutil
+stage_dir="$(mktemp -d "$DESTINATION/.TimeZoner-install.XXXXXX")"
+staged_app="$stage_dir/TimeZoner.app"
+previous_app="$stage_dir/previous.app"
+cleanup_install() {
+    local status=$?
+    trap - EXIT
+    if [[ -e "$previous_app" || -L "$previous_app" ]]; then
+        if [[ ! -e "$APP_DESTINATION" && ! -L "$APP_DESTINATION" ]]; then
+            if ! mv "$previous_app" "$APP_DESTINATION"; then
+                echo "error: could not restore the previous app; it remains at $previous_app" >&2
+                exit 1
+            fi
+        fi
+    fi
+    rm -rf "$stage_dir"
+    exit "$status"
+}
+trap cleanup_install EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+cp -R "$APP_SOURCE" "$staged_app"
+codesign --force --sign - "$staged_app"
+codesign --verify "$staged_app"
 installed_executable="$(cd -P "$DESTINATION" && pwd -P)/${APP_NAME}.app/Contents/MacOS/TimeZoner"
 process_snapshot="$(read_process_snapshot)" || exit 1
 other_executables="$(running_other_timezoner_executables "$installed_executable" "$process_snapshot")"
@@ -221,10 +245,10 @@ if [[ -n "$other_executables" ]]; then
     exit 1
 fi
 stop_installed_app "$installed_executable" "$process_snapshot"
-rm -rf "$APP_DESTINATION"
-cp -R "$APP_SOURCE" "$APP_DESTINATION"
-codesign --force --sign - "$APP_DESTINATION"
-codesign --verify "$APP_DESTINATION"
+if [[ -e "$APP_DESTINATION" || -L "$APP_DESTINATION" ]]; then
+    mv "$APP_DESTINATION" "$previous_app"
+fi
+mv "$staged_app" "$APP_DESTINATION"
 
 echo "Installed TimeZoner.app to $APP_DESTINATION"
 echo "Launch it with:"
