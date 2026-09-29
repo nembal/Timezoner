@@ -101,7 +101,9 @@ APP_SOURCE="$ROOT/app/${APP_NAME}.app"
 APP_DESTINATION="$DESTINATION/${APP_NAME}.app"
 
 canonical_source_parent="$(cd -P "$ROOT/app" && pwd -P)"
-if [[ -d "$DESTINATION" ]]; then
+reject_source_destination() {
+    local canonical_destination_parent
+    [[ -d "$DESTINATION" ]] || return 0
     canonical_destination_parent="$(cd -P "$DESTINATION" && pwd -P)"
     if [[ "$canonical_source_parent" == "$canonical_destination_parent" ]] || \
        { [[ -e "$APP_SOURCE" && -e "$APP_DESTINATION" ]] && \
@@ -109,7 +111,9 @@ if [[ -d "$DESTINATION" ]]; then
         echo "error: install destination is the source app bundle" >&2
         exit 64
     fi
-fi
+}
+
+reject_source_destination
 
 running_installed_pids() {
     local executable="$1"
@@ -123,6 +127,24 @@ running_installed_pids() {
                 printf '%s\n' "$pid"
             fi
         fi
+    done < <(ps -axo pid=,comm=)
+}
+
+running_other_timezoner_executables() {
+    local installed_executable="$1"
+    local line command bundle_path bundle_id
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*[0-9]+[[:space:]]+(.+)$ ]] || continue
+        command="${BASH_REMATCH[1]}"
+        [[ "$command" == *.app/Contents/MacOS/TimeZoner ]] || continue
+        [[ -e "$command" ]] || continue
+        [[ "$(realpath "$command")" == "$installed_executable" ]] && continue
+        bundle_path="${command%/Contents/MacOS/TimeZoner}"
+        if [[ -f "$bundle_path/Contents/Info.plist" ]]; then
+            bundle_id="$(plutil -extract CFBundleIdentifier raw -o - "$bundle_path/Contents/Info.plist" 2>/dev/null || true)"
+            [[ "$bundle_id" == "com.timezoner.app" ]] || continue
+        fi
+        printf '%s\n' "$command"
     done < <(ps -axo pid=,comm=)
 }
 
@@ -174,8 +196,15 @@ fi
 verify_app_bundle "$APP_SOURCE"
 
 mkdir -p "$DESTINATION"
+reject_source_destination
 if [[ "$OPEN_APP" -eq 1 ]]; then
+    require_command plutil
     installed_executable="$(cd -P "$DESTINATION" && pwd -P)/${APP_NAME}.app/Contents/MacOS/TimeZoner"
+    other_executables="$(running_other_timezoner_executables "$installed_executable")"
+    if [[ -n "$other_executables" ]]; then
+        echo "error: another TimeZoner copy is running at $other_executables; quit it before using --open" >&2
+        exit 1
+    fi
     stop_installed_app "$installed_executable"
 fi
 rm -rf "$APP_DESTINATION"

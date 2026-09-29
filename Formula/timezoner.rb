@@ -69,7 +69,9 @@ class Timezoner < Formula
 
       source_app="#{prefix}/TimeZoner.app"
       source_parent="$(cd -P "#{prefix}" && pwd -P)"
-      if [[ -d "$destination" ]]; then
+      reject_source_destination() {
+        local destination_parent
+        [[ -d "$destination" ]] || return 0
         destination_parent="$(cd -P "$destination" && pwd -P)"
         if [[ "$source_parent" == "$destination_parent" ]] || \
            { [[ -e "$source_app" && -e "$destination/TimeZoner.app" ]] && \
@@ -77,7 +79,9 @@ class Timezoner < Formula
           echo "error: install destination is the source app bundle" >&2
           exit 64
         fi
-      fi
+      }
+
+      reject_source_destination
 
       running_installed_pids() {
         local executable="$1"
@@ -91,6 +95,24 @@ class Timezoner < Formula
               printf '%s\\n' "$pid"
             fi
           fi
+        done < <(ps -axo pid=,comm=)
+      }
+
+      running_other_timezoner_executables() {
+        local installed_executable="$1"
+        local line command bundle_path bundle_id
+        while IFS= read -r line; do
+          [[ "$line" =~ ^[[:space:]]*[0-9]+[[:space:]]+(.+)$ ]] || continue
+          command="${BASH_REMATCH[1]}"
+          [[ "$command" == *.app/Contents/MacOS/TimeZoner ]] || continue
+          [[ -e "$command" ]] || continue
+          [[ "$(realpath "$command")" == "$installed_executable" ]] && continue
+          bundle_path="${command%/Contents/MacOS/TimeZoner}"
+          if [[ -f "$bundle_path/Contents/Info.plist" ]]; then
+            bundle_id="$(plutil -extract CFBundleIdentifier raw -o - "$bundle_path/Contents/Info.plist" 2>/dev/null || true)"
+            [[ "$bundle_id" == "com.timezoner.app" ]] || continue
+          fi
+          printf '%s\\n' "$command"
         done < <(ps -axo pid=,comm=)
       }
 
@@ -112,8 +134,15 @@ class Timezoner < Formula
       }
 
       mkdir -p "$destination"
+      reject_source_destination
       if [[ "$open_app" -eq 1 ]]; then
+        command -v plutil >/dev/null 2>&1 || { echo "error: plutil is required" >&2; exit 1; }
         installed_executable="$(cd -P "$destination" && pwd -P)/TimeZoner.app/Contents/MacOS/TimeZoner"
+        other_executables="$(running_other_timezoner_executables "$installed_executable")"
+        if [[ -n "$other_executables" ]]; then
+          echo "error: another TimeZoner copy is running at $other_executables; quit it before using --open" >&2
+          exit 1
+        fi
         stop_installed_app "$installed_executable"
       fi
       rm -rf "$destination/TimeZoner.app"
