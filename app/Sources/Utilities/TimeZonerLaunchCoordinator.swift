@@ -15,8 +15,15 @@ public enum TimeZonerLaunchCoordinator {
         currentProcessID: Int32,
         candidates: [TimeZonerRunningInstance]
     ) -> TimeZonerRunningInstance? {
-        candidates
-            .filter { $0.processID != currentProcessID }
+        guard let current = candidates.first(where: { $0.processID == currentProcessID }) else {
+            return nil
+        }
+        let currentOrder = (current.launchDate ?? .distantFuture, current.processID)
+        return candidates
+            .filter {
+                $0.processID != currentProcessID
+                    && ($0.launchDate ?? .distantFuture, $0.processID) < currentOrder
+            }
             .min {
                 ($0.launchDate ?? .distantFuture, $0.processID)
                     < ($1.launchDate ?? .distantFuture, $1.processID)

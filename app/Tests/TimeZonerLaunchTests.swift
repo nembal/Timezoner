@@ -24,6 +24,38 @@ func runTimeZonerLaunchTests() {
         print("  FAIL: the current process must not count as a duplicate")
     }
 
+    let oldestCurrent = TimeZonerRunningInstance(processID: 200, launchDate: Date(timeIntervalSince1970: 50))
+    if TimeZonerLaunchCoordinator.incumbent(
+        currentProcessID: 200,
+        candidates: [newerProcess, oldestCurrent, olderProcess]
+    ) == nil {
+        testsPassed += 1
+    } else {
+        testsFailed += 1
+        print("  FAIL: the oldest process must continue rather than forward to a newer launch")
+    }
+
+    let sameMomentHigherPID = TimeZonerRunningInstance(processID: 600, launchDate: ownProcess.launchDate)
+    if TimeZonerLaunchCoordinator.incumbent(
+        currentProcessID: 400,
+        candidates: [sameMomentHigherPID, ownProcess]
+    ) == nil {
+        testsPassed += 1
+    } else {
+        testsFailed += 1
+        print("  FAIL: equal launch dates must retain the lower PID")
+    }
+    let sameMomentLowerPID = TimeZonerRunningInstance(processID: 200, launchDate: ownProcess.launchDate)
+    if TimeZonerLaunchCoordinator.incumbent(
+        currentProcessID: 400,
+        candidates: [ownProcess, sameMomentLowerPID]
+    )?.processID == 200 {
+        testsPassed += 1
+    } else {
+        testsFailed += 1
+        print("  FAIL: equal launch dates must select the lower PID as incumbent")
+    }
+
     var actions: [String] = []
     let router = TimeZonerDuplicateLaunchRouter(
         activateIncumbent: { actions.append("activate") },

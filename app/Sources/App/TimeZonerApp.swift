@@ -9,11 +9,18 @@ struct TimeZonerApp {
         let app = NSApplication.shared
         let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.timezoner.app"
         let running = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
-        let candidates = running.map {
+        let currentProcessID = ProcessInfo.processInfo.processIdentifier
+        var candidates = running.map {
             TimeZonerRunningInstance(processID: $0.processIdentifier, launchDate: $0.launchDate)
         }
+        if !candidates.contains(where: { $0.processID == currentProcessID }) {
+            candidates.append(TimeZonerRunningInstance(
+                processID: currentProcessID,
+                launchDate: NSRunningApplication.current.launchDate
+            ))
+        }
         if let incumbent = TimeZonerLaunchCoordinator.incumbent(
-            currentProcessID: ProcessInfo.processInfo.processIdentifier,
+            currentProcessID: currentProcessID,
             candidates: candidates
         ), let incumbentApp = running.first(where: { $0.processIdentifier == incumbent.processID }) {
             let duplicateDelegate = DuplicateLaunchDelegate(incumbent: incumbentApp)
