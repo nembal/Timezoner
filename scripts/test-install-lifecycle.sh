@@ -51,7 +51,7 @@ case "${1:-all}" in
         grep -qi 'source.*destination\|destination.*source' "$equal_root/output" || \
             fail "equal source and destination did not explain the rejection"
         ;;
-    open|formula|formula-open|crosspath|formula-crosspath|default|formula-default)
+    open|formula|formula-open|crosspath|formula-crosspath|default|formula-default|ps-failure|formula-ps-failure|stale-path|formula-stale-path)
         ;;
     *)
         fail "unknown case: $1"
@@ -308,6 +308,57 @@ if [[ "${1:-all}" == "default" || "${1:-all}" == "formula-default" || "${1:-all}
         test -f "$TZ_TEST_KILLED" || fail "$install_kind default update replaced a running bundle without stopping it"
         test ! -f "$TZ_TEST_OPENED" || fail "$install_kind default update launched the app without --open"
         [[ "$(< "$TZ_TEST_DESTINATION/Contents/MacOS/TimeZoner")" == "new binary" ]] || fail "$install_kind default update did not copy the new bundle"
+    done
+fi
+
+if [[ "${1:-all}" == "ps-failure" || "${1:-all}" == "formula-ps-failure" || \
+      "${1:-all}" == "stale-path" || "${1:-all}" == "formula-stale-path" || "${1:-all}" == "all" ]]; then
+    for scenario in ps-failure stale-path; do
+        for install_kind in source formula; do
+            selected_case="$scenario"
+            [[ "$install_kind" == "source" ]] || selected_case="formula-$scenario"
+            [[ "${1:-all}" == "all" || "${1:-all}" == "$selected_case" ]] || continue
+            fixture_root="$test_root/$selected_case"
+            make_source_bundle "$fixture_root"
+            mkdir -p "$fixture_root/Applications/TimeZoner.app/Contents/MacOS" "$fixture_root/bin"
+            printf 'old binary\n' > "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner"
+            chmod +x "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner"
+            if [[ "$install_kind" == "formula" ]]; then
+                mkdir -p "$fixture_root/prefix"
+                cp -R "$fixture_root/app/TimeZoner.app" "$fixture_root/prefix/TimeZoner.app"
+                write_formula_helper "$fixture_root/prefix" "$fixture_root/timezoner-install-app"
+                installer="$fixture_root/timezoner-install-app"
+            else
+                installer="$fixture_root/install.sh"
+            fi
+            printf '#!/bin/bash\nexit 0\n' > "$fixture_root/bin/codesign"
+            if [[ "$scenario" == "ps-failure" ]]; then
+                printf '#!/bin/bash\nprintf "52525 /Applications/Unrelated.app/Contents/MacOS/Unrelated\\n"\necho "fixture process query failed" >&2\nexit 9\n' > "$fixture_root/bin/ps"
+            else
+                mkdir -p "$fixture_root/OtherApplications/OldTimeZoner.app/Contents/MacOS"
+                cp "$repo_root/app/Info.plist" "$fixture_root/OtherApplications/OldTimeZoner.app/Contents/Info.plist"
+                export TZ_TEST_OTHER_EXECUTABLE="$fixture_root/OtherApplications/OldTimeZoner.app/Contents/MacOS/TimeZoner"
+                printf '%s\n' '#!/bin/bash' \
+                    'printf "52525 %s\n" "$TZ_TEST_OTHER_EXECUTABLE"' > "$fixture_root/bin/ps"
+            fi
+            chmod +x "$fixture_root/bin/"*
+            if [[ "$install_kind" == "formula" ]]; then
+                if PATH="$fixture_root/bin:$PATH" "$installer" "$fixture_root/Applications" > "$fixture_root/output" 2>&1; then
+                    fail "$selected_case accepted unsafe replacement"
+                fi
+            else
+                if PATH="$fixture_root/bin:$PATH" "$installer" --skip-build --destination "$fixture_root/Applications" > "$fixture_root/output" 2>&1; then
+                    fail "$selected_case accepted unsafe replacement"
+                fi
+            fi
+            [[ "$(< "$fixture_root/Applications/TimeZoner.app/Contents/MacOS/TimeZoner")" == "old binary" ]] || \
+                fail "$selected_case replaced the destination before rejecting"
+            if [[ "$scenario" == "ps-failure" ]]; then
+                grep -F -- "process query" "$fixture_root/output" >/dev/null || fail "$selected_case did not report the process query failure"
+            else
+                grep -F -- "$TZ_TEST_OTHER_EXECUTABLE" "$fixture_root/output" >/dev/null || fail "$selected_case did not identify the stale running path"
+            fi
+        done
     done
 fi
 

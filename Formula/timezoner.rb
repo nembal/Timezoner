@@ -98,8 +98,18 @@ class Timezoner < Formula
 
       reject_source_destination
 
+      read_process_snapshot() {
+        local snapshot
+        if ! snapshot="$(ps -axo pid=,comm=)"; then
+          echo "error: process query failed; refusing to replace TimeZoner.app" >&2
+          return 1
+        fi
+        printf '%s\\n' "$snapshot"
+      }
+
       running_installed_pids() {
         local executable="$1"
+        local snapshot="$2"
         local line pid command
         while IFS= read -r line; do
           if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]+(.+)$ ]]; then
@@ -110,37 +120,42 @@ class Timezoner < Formula
               printf '%s\\n' "$pid"
             fi
           fi
-        done < <(ps -axo pid=,comm=)
+        done <<< "$snapshot"
       }
 
       running_other_timezoner_executables() {
         local installed_executable="$1"
+        local snapshot="$2"
         local line command bundle_path bundle_id
         while IFS= read -r line; do
           [[ "$line" =~ ^[[:space:]]*[0-9]+[[:space:]]+(.+)$ ]] || continue
           command="${BASH_REMATCH[1]}"
           [[ "$command" == *.app/Contents/MacOS/TimeZoner ]] || continue
-          [[ -e "$command" ]] || continue
-          [[ "$(realpath "$command")" == "$installed_executable" ]] && continue
+          [[ "$command" == "$installed_executable" ]] && continue
+          if [[ -e "$command" ]] && [[ "$(realpath "$command")" == "$installed_executable" ]]; then
+            continue
+          fi
           bundle_path="${command%/Contents/MacOS/TimeZoner}"
           if [[ -f "$bundle_path/Contents/Info.plist" ]]; then
             bundle_id="$(plutil -extract CFBundleIdentifier raw -o - "$bundle_path/Contents/Info.plist" 2>/dev/null || true)"
             [[ "$bundle_id" == "com.timezoner.app" ]] || continue
           fi
           printf '%s\\n' "$command"
-        done < <(ps -axo pid=,comm=)
+        done <<< "$snapshot"
       }
 
       stop_installed_app() {
         local executable="$1"
+        local snapshot="$2"
         local pid remaining attempt
-        remaining="$(running_installed_pids "$executable")"
+        remaining="$(running_installed_pids "$executable" "$snapshot")"
         [[ -n "$remaining" ]] || return 0
         while IFS= read -r pid; do
           [[ -n "$pid" ]] && kill -TERM "$pid"
         done <<< "$remaining"
         for ((attempt = 0; attempt < 50; attempt++)); do
-          remaining="$(running_installed_pids "$executable")"
+          snapshot="$(read_process_snapshot)" || exit 1
+          remaining="$(running_installed_pids "$executable" "$snapshot")"
           [[ -z "$remaining" ]] && return 0
           sleep 0.1
         done
@@ -152,12 +167,13 @@ class Timezoner < Formula
       reject_source_destination
       command -v plutil >/dev/null 2>&1 || { echo "error: plutil is required" >&2; exit 1; }
       installed_executable="$(cd -P "$destination" && pwd -P)/TimeZoner.app/Contents/MacOS/TimeZoner"
-      other_executables="$(running_other_timezoner_executables "$installed_executable")"
+      process_snapshot="$(read_process_snapshot)" || exit 1
+      other_executables="$(running_other_timezoner_executables "$installed_executable" "$process_snapshot")"
       if [[ -n "$other_executables" ]]; then
         echo "error: another TimeZoner copy is running at $other_executables; quit it before updating" >&2
         exit 1
       fi
-      stop_installed_app "$installed_executable"
+      stop_installed_app "$installed_executable" "$process_snapshot"
       rm -rf "$destination/TimeZoner.app"
       cp -R "$source_app" "$destination/TimeZoner.app"
       codesign --force --sign - "$destination/TimeZoner.app"
