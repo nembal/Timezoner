@@ -11,19 +11,42 @@ public enum CalendarGridAccessibility {
         return formatter
     }
 
-    public static func eventLabel(_ event: CalendarEventSnapshot, calendar: Calendar) -> String {
-        let date = formatter("EEE, MMM d", calendar: calendar).string(from: event.startDate)
+    public static func timedSegmentLabel(_ segment: CalendarTimedSegment, calendar: Calendar) -> String {
+        let date = formatter("EEE, MMM d", calendar: calendar)
         let time = formatter("h:mm a z", calendar: calendar)
-        return "\(event.title), \(date), \(time.string(from: event.startDate)) to \(time.string(from: event.endDate)), \(event.calendarTitle)"
+        let visibleDate = date.string(from: segment.dayStart)
+        let eventRange: String
+        if calendar.isDate(segment.event.startDate, inSameDayAs: segment.event.endDate) {
+            eventRange = ""
+        } else {
+            eventRange = ", event \(date.string(from: segment.event.startDate)) to \(date.string(from: segment.event.endDate))"
+        }
+        return "\(segment.event.title), visible \(visibleDate), \(time.string(from: segment.startDate)) to \(time.string(from: segment.endDate))\(eventRange), \(segment.event.calendarTitle)"
     }
 
-    public static func allDayLabel(_ event: CalendarEventSnapshot, calendar: Calendar) -> String {
-        let date = formatter("EEE, MMM d", calendar: calendar).string(from: event.startDate)
-        return "\(event.title), all-day, \(date), \(event.calendarTitle)"
+    public static func timedSegmentMenuTitle(_ segment: CalendarTimedSegment, calendar: Calendar) -> String {
+        let date = formatter("EEE, MMM d", calendar: calendar)
+        let time = formatter("h:mm a z", calendar: calendar)
+        let eventRange: String
+        if calendar.isDate(segment.event.startDate, inSameDayAs: segment.event.endDate) {
+            eventRange = ""
+        } else {
+            eventRange = " (\(date.string(from: segment.event.startDate)) to \(date.string(from: segment.event.endDate)))"
+        }
+        return "\(segment.event.title) — \(date.string(from: segment.dayStart)), \(time.string(from: segment.startDate)) to \(time.string(from: segment.endDate))\(eventRange) — \(segment.event.calendarTitle)"
+    }
+
+    public static func allDaySpanLabel(_ span: CalendarAllDaySpan, calendar: Calendar) -> String {
+        let date = formatter("EEE, MMM d", calendar: calendar)
+        let lastVisibleDay = calendar.date(byAdding: .day, value: -1, to: span.endDay) ?? span.startDay
+        let visibleRange = span.dayCount > 1
+            ? "\(date.string(from: span.startDay)) to \(date.string(from: lastVisibleDay))"
+            : date.string(from: span.startDay)
+        return "\(span.event.title), all-day, visible \(visibleRange), \(span.event.calendarTitle)"
     }
 
     public static func overlapLabel(_ group: CalendarGridTimedGroup, calendar: Calendar) -> String {
-        let date = formatter("EEE, MMM d", calendar: calendar).string(from: group.startDate)
+        let date = formatter("EEE, MMM d", calendar: calendar).string(from: group.dayStart)
         let time = formatter("h:mm a z", calendar: calendar)
         return "\(group.segments.count) overlapping events, \(date), \(time.string(from: group.startDate)) to \(time.string(from: group.endDate))"
     }
@@ -552,7 +575,7 @@ public struct CalendarTimeGrid: View {
                         startingAt: startIndex,
                         dayCount: placement.span.dayCount
                     )
-                    allDayLabel(for: placement.span.event)
+                    allDayLabel(for: placement.span)
                         .frame(width: max(spanFrame.width - 4, 0), height: 20, alignment: .leading)
                         .offset(
                             x: spanFrame.x + 2,
@@ -648,7 +671,8 @@ public struct CalendarTimeGrid: View {
         .accessibilityHidden(true)
     }
 
-    private func allDayLabel(for event: CalendarEventSnapshot) -> some View {
+    private func allDayLabel(for span: CalendarAllDaySpan) -> some View {
+        let event = span.event
         let color = calendarColor(for: event)
         return Button {
             onShowEventDetails(event)
@@ -668,7 +692,7 @@ public struct CalendarTimeGrid: View {
             .background(color.opacity(CalendarGridColor.fillOpacity), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(CalendarGridAccessibility.allDayLabel(event, calendar: calendar))
+        .accessibilityLabel(CalendarGridAccessibility.allDaySpanLabel(span, calendar: calendar))
         .accessibilityHint("Opens event details. Does not set a time.")
         .popover(isPresented: eventDetailPopoverBinding(for: event), arrowEdge: .bottom) {
             CalendarEventDetailsPopover(event: event, timeZone: calendar.timeZone)
@@ -709,7 +733,7 @@ public struct CalendarTimeGrid: View {
             .frame(width: max(frame.width, 1), height: hitHeight, alignment: .topLeading)
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(eventAccessibilityLabel(segment.event))
+        .accessibilityLabel(CalendarGridAccessibility.timedSegmentLabel(segment, calendar: calendar))
         .accessibilityHint("Sets TimeZoner to this event start")
         .opacity(CalendarEventPresentationStyle.opacity(for: segment.event))
     }
@@ -718,10 +742,10 @@ public struct CalendarTimeGrid: View {
         let color = group.segments.first.map { calendarColor(for: $0.event) } ?? Theme.border
         return Menu {
             ForEach(group.segments) { segment in
-                Button(eventMenuTitle(segment.event)) {
+                Button(CalendarGridAccessibility.timedSegmentMenuTitle(segment, calendar: calendar)) {
                     onSelectTimedEvent(segment.event)
                 }
-                .accessibilityLabel(eventAccessibilityLabel(segment.event))
+                .accessibilityLabel(CalendarGridAccessibility.timedSegmentLabel(segment, calendar: calendar))
             }
         } label: {
             HStack(spacing: 5) {
@@ -800,14 +824,6 @@ public struct CalendarTimeGrid: View {
         return Color(red: color.red, green: color.green, blue: color.blue, opacity: color.alpha)
     }
 
-    private func eventAccessibilityLabel(_ event: CalendarEventSnapshot) -> String {
-        CalendarGridAccessibility.eventLabel(event, calendar: calendar)
-    }
-
-    private func eventMenuTitle(_ event: CalendarEventSnapshot) -> String {
-        "\(event.title) — \(dayFormatter.string(from: event.startDate)), \(timeFormatter.string(from: event.startDate)) to \(timeFormatter.string(from: event.endDate)) — \(event.calendarTitle)"
-    }
-
     private func scrollToInitialHour(proxy: ScrollViewProxy, dayStarts: [Date]) {
         let nowIsVisible = CalendarGridMetrics.currentTimePosition(
             now: currentDate,
@@ -838,12 +854,4 @@ public struct CalendarTimeGrid: View {
         return formatter
     }
 
-    private var timeFormatter: DateFormatter {
-        let formatter = DateFormatter()
-        formatter.calendar = calendar
-        formatter.locale = .current
-        formatter.timeZone = calendar.timeZone
-        formatter.dateFormat = "h:mm a z"
-        return formatter
-    }
 }

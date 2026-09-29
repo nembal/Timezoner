@@ -5,22 +5,28 @@ import SwiftUI
 public final class ZoneHighlightCoordinator {
     public private(set) var ids: Set<UUID> = []
     @ObservationIgnored private var clearTask: Task<Void, Never>?
+    @ObservationIgnored private let sleep: (Duration) async throws -> Void
 
-    public init() {}
+    public init(sleep: @escaping (Duration) async throws -> Void = { try await Task.sleep(for: $0) }) {
+        self.sleep = sleep
+    }
 
-    public func show(_ ids: Set<UUID>, clearAfter delay: Duration = .seconds(3)) {
+    @discardableResult
+    public func show(_ ids: Set<UUID>, clearAfter delay: Duration = .seconds(3)) -> Task<Void, Never> {
         clearTask?.cancel()
         withAnimation(.easeInOut(duration: 0.2)) {
             self.ids = ids
         }
-        clearTask = Task { [weak self] in
-            do { try await Task.sleep(for: delay) }
+        let task = Task { [weak self, sleep] in
+            do { try await sleep(delay) }
             catch { return }
             guard !Task.isCancelled else { return }
             withAnimation(.easeInOut(duration: 0.5)) {
                 self?.ids = []
             }
         }
+        clearTask = task
+        return task
     }
 }
 
