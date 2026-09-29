@@ -26,14 +26,14 @@ struct TimeZonerApp {
             let duplicateDelegate = DuplicateLaunchDelegate(incumbent: incumbentApp)
             app.delegate = duplicateDelegate
             app.setActivationPolicy(.accessory)
-            app.run()
+            TimeZonerApplicationLifetime(retaining: duplicateDelegate).run { app.run() }
             return
         }
 
         let delegate = AppDelegate()
         app.delegate = delegate
         app.setActivationPolicy(.accessory)
-        app.run()
+        TimeZonerApplicationLifetime(retaining: delegate).run { app.run() }
     }
 }
 
@@ -152,13 +152,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                     await self?.calendarAlertLifecycle.calendarPermissionDidBecomeUnavailable()
                 }
             },
-            onCalendarProviderChange: { [weak self] in
-                self?.calendarAlertLifecycle.requestReconciliation()
-            },
-            onHourTick: { [weak self] in
-                self?.calendarAlertLifecycle.requestReconciliation()
-            },
-            onTimeZoneChange: { [weak self] in
+            onAlertInputsChanged: { [weak self] _ in
                 self?.calendarAlertLifecycle.requestReconciliation()
             }
         )

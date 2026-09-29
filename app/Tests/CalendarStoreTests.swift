@@ -239,6 +239,40 @@ func runCalendarStoreTests() async {
         let provider = CalendarStoreProviderFake()
         let signals = CalendarStoreClockSignals()
         let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
+        var alertInputChanges = 0
+        let store = CalendarStore(
+            provider: provider,
+            clock: clock,
+            onAlertInputsChanged: { _ in alertInputChanges += 1 }
+        )
+        store.refresh(interval: initialInterval)
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 1 }, "alert-input setup fetch begins")
+        provider.completeEventRequest(0, with: .success([]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "alert-input setup fetch completes")
+
+        provider.emitStoreChange()
+        expectCalendarStoreTrue(await waitForCalendarStore { alertInputChanges == 1 }, "provider changes request one alert reconciliation")
+        expectCalendarStore(alertInputChanges, 1, "provider changes do not duplicate alert reconciliation")
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 2 }, "provider change refresh begins")
+        provider.completeEventRequest(1, with: .success([]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "provider change refresh completes")
+
+        signals.emitHourTick()
+        expectCalendarStoreTrue(await waitForCalendarStore { alertInputChanges == 2 }, "hour ticks request one alert reconciliation")
+        expectCalendarStore(alertInputChanges, 2, "hour ticks do not duplicate alert reconciliation")
+
+        signals.emitTimeZoneChange()
+        expectCalendarStoreTrue(await waitForCalendarStore { alertInputChanges == 3 }, "timezone changes request one alert reconciliation")
+        expectCalendarStore(alertInputChanges, 3, "timezone changes do not duplicate alert reconciliation")
+        expectCalendarStoreTrue(await waitForCalendarStore { provider.eventRequests.count == 3 }, "timezone refresh begins")
+        provider.completeEventRequest(2, with: .success([]))
+        expectCalendarStoreTrue(await waitForCalendarStore { !store.isLoading }, "timezone refresh completes")
+    }
+
+    do {
+        let provider = CalendarStoreProviderFake()
+        let signals = CalendarStoreClockSignals()
+        let clock = calendarStoreClock(now: { morning }, calendar: { utcCalendar }, signals: signals)
         let store = CalendarStore(provider: provider, clock: clock)
 
         store.refresh(interval: initialInterval)

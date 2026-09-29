@@ -1,8 +1,31 @@
 import Foundation
 import TimeZonerLib
 
+private final class TimeZonerLaunchLifetimeProbe {}
+
 func runTimeZonerLaunchTests() {
     print("Running TimeZonerLaunchTests...")
+
+    weak var retainedDelegate: TimeZonerLaunchLifetimeProbe?
+    func makeDelegate() -> TimeZonerLaunchLifetimeProbe {
+        let delegate = TimeZonerLaunchLifetimeProbe()
+        retainedDelegate = delegate
+        return delegate
+    }
+    TimeZonerApplicationLifetime(retaining: makeDelegate()).run {
+        if retainedDelegate != nil {
+            testsPassed += 1
+        } else {
+            testsFailed += 1
+            print("  FAIL: the application delegate must survive for the whole run loop")
+        }
+    }
+    if retainedDelegate == nil {
+        testsPassed += 1
+    } else {
+        testsFailed += 1
+        print("  FAIL: the delegate owner must release after the run loop returns")
+    }
 
     let ownProcess = TimeZonerRunningInstance(processID: 400, launchDate: Date(timeIntervalSince1970: 200))
     let olderProcess = TimeZonerRunningInstance(processID: 300, launchDate: Date(timeIntervalSince1970: 100))

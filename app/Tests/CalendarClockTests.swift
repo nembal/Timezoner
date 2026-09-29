@@ -115,6 +115,28 @@ private func awaitCalendarClockEvent(
 func runCalendarClockTests() async {
     print("Running CalendarClockTests...")
 
+    var boundaryNow = ISO8601DateFormatter().date(from: "2024-01-01T12:34:30Z")!
+    var boundaryCalendar = Calendar(identifier: .gregorian)
+    boundaryCalendar.timeZone = TimeZone(secondsFromGMT: 0)!
+    var scheduledDelays: [TimeInterval] = []
+    let boundaryClock = CalendarClock(
+        now: { boundaryNow },
+        calendar: { boundaryCalendar },
+        scheduleTimer: { _, delay in scheduledDelays.append(delay) }
+    )
+    expectCalendarClock(scheduledDelays, [30, 41_130, 1_530], "initial minute, midnight, and hour deadlines")
+
+    scheduledDelays.removeAll()
+    boundaryCalendar.timeZone = TimeZone(secondsFromGMT: 7 * 3_600)!
+    NotificationCenter.default.post(name: .NSSystemTimeZoneDidChange, object: nil)
+    expectCalendarClock(scheduledDelays, [30, 15_930, 1_530], "timezone changes recalculate every wall-clock deadline")
+
+    scheduledDelays.removeAll()
+    boundaryNow = ISO8601DateFormatter().date(from: "2024-01-01T12:50:40Z")!
+    NotificationCenter.default.post(name: .NSSystemClockDidChange, object: nil)
+    expectCalendarClock(scheduledDelays, [20, 14_960, 560], "system-clock changes recalculate every wall-clock deadline")
+    withExtendedLifetime(boundaryClock) {}
+
     let fixedNow = Date(timeIntervalSince1970: 1_725_000_000)
     var utcCalendar = Calendar(identifier: .gregorian)
     utcCalendar.locale = Locale(identifier: "en_US_POSIX")

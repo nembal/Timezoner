@@ -6,7 +6,12 @@ import Foundation
 @Observable
 public final class CalendarStore {
     public typealias IntervalBuilder = @MainActor (Date, Calendar) -> DateInterval
-    public typealias LifecycleTrigger = @MainActor () -> Void
+    public enum AlertInputChange {
+        case provider
+        case hour
+        case timeZone
+    }
+    public typealias AlertInputTrigger = @MainActor (AlertInputChange) -> Void
 
     public private(set) var authorizationStatus: CalendarAuthorizationStatus
     public private(set) var descriptors: [CalendarDescriptor] = []
@@ -26,9 +31,7 @@ public final class CalendarStore {
     private let intervalBuilder: IntervalBuilder
     private let onPermissionLost: () -> Void
     private let onRemoveCalendarNotifications: () -> Void
-    private let onCalendarProviderChange: LifecycleTrigger
-    private let onHourTick: LifecycleTrigger
-    private let onTimeZoneChange: LifecycleTrigger
+    private let onAlertInputsChanged: AlertInputTrigger
     private var requestGeneration = 0
     private var observationTasks: [Task<Void, Never>] = []
 
@@ -39,9 +42,7 @@ public final class CalendarStore {
         intervalBuilder: @escaping IntervalBuilder = CalendarStore.agendaInterval,
         onPermissionLost: @escaping () -> Void = {},
         onRemoveCalendarNotifications: @escaping () -> Void = {},
-        onCalendarProviderChange: @escaping LifecycleTrigger = {},
-        onHourTick: @escaping LifecycleTrigger = {},
-        onTimeZoneChange: @escaping LifecycleTrigger = {}
+        onAlertInputsChanged: @escaping AlertInputTrigger = { _ in }
     ) {
         self.provider = provider
         self.preferenceStore = preferenceStore
@@ -49,12 +50,28 @@ public final class CalendarStore {
         self.intervalBuilder = intervalBuilder
         self.onPermissionLost = onPermissionLost
         self.onRemoveCalendarNotifications = onRemoveCalendarNotifications
-        self.onCalendarProviderChange = onCalendarProviderChange
-        self.onHourTick = onHourTick
-        self.onTimeZoneChange = onTimeZoneChange
+        self.onAlertInputsChanged = onAlertInputsChanged
         authorizationStatus = provider.authorizationStatus
         currentDate = clock.now()
         observeClockAndProvider()
+    }
+
+    /// Compatibility for callers that still distinguish the three alert-input sources.
+    public convenience init(
+        provider: any CalendarEventReading,
+        preferenceStore: CalendarPreferenceStore,
+        clock: CalendarClock,
+        onCalendarProviderChange: @escaping @MainActor () -> Void,
+        onHourTick: @escaping @MainActor () -> Void,
+        onTimeZoneChange: @escaping @MainActor () -> Void
+    ) {
+        self.init(provider: provider, preferenceStore: preferenceStore, clock: clock, onAlertInputsChanged: { change in
+            switch change {
+            case .provider: onCalendarProviderChange()
+            case .hour: onHourTick()
+            case .timeZone: onTimeZoneChange()
+            }
+        })
     }
 
     isolated deinit {
@@ -272,7 +289,7 @@ public final class CalendarStore {
                 for await _ in provider.changes {
                     guard !Task.isCancelled else { return }
                     self?.refreshCurrentInterval()
-                    self?.onCalendarProviderChange()
+                    self?.onAlertInputsChanged(.provider)
                 }
             },
             Task { [weak self, clock] in
@@ -285,7 +302,7 @@ public final class CalendarStore {
                 for await _ in clock.hourTicks {
                     guard !Task.isCancelled else { return }
                     self?.currentDate = clock.now()
-                    self?.onHourTick()
+                    self?.onAlertInputsChanged(.hour)
                 }
             },
             Task { [weak self, clock] in
@@ -298,7 +315,7 @@ public final class CalendarStore {
                 for await _ in clock.timeZoneChanges {
                     guard !Task.isCancelled else { return }
                     self?.refreshForWallClockRangeChange()
-                    self?.onTimeZoneChange()
+                    self?.onAlertInputsChanged(.timeZone)
                 }
             },
             Task { [weak self, clock] in

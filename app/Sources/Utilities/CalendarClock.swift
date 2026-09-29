@@ -18,7 +18,8 @@ public final class CalendarClock {
     private let calendarProvider: () -> Calendar
     private var continuations: [AsyncStream<Void>.Continuation] = []
     private var observerTokens: [(center: NotificationCenter, token: NSObjectProtocol)] = []
-    private var timers: [DispatchSourceTimer] = []
+    private var timers: [(timer: DispatchSourceTimer, components: DateComponents)] = []
+    private let scheduleTimer: (DispatchSourceTimer, TimeInterval) -> Void
     private var reopenContinuation: AsyncStream<Void>.Continuation?
 
     public init(
@@ -31,10 +32,14 @@ public final class CalendarClock {
         activationEvents: AsyncStream<Void>? = nil,
         reopenEvents: AsyncStream<Void>? = nil,
         timeZoneChanges: AsyncStream<Void>? = nil,
-        wakeNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter
+        wakeNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
+        scheduleTimer: @escaping (DispatchSourceTimer, TimeInterval) -> Void = { timer, delay in
+            timer.schedule(deadline: .now() + delay, repeating: .never)
+        }
     ) {
         self.now = now
         calendarProvider = calendar
+        self.scheduleTimer = scheduleTimer
         var minuteContinuation: AsyncStream<Void>.Continuation?
         var midnightContinuation: AsyncStream<Void>.Continuation?
         var hourContinuation: AsyncStream<Void>.Continuation?
@@ -136,18 +141,28 @@ public final class CalendarClock {
                 continuation: activationContinuation
             )
         }
-        if let timeZoneContinuation {
-            observe(
-                NotificationCenter.default,
-                name: .NSSystemTimeZoneDidChange,
-                continuation: timeZoneContinuation
-            )
+        let timeZoneToken = NotificationCenter.default.addObserver(
+            forName: .NSSystemTimeZoneDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.rescheduleWallClockTimers()
+            timeZoneContinuation?.yield(())
         }
+        observerTokens.append((NotificationCenter.default, timeZoneToken))
+        let systemClockToken = NotificationCenter.default.addObserver(
+            forName: .NSSystemClockDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.rescheduleWallClockTimers()
+        }
+        observerTokens.append((NotificationCenter.default, systemClockToken))
     }
 
     deinit {
         observerTokens.forEach { $0.center.removeObserver($0.token) }
-        timers.forEach { $0.cancel() }
+        timers.forEach { $0.timer.cancel() }
         continuations.forEach { $0.finish() }
     }
 
@@ -183,7 +198,7 @@ public final class CalendarClock {
             continuation.yield(())
             self?.scheduleNextWallClockBoundary(timer, matching: components)
         }
-        timers.append(timer)
+        timers.append((timer, components))
         scheduleNextWallClockBoundary(timer, matching: components)
         timer.resume()
     }
@@ -198,6 +213,12 @@ public final class CalendarClock {
             matching: components,
             matchingPolicy: .nextTime
         ) ?? current.addingTimeInterval(60)
-        timer.schedule(deadline: .now() + max(next.timeIntervalSince(current), 0.001), repeating: .never)
+        scheduleTimer(timer, max(next.timeIntervalSince(current), 0.001))
+    }
+
+    private func rescheduleWallClockTimers() {
+        for (timer, components) in timers {
+            scheduleNextWallClockBoundary(timer, matching: components)
+        }
     }
 }
