@@ -1,5 +1,11 @@
 import SwiftUI
 
+public enum ZoneCardHeaderLayout {
+    public static func usesSeparateActionRow(for cardWidth: CGFloat) -> Bool {
+        cardWidth < 240
+    }
+}
+
 public struct ZoneCard: View {
     public enum AccessibilityAction {
         case editTime
@@ -24,6 +30,7 @@ public struct ZoneCard: View {
 
     @State private var editText = ""
     @State private var isHovering = false
+    @State private var cardWidth = CGFloat.greatestFiniteMagnitude
     @FocusState private var editFieldFocused: Bool
 
     private var timeState: TimeState {
@@ -66,6 +73,7 @@ public struct ZoneCard: View {
     public var body: some View {
         let tz = zone.timeZone
         let date = timeState.referenceDate
+        let usesSeparateActionRow = ZoneCardHeaderLayout.usesSeparateActionRow(for: cardWidth)
 
         VStack(spacing: 4) {
             // Drag pill — visible on hover
@@ -91,17 +99,34 @@ public struct ZoneCard: View {
             )
             .cursor(isHovering && !isEditing ? .openHand : .arrow)
 
+            if usesSeparateActionRow {
+                HStack {
+                    Spacer(minLength: 0)
+                    cardActions
+                }
+                .frame(height: 20)
+            }
+
             // City name + GMT offset
             HStack(spacing: 5) {
                 Text(zone.label)
                     .font(.system(size: 14, weight: .medium, design: .rounded))
                     .foregroundStyle(Theme.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(1)
+
+                Spacer(minLength: 0)
 
                 Text(TimeFormatter.gmtOffset(for: tz, at: date))
                     .font(.system(size: 12, design: .rounded))
                     .foregroundStyle(Theme.textTertiary)
+                    .fixedSize(horizontal: true, vertical: false)
+
+                if !usesSeparateActionRow {
+                    cardActions
+                }
             }
-            .lineLimit(1)
 
             // Time: big digits + smaller am/pm
             if isEditing {
@@ -154,43 +179,12 @@ public struct ZoneCard: View {
         )
         .shadow(color: Theme.shadow, radius: isDragging ? 8 : 3, y: isDragging ? 4 : 2)
         .scaleEffect(isDragging ? 1.03 : 1.0)
-        .overlay(alignment: .topTrailing) {
-            HStack(spacing: 2) {
-                if isHovering && !isEditing && !isDragging {
-                    Button(action: { performAccessibilityAction(.remove) }) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(Theme.textTertiary)
-                            .padding(4)
-                            .background(Theme.background, in: Circle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Remove \(zone.label)")
-                    .transition(.opacity)
-                }
-
-                Menu {
-                    Button("Edit time") { performAccessibilityAction(.editTime) }
-                    Button("Remove city") { performAccessibilityAction(.remove) }
-                    Divider()
-                    Button("Move earlier") { performAccessibilityAction(.moveEarlier) }
-                        .disabled(!canMoveEarlier)
-                    Button("Move later") { performAccessibilityAction(.moveLater) }
-                        .disabled(!canMoveLater)
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(Theme.textTertiary)
-                        .frame(width: 20, height: 20)
-                }
-                .menuStyle(.borderlessButton)
-                .menuIndicator(.hidden)
-                .fixedSize()
-                .accessibilityLabel("Actions for \(zone.label)")
-                .help("Edit, remove, or move \(zone.label)")
+        .background(
+            GeometryReader { proxy in
+                Color.clear.preference(key: ZoneCardWidthPreferenceKey.self, value: proxy.size.width)
             }
-            .padding(6)
-        }
+        )
+        .onPreferenceChange(ZoneCardWidthPreferenceKey.self) { cardWidth = $0 }
         .onHover { hovering in
             withAnimation(.easeInOut(duration: 0.15)) {
                 isHovering = hovering
@@ -208,6 +202,45 @@ public struct ZoneCard: View {
                 Button("Move later") { performAccessibilityAction(.moveLater) }
             }
         }
+    }
+
+    @ViewBuilder
+    private var cardActions: some View {
+        HStack(spacing: 2) {
+            if isHovering && !isEditing && !isDragging {
+                Button(action: { performAccessibilityAction(.remove) }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(Theme.textTertiary)
+                        .padding(4)
+                        .background(Theme.background, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Remove \(zone.label)")
+                .transition(.opacity)
+            }
+
+            Menu {
+                Button("Edit time") { performAccessibilityAction(.editTime) }
+                Button("Remove city") { performAccessibilityAction(.remove) }
+                Divider()
+                Button("Move earlier") { performAccessibilityAction(.moveEarlier) }
+                    .disabled(!canMoveEarlier)
+                Button("Move later") { performAccessibilityAction(.moveLater) }
+                    .disabled(!canMoveLater)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(Theme.textTertiary)
+                    .frame(width: 20, height: 20)
+            }
+            .menuStyle(.borderlessButton)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .accessibilityLabel("Actions for \(zone.label)")
+            .help("Edit, remove, or move \(zone.label)")
+        }
+        .fixedSize()
     }
 
     public func performAccessibilityAction(_ action: AccessibilityAction) {
@@ -228,6 +261,14 @@ public struct ZoneCard: View {
     private func liveUpdate(_ text: String) {
         guard let (hour, minute) = InputParser.parseBareTime(text) else { return }
         referenceMoment.setTime(hour: hour, minute: minute, in: zone.timeZone)
+    }
+}
+
+private struct ZoneCardWidthPreferenceKey: PreferenceKey {
+    static var defaultValue = CGFloat.greatestFiniteMagnitude
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 

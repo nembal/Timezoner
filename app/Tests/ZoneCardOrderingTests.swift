@@ -6,6 +6,15 @@ func runZoneCardOrderingTests() {
     print("Running ZoneCardOrderingTests...")
 
     workspaceExpect(
+        ZoneCardHeaderLayout.usesSeparateActionRow(for: 180),
+        "narrow cards reserve a separate row for header actions instead of overlapping the title"
+    )
+    workspaceExpect(
+        !ZoneCardHeaderLayout.usesSeparateActionRow(for: 300),
+        "wide cards keep header actions inline without adding vertical space"
+    )
+
+    workspaceExpect(
         ZoneCardOrdering.destination(sourceIndex: 1, translation: 74, slotExtent: 150, count: 4) == nil,
         "dragging short of the rounded slot threshold does not reorder"
     )
