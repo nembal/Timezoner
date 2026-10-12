@@ -126,7 +126,7 @@ There's a world map below the cards. Your zones show up as highlighted bands wit
 
 Click any time on a card and start typing. All other cards update live as you type. Type `12` and it becomes 12:00. Type `3pm` and it becomes 15:00. Hit Enter or click away to finish.
 
-In the current source branch, cards have equal 200-point widths so city names such as New York and Budapest have room beside their GMT offsets. Adding a city widens the panel while space permits. When the panel reaches the display width, scroll the card row horizontally to reach the remaining cities. The card menu sits on a separate row; calendar mode keeps its flexible vertical city rail.
+In the current source branch, cards have equal 200-point widths so city names such as New York and Budapest have room beside their GMT offsets. Adding a city widens the panel while space permits. When the panel reaches the display width, scroll the card row horizontally to reach the remaining cities. Cards have no ellipsis menu: click the time to edit, drag the top pill to reorder, and use the top-right remove button that appears on hover. Calendar mode keeps its flexible vertical city rail.
 
 ### Drag to reorder
 

@@ -22,7 +22,7 @@ Make the main TimeZoner cards equally wide so Bangkok, New York, and Budapest re
 
 - Preserve the existing minimum panel width policy for zero or one city, using a minimum count of two in the panel formula.
 
-- Retain the existing narrow card header behavior: at widths below 240 points, actions occupy a separate row. Do not put the menu back beside the name at 200 points.
+- Remove the ellipsis menu entirely. Edit by clicking the time, reorder by dragging, and remove with the hover-only top-right overlay. Preserve compact vertical spacing and accessibility actions.
 
 - Keep the vertical city rail in calendar mode flexible at its existing width.
 
@@ -62,7 +62,7 @@ The screenshot shows an inline action menu competing with the city name. The ins
 
 **Interfaces:** Consume the metrics from Task 1 and the existing `resizeMain(to:showAgenda:)` and `AgendaPlacementCalculator.calculate(mainFrame:visibleFrame:wingSize:)` interfaces.
 
-- [ ] Add a header assertion that `ZoneCardHeaderLayout.usesSeparateActionRow(for: 200)` is true.
+- [ ] Verify direct time editing, drag reordering, and the hover-only top-right remove overlay; remove superseded action-row assertions.
 
 - [ ] Add coordinator cases that resize from four to five cities and back, asserting the requested main width, preserved top edge, and recalculated agenda location. Cover right side, left side, and neither side fitting, where the agenda uses the popover fallback.
 
@@ -72,7 +72,7 @@ The screenshot shows an inline action menu competing with the city name. The ins
 
 - [ ] Verify Bangkok, SF, New York, and Budapest have equal 200 point cards and fully readable names. Add a fifth city and confirm existing widths stay constant as the panel grows; remove it and confirm the panel shrinks.
 
-- [ ] Check editing, drag ordering, map expanded and collapsed states, agenda visibility, and returning from calendar mode. Verify the separate action row appears consistently and the vertical rail remains usable.
+- [ ] Check editing, drag ordering, map expanded and collapsed states, agenda visibility, and returning from calendar mode. Verify the hover remove overlay appears consistently and the vertical rail remains usable.
 
 - [ ] Check the main panel near both screen edges. If it would extend outside the visible screen, record and resolve the intended overflow behavior before shipping; do not silently shrink the cards to hide the issue.
 
@@ -89,6 +89,6 @@ Implemented locally in commits 5dd28ef and 3e09f4c. Independent verification: 93
 ## Implementation decisions
 
 - Use subagent-driven execution, following the user's selection after this plan was saved.
-- Give horizontal ZoneCard instances the shared width directly for header layout; retain measured width for flexible vertical cards. The hosted rendering check did not reliably propagate the width preference into the horizontal header.
+- User correction: the separate action row made the cards vertically loose. Remove the ellipsis menu completely and restore the hover-only top-right remove overlay; remove the now-unused width-driven header machinery.
 - Clamp normal panel placement to the visible display. If the desired panel width exceeds the visible display, cap the window width and allow horizontal scrolling of the fixed-width row. Cards keep their width; the map and toolbar use the available window width.
 - Review this plan's changes from commit 2e8c91d. Preserve the pre-existing calendar branch, checkout, and all earlier work.

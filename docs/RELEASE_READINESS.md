@@ -72,3 +72,9 @@ These are deterministic/code and package checks. They do not prove macOS permiss
 ### Local cleanup verification on 2026-10-12
 
 Code SHA `353eb63` removes two declaration-only helpers (`CalendarPanelPairController.panelDidChangeFrame` and `GeoJSONLoader.load(from:)`) and passes the existing `IndexSet` move callback directly through `ZoneCardRow`. The test runner passed 936 tests with zero failures, the build succeeded, and review found no concrete regression. This rebuilt bundle replaced the installed copy and launched successfully; installed executable SHA256 is `1561ecff6c96ba277c55e5b90d17ff89f45a5d68e71afdc6dfc3b10468c67b53`, matching the checkout build. Native inspection remains blocked by the locked Mac.
+
+### Compact card correction and native layout check
+
+Code SHA `f10be23` removes the visible ellipsis menu and separate action row. Cards keep click-to-edit time, drag reordering, a hover-only top-right remove overlay, and accessibility actions. The unused header width state, preference key, layout-width argument, and header-row selector were removed. The current runner passed **933 tests with zero failures**; the three removed assertions described the superseded header-row behavior. The build and focused review passed.
+
+This version is installed and running at `~/Applications/TimeZoner.app`, with verified signature and an executable matching the checkout build. Native inspection on 2026-10-12 showed readable Bangkok, SF, New York, and Budapest labels with no ellipsis menu. Adding Tokyo widened the window from the four-card layout to five cards without shrinking the existing cards. Removing Tokyo returned to four cards; the original expanded map was restored. Hover and drag gesture coverage remains incomplete, and this check does not certify the calendar or notification acceptance matrix.
