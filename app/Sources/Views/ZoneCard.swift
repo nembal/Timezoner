@@ -167,12 +167,13 @@ public struct ZoneCard: View {
                     Image(systemName: "xmark")
                         .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(Theme.textTertiary)
-                        .padding(4)
+                        .frame(width: 14, height: 14)
                         .background(Theme.background, in: Circle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Remove \(zone.label)")
-                .padding(6)
+                .padding(.top, 1)
+                .padding(.trailing, 4)
                 .transition(.opacity)
             }
         }
