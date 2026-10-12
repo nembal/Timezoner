@@ -44,7 +44,9 @@ TimeFormatter            ← cached DateFormatter instances
 TimeZonerDeepLink        ← timezoner://open and timezoner://set?... parser
 ```
 
-**Data flow:** Every input (chat, card edit) → `TimeState.setTime()` → all cards recompute as pure functions of that date.
+**Data flow:** Chat, card edits, deep links, and timed calendar event selection go through `ReferenceMomentController`, which owns the shared `TimeState`. All cards and the map recompute from the same absolute reference date. All-day calendar details do not change that date.
+
+**Calendar source branch:** `CalendarPanelCoordinator` owns the native panels, `CalendarPanelPairController` handles normal pairing and resizing, and the workspace models own expansion/restoration. `ZoneCardCollection` is shared by the horizontal row and `TimeZonerRailView`. EventKit access stays in `EventKitCalendarProvider`; event presentation stays in memory. Calendar Companion is unreleased; source build metadata does not establish a published release. See `docs/RELEASE_READINESS.md` for current checks and pending native acceptance.
 
 **Integration flow:** Raycast builds `timezoner://` URLs → AppDelegate parses them → `DeepLinkRouter` queues/dispatches the command → `ContentView` adds a missing zone if needed, sets `TimeState`, and highlights the target card.
 
@@ -146,8 +148,10 @@ install.sh                        # Source checkout installer
 - **Executable test target** — standalone test runner, no XCTest/Xcode needed.
 - **376 bundled aliases** — cities, abbreviations, airport codes, countries, timezone abbrevs.
 - **Single source of truth** — `TimeState.referenceDate` is one absolute `Date`.
+- **Reference moment controller** — conversion inputs and timed event selection use `ReferenceMomentController`; it coordinates selected-event context and map restoration alongside the shared `TimeState`.
 - **Cached DateFormatters** — thread-safe FormatterCache with NSLock.
 - **Adaptive dark mode** — `NSColor(dynamicProvider:)` for all theme colors.
+- **Equal horizontal cards** — `CalendarPanelMetrics.normalCardWidth` is 200 points including padding; `normalCardGap` is 36 points and outer insets are 20 points. Four cities prefer a 948-point panel and five prefer 1184 points. Normal panel resizing caps width at the visible display and clamps horizontal placement; `ZoneCardRow` scrolls fixed-width cards on narrow displays. Horizontal cards receive their width directly for header layout; the calendar's vertical rail stays flexible.
 - **Global hotkey via Carbon** — `RegisterEventHotKey` keeps zero-dep rule and intercepts system-wide. Default `⌘⌥T`.
 - **Settings popover, not a window** — gear button opens a SwiftUI popover with appearance override (System/Light/Dark), launch-at-login, hotkey recorder, and input-format help. `⌘,` also opens it.
 - **Source-built distribution first** — Homebrew and `install.sh` build locally, copy the SwiftPM resource bundle, and ad-hoc sign the result. This avoids requiring an Apple Developer Program account for the primary install path.

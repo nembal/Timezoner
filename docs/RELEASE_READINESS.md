@@ -37,6 +37,10 @@ The final Calendar UI code presents interval-aware Today and Tomorrow agenda gro
 
 ### Current-branch automated and package evidence
 
+On 2026-10-12, the equal-card-width change at code SHA `3e09f4c` passed **936 tests with zero failures** in an independent run. The app built successfully, and hosted four-city, five-city, and narrow scrolling renders showed equal 200-point cards with readable Bangkok, New York, and Budapest labels. Normal panels grow to the display limit, then scroll the card row without shrinking cards. Per-task and final reviews found no blocking defects. Hosted renders and controller tests do not establish native scroll-versus-drag gesture behavior.
+
+The updated bundle was installed and launched at `~/Applications/TimeZoner.app` on 2026-10-12; its executable SHA256 matched the checkout build and `codesign --verify --deep --strict` passed. The Mac was locked at the first native inspection attempt, so the live visual check remains pending. This local installation is not a tag, Homebrew update, or published release.
+
 Completed on 2026-09-25 against code SHA `08eae90`; these results are historical and do not certify the current cleanup branch:
 
 - `cd app && swift run TimeZonerTests` — **659 passed, 0 failed**.
@@ -64,3 +68,7 @@ These are deterministic/code and package checks. They do not prove macOS permiss
 3. Wait for Raycast review/merge on https://github.com/raycast/extensions/pull/29168. Address reviewer feedback if they request changes.
 4. Run a clean-machine smoke test on a fresh macOS user or VM: Homebrew install, `install.sh`, Manual DMG first launch, Raycast `tz`, same-screen card time editing, one-click card switching while editing, map-under-cards preview, `3pm in SF`, Raycast add/edit/remove persistence, and `Cmd+O` deep links.
 5. Keep the DMG as a Manual DMG fallback unless the project later chooses to buy an Apple Developer Program account. The primary source-built path does not require it.
+
+### Local cleanup verification on 2026-10-12
+
+Code SHA `353eb63` removes two declaration-only helpers (`CalendarPanelPairController.panelDidChangeFrame` and `GeoJSONLoader.load(from:)`) and passes the existing `IndexSet` move callback directly through `ZoneCardRow`. The test runner passed 936 tests with zero failures, the build succeeded, and review found no concrete regression. This rebuilt bundle replaced the installed copy and launched successfully; installed executable SHA256 is `1561ecff6c96ba277c55e5b90d17ff89f45a5d68e71afdc6dfc3b10468c67b53`, matching the checkout build. Native inspection remains blocked by the locked Mac.
