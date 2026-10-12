@@ -6,7 +6,7 @@ public struct ZoneCardRow: View {
     @Binding public var editingZoneId: UUID?
     public let highlightedZoneIds: Set<UUID>
     public let onRemove: (UUID) -> Void
-    public let onMove: (Int, Int) -> Void
+    public let onMove: (IndexSet, Int) -> Void
 
     public init(zones: [ZoneInfo], referenceMoment: ReferenceMomentController, editingZoneId: Binding<UUID?>,
                 highlightedZoneIds: Set<UUID> = [],
@@ -17,9 +17,7 @@ public struct ZoneCardRow: View {
         self._editingZoneId = editingZoneId
         self.highlightedZoneIds = highlightedZoneIds
         self.onRemove = onRemove
-        self.onMove = { from, to in
-            onMove(IndexSet(integer: from), to)
-        }
+        self.onMove = onMove
     }
 
     public var body: some View {
@@ -31,10 +29,7 @@ public struct ZoneCardRow: View {
                 editingZoneId: $editingZoneId,
                 highlightedZoneIds: highlightedZoneIds,
                 onRemove: onRemove,
-                onMove: { source, destination in
-                    guard let sourceIndex = source.first else { return }
-                    onMove(sourceIndex, destination)
-                }
+                onMove: onMove
             )
         }
         .scrollIndicators(.hidden)

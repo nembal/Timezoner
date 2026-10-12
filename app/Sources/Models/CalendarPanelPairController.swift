@@ -158,10 +158,6 @@ public final class CalendarPanelPairController {
         syncAgendaVisibility(showAgenda: showAgenda)
     }
 
-    public func panelDidChangeFrame(showAgenda: Bool) {
-        syncAgendaVisibility(showAgenda: showAgenda)
-    }
-
     public func setTransitionInProgress(_ value: Bool) {
         transitionInProgress = value
     }
