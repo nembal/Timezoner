@@ -12,7 +12,7 @@ public struct ZoneCardDragMeasurement {
     }
 
     public func slotExtent(for axis: Axis) -> CGFloat {
-        axis == .horizontal ? size.width + 36 : size.height + 10
+        axis == .horizontal ? size.width + CalendarPanelMetrics.normalCardGap : size.height + 10
     }
 }
 
@@ -104,7 +104,8 @@ public struct ZoneCardCollection: View {
             },
             onDragEnded: endDrag
         )
-        .frame(maxWidth: .infinity)
+        .frame(width: axis == .horizontal ? CalendarPanelMetrics.normalCardWidth : nil)
+        .frame(maxWidth: axis == .vertical ? .infinity : nil)
         .offset(
             x: axis == .horizontal && isDragging ? dragOffset.width : 0,
             y: axis == .vertical && isDragging ? dragOffset.height : 0
@@ -195,6 +196,6 @@ public struct ZoneCardCollection: View {
                 .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(Theme.textTertiary)
         }
-        .frame(width: 36)
+        .frame(width: CalendarPanelMetrics.normalCardGap)
     }
 }

@@ -15,8 +15,19 @@ func runCalendarWorkspaceContractsTests() {
         destination: .calendar, showAgenda: false), "workspace always retains calendar")
     workspaceExpect(CalendarPanelMetrics.horizontalInset == 20, "shared outer inset")
     workspaceExpect(CalendarPanelMetrics.navHeight == 40, "shared nav height")
-    workspaceExpect(CalendarPanelMetrics.normalWidth(cityCount: 4) == 768,
-                    "normal width retains existing card formula")
+    workspaceExpect(CalendarPanelMetrics.normalWidth(cityCount: 0) == 476,
+                    "normal width reserves space for two cards with no cities")
+    workspaceExpect(CalendarPanelMetrics.normalWidth(cityCount: 1) == 476,
+                    "normal width reserves space for two cards with one city")
+    workspaceExpect(CalendarPanelMetrics.normalWidth(cityCount: 2) == 476,
+                    "normal width fits two 200-point cards")
+    workspaceExpect(CalendarPanelMetrics.normalWidth(cityCount: 4) == 948,
+                    "normal width fits four 200-point cards")
+    workspaceExpect(CalendarPanelMetrics.normalWidth(cityCount: 5) == 1184,
+                    "normal width fits five 200-point cards")
+    workspaceExpect(CalendarPanelMetrics.normalWidth(cityCount: 5)
+                    - CalendarPanelMetrics.normalWidth(cityCount: 4) == 236,
+                    "adding a fifth card grows the panel by one card and one gap")
     workspaceExpect(
         CalendarPanelMetrics.timeZonerHeight(mapExpanded: true, hasSelectedEvent: false)
             == CalendarPanelMetrics.preferredHeight,
@@ -32,7 +43,7 @@ func runCalendarWorkspaceContractsTests() {
     )
     workspaceExpect(
         CalendarPanelMetrics.timeZonerSize(cityCount: 4, mapExpanded: true, hasSelectedEvent: false)
-            == CGSize(width: 768, height: 580),
+            == CGSize(width: 948, height: 580),
         "map expansion can resize the TimeZoner panel to its final size before content is inserted"
     )
 }

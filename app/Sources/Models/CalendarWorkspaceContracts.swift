@@ -16,6 +16,8 @@ public enum CalendarWorkspacePolicy {
 
 public enum CalendarPanelMetrics {
     public static let horizontalInset: CGFloat = 20
+    public static let normalCardWidth: CGFloat = 200
+    public static let normalCardGap: CGFloat = 36
     public static let dragHeight: CGFloat = 20
     public static let topInset: CGFloat = 6
     public static let navHeight: CGFloat = 40
@@ -33,7 +35,7 @@ public enum CalendarPanelMetrics {
     public static let compactToolbarThreshold: CGFloat = 600
     public static func normalWidth(cityCount: Int) -> CGFloat {
         let count = CGFloat(max(cityCount, 2))
-        return count * 155 + max(count - 1, 0) * 36 + 40
+        return count * normalCardWidth + (count - 1) * normalCardGap + 2 * horizontalInset
     }
 
     public static func timeZonerHeight(mapExpanded: Bool, hasSelectedEvent: Bool) -> CGFloat {
