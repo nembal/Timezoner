@@ -4,6 +4,7 @@ import SwiftUI
 @MainActor
 public final class ZoneHighlightCoordinator {
     public private(set) var ids: Set<UUID> = []
+    public private(set) var requestID: UInt64 = 0
     @ObservationIgnored private var clearTask: Task<Void, Never>?
     @ObservationIgnored private let sleep: (Duration) async throws -> Void
 
@@ -14,6 +15,7 @@ public final class ZoneHighlightCoordinator {
     @discardableResult
     public func show(_ ids: Set<UUID>, clearAfter delay: Duration = .seconds(3)) -> Task<Void, Never> {
         clearTask?.cancel()
+        requestID &+= 1
         withAnimation(.easeInOut(duration: 0.2)) {
             self.ids = ids
         }
@@ -152,6 +154,7 @@ public struct ContentView: View {
                 referenceMoment: referenceMoment,
                 editingZoneId: $editingZoneId,
                 highlightedZoneIds: zoneHighlights.ids,
+                highlightRequestID: zoneHighlights.requestID,
                 onRemove: { id in
                     withAnimation(.easeInOut(duration: 0.3)) {
                         zoneStore.remove(id: id)

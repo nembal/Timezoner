@@ -25,6 +25,7 @@ struct TestRunner {
         runCalendarPanelHostTests()
         runCalendarWorkspaceRailTests()
         runZoneCardOrderingTests()
+        await runZoneCardRevealTests()
         await runUIInteractionAccessibilityTests()
         runAgendaPresentationTests()
         runCalendarPanelCoordinatorTests()

@@ -121,6 +121,7 @@ public struct ZoneCardCollection: View {
                 }
             }
         )
+        .id(zone.id)
         .transition(cardTransition)
     }
 
