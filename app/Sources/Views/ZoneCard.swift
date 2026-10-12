@@ -106,8 +106,6 @@ public struct ZoneCard: View {
                     .font(.system(size: 12, design: .rounded))
                     .foregroundStyle(Theme.textTertiary)
                     .fixedSize(horizontal: true, vertical: false)
-
-                cardActions
             }
 
             // Time: big digits + smaller am/pm
@@ -194,28 +192,6 @@ public struct ZoneCard: View {
                 Button("Move later") { performAccessibilityAction(.moveLater) }
             }
         }
-    }
-
-    private var cardActions: some View {
-        Menu {
-            Button("Edit time") { performAccessibilityAction(.editTime) }
-            Button("Remove city") { performAccessibilityAction(.remove) }
-            Divider()
-            Button("Move earlier") { performAccessibilityAction(.moveEarlier) }
-                .disabled(!canMoveEarlier)
-            Button("Move later") { performAccessibilityAction(.moveLater) }
-                .disabled(!canMoveLater)
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(Theme.textTertiary)
-                .frame(width: 20, height: 20)
-        }
-        .menuStyle(.borderlessButton)
-        .menuIndicator(.hidden)
-        .fixedSize()
-        .accessibilityLabel("Actions for \(zone.label)")
-        .help("Edit, remove, or move \(zone.label)")
     }
 
     public func performAccessibilityAction(_ action: AccessibilityAction) {
