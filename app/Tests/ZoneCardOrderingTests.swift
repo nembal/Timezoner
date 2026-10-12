@@ -10,6 +10,10 @@ func runZoneCardOrderingTests() {
         "narrow cards reserve a separate row for header actions instead of overlapping the title"
     )
     workspaceExpect(
+        ZoneCardHeaderLayout.usesSeparateActionRow(for: CalendarPanelMetrics.normalCardWidth),
+        "normal 200-point cards put actions below the city name and GMT offset"
+    )
+    workspaceExpect(
         !ZoneCardHeaderLayout.usesSeparateActionRow(for: 300),
         "wide cards keep header actions inline without adding vertical space"
     )

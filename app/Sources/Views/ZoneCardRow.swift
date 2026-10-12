@@ -23,17 +23,20 @@ public struct ZoneCardRow: View {
     }
 
     public var body: some View {
-        ZoneCardCollection(
-            axis: .horizontal,
-            zones: zones,
-            referenceMoment: referenceMoment,
-            editingZoneId: $editingZoneId,
-            highlightedZoneIds: highlightedZoneIds,
-            onRemove: onRemove,
-            onMove: { source, destination in
-                guard let sourceIndex = source.first else { return }
-                onMove(sourceIndex, destination)
-            }
-        )
+        ScrollView(.horizontal) {
+            ZoneCardCollection(
+                axis: .horizontal,
+                zones: zones,
+                referenceMoment: referenceMoment,
+                editingZoneId: $editingZoneId,
+                highlightedZoneIds: highlightedZoneIds,
+                onRemove: onRemove,
+                onMove: { source, destination in
+                    guard let sourceIndex = source.first else { return }
+                    onMove(sourceIndex, destination)
+                }
+            )
+        }
+        .scrollIndicators(.hidden)
     }
 }

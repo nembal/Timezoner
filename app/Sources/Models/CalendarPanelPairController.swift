@@ -142,10 +142,16 @@ public final class CalendarPanelPairController {
     public func resizeMain(to size: CGSize, showAgenda: Bool = true) {
         guard workspaceFrames == nil, !transitionInProgress else { return }
         let oldFrame = main.frame
+        let visible = visibleFrame()
+        let width = visible.width > 0 ? min(size.width, visible.width) : size.width
+        let desiredX = oldFrame.midX - width / 2
+        let x = visible.width > 0
+            ? min(max(desiredX, visible.minX), visible.maxX - width)
+            : desiredX
         let frame = CGRect(
-            x: oldFrame.midX - size.width / 2,
+            x: x,
             y: oldFrame.maxY - size.height,
-            width: size.width,
+            width: width,
             height: size.height
         )
         main.setFrame(frame)

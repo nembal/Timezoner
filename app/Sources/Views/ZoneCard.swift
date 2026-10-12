@@ -18,6 +18,7 @@ public struct ZoneCard: View {
     public let referenceMoment: ReferenceMomentController
     public let isSource: Bool
     public let isHighlighted: Bool
+    public let layoutWidth: CGFloat?
     @Binding public var editingZoneId: UUID?
     public let isDragging: Bool
     public let canMoveEarlier: Bool
@@ -46,6 +47,7 @@ public struct ZoneCard: View {
     }
 
     public init(zone: ZoneInfo, referenceMoment: ReferenceMomentController, isSource: Bool, isHighlighted: Bool = false,
+                layoutWidth: CGFloat? = nil,
                 editingZoneId: Binding<UUID?>,
                 isDragging: Bool = false,
                 canMoveEarlier: Bool = false,
@@ -59,6 +61,7 @@ public struct ZoneCard: View {
         self.referenceMoment = referenceMoment
         self.isSource = isSource
         self.isHighlighted = isHighlighted
+        self.layoutWidth = layoutWidth
         self._editingZoneId = editingZoneId
         self.isDragging = isDragging
         self.canMoveEarlier = canMoveEarlier
@@ -73,7 +76,7 @@ public struct ZoneCard: View {
     public var body: some View {
         let tz = zone.timeZone
         let date = timeState.referenceDate
-        let usesSeparateActionRow = ZoneCardHeaderLayout.usesSeparateActionRow(for: cardWidth)
+        let usesSeparateActionRow = ZoneCardHeaderLayout.usesSeparateActionRow(for: layoutWidth ?? cardWidth)
 
         VStack(spacing: 4) {
             // Drag pill — visible on hover

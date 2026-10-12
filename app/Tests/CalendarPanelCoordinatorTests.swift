@@ -180,6 +180,97 @@ func runCalendarPanelCoordinatorTests() {
         expectCalendarPanel(!main.isVisible && !agenda.isVisible, "hide orders both panel surfaces out")
     }
 
+    // Each fixture exercises the real pair controller with a different available wing side.
+    // The literal widths and frames keep this sensitive to a broken city-count formula or resize.
+    for (name, screen, centerX, expectedLocation, expectedFiveX, expectedFourX) in [
+        ("right", CGRect(x: 0, y: 0, width: 2_000, height: 800), CGFloat(800), AgendaPlacement.right, CGFloat(1_402), CGFloat(1_284)),
+        ("left", CGRect(x: 0, y: 0, width: 2_000, height: 800), CGFloat(1_500), AgendaPlacement.left, CGFloat(586), CGFloat(704)),
+        ("popover", CGRect(x: 0, y: 0, width: 1_200, height: 800), CGFloat(600), AgendaPlacement.popover, CGFloat(0), CGFloat(0))
+    ] {
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: centerX - 474, y: 440, width: 948, height: 260))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let pair = CalendarPanelPairController(
+            main: main, agenda: agenda, agendaPopover: popover, visibleFrame: { screen }
+        )
+        pair.show(showAgenda: true)
+
+        pair.resizeMain(to: CGSize(width: CalendarPanelMetrics.normalWidth(cityCount: 5), height: 260))
+        expectCalendarPanel(main.frame.width == 1_184 && main.frame.maxY == 700 && screen.contains(main.frame),
+                            "\(name): fifth city grows the main panel to 1184 points inside the visible screen and preserves its top")
+        expectCalendarPanel(main.frame.minX == (name == "left" ? 816 : centerX - 592),
+                            "\(name): fifth city retains the old center when possible and clamps to the screen edge otherwise")
+        expectCalendarPanel(pair.placement == expectedLocation,
+                            "\(name): fifth city recalculates the agenda side")
+        if expectedLocation == .popover {
+            expectCalendarPanel(!agenda.isVisible && popover.isPresented,
+                                "\(name): fifth city uses the agenda popover when neither side fits")
+        } else {
+            expectCalendarPanel(agenda.isVisible && !popover.isPresented && agenda.frame.minX == expectedFiveX && agenda.frame.maxY == 700,
+                                "\(name): fifth city attaches the agenda at its recalculated frame")
+        }
+
+        pair.resizeMain(to: CGSize(width: CalendarPanelMetrics.normalWidth(cityCount: 4), height: 260))
+        expectCalendarPanel(main.frame.width == 948 && main.frame.maxY == 700 && screen.contains(main.frame),
+                            "\(name): removing the fifth city restores the four-card width inside the screen and preserves its top")
+        expectCalendarPanel(pair.placement == expectedLocation,
+                            "\(name): removing the fifth city recalculates agenda placement")
+        if expectedLocation == .popover {
+            expectCalendarPanel(!agenda.isVisible && popover.isPresented,
+                                "\(name): removing the fifth city keeps the agenda popover available")
+        } else {
+            expectCalendarPanel(agenda.isVisible && agenda.frame.minX == expectedFourX,
+                                "\(name): removing the fifth city reattaches the agenda to the four-card frame")
+        }
+    }
+
+    do {
+        let narrowScreen = CGRect(x: 100, y: 0, width: 1_000, height: 800)
+        let main = CalendarPanelSurfaceFake(frame: CGRect(x: 126, y: 440, width: 948, height: 260))
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let pair = CalendarPanelPairController(
+            main: main, agenda: agenda, agendaPopover: popover, visibleFrame: { narrowScreen }
+        )
+        pair.show(showAgenda: true)
+        pair.resizeMain(to: CGSize(width: CalendarPanelMetrics.normalWidth(cityCount: 5), height: 260))
+        expectCalendarPanel(main.frame == CGRect(x: 100, y: 440, width: 1_000, height: 260),
+                            "narrow screen caps the five-card panel to visible width while keeping its top edge")
+        expectCalendarPanel(pair.placement == .popover && popover.isPresented && !agenda.isVisible,
+                            "narrow screen retains agenda access through its popover")
+        pair.resizeMain(to: CGSize(width: CalendarPanelMetrics.normalWidth(cityCount: 4), height: 260))
+        expectCalendarPanel(main.frame == CGRect(x: 126, y: 440, width: 948, height: 260),
+                            "removing the fifth city restores the preferred 948-point panel inside the screen")
+    }
+
+    do {
+        let screen = CGRect(x: 0, y: 0, width: 1_400, height: 800)
+        let fourCardFrame = CGRect(x: 226, y: 440, width: 948, height: 260)
+        let main = CalendarPanelSurfaceFake(frame: fourCardFrame)
+        let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
+        let popover = CalendarPanelPopoverFake()
+        let pair = CalendarPanelPairController(
+            main: main, agenda: agenda, agendaPopover: popover, visibleFrame: { screen }
+        )
+        pair.show(showAgenda: true)
+        let snapshot = CalendarNormalLayoutSnapshot(
+            main: fourCardFrame, agenda: nil, placement: .popover,
+            screenID: "display", visibleFrame: screen, cityCount: 4
+        )
+        let workspace = CalendarWorkspaceLayout.calculate(
+            main: main.frame, agenda: nil, placement: .popover, visibleFrame: screen
+        )
+        pair.beginWorkspace(workspace)
+        let fiveCardRestoration = CalendarWorkspaceLayout.restore(
+            snapshot, visibleFrame: screen, screenID: "display", cityCount: 5
+        )
+        pair.endWorkspace(fiveCardRestoration, showAgenda: true)
+        expectCalendarPanel(main.frame == CGRect(x: 108, y: 440, width: 1_184, height: 260),
+                            "returning from calendar after adding a city restores the five-card width and top edge")
+        expectCalendarPanel(pair.workspaceFrames == nil && pair.placement == .popover && popover.isPresented,
+                            "returning from calendar restores normal agenda placement and resizing")
+    }
+
     do {
         let main = CalendarPanelSurfaceFake(frame: CGRect(x: 200, y: 100, width: 600, height: 500))
         let agenda = CalendarPanelSurfaceFake(frame: CGRect(x: 0, y: 0, width: 220, height: 580))
