@@ -88,7 +88,6 @@ public struct ZoneCardCollection: View {
             referenceMoment: referenceMoment,
             isSource: timeState.sourceZoneId == zone.timeZoneId,
             isHighlighted: highlightedZoneIds.contains(zone.id),
-            layoutWidth: axis == .horizontal ? CalendarPanelMetrics.normalCardWidth : nil,
             editingZoneId: $editingZoneId,
             isDragging: isDragging,
             canMoveEarlier: index > 0,

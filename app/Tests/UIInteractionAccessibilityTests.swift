@@ -34,13 +34,13 @@ func runUIInteractionAccessibilityTests() async {
     workspaceExpect(
         ZoneCardOrdering.destination(sourceIndex: 0, translation: 80,
                                      slotExtent: measurement.slotExtent(for: .vertical), count: 3) == 2,
-        "the original compact card height permits a drag beyond its half-slot threshold"
+        "a measured 120-point card permits a drag beyond its half-slot threshold"
     )
     measurement.update(CGSize(width: 180, height: 180))
     workspaceExpect(
         ZoneCardOrdering.destination(sourceIndex: 0, translation: 80,
                                      slotExtent: measurement.slotExtent(for: .vertical), count: 3) == nil,
-        "a grown action row raises the vertical drag threshold using its current measured height"
+        "the current measured card height determines the vertical drag threshold"
     )
 
     let first = UUID()
