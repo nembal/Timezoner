@@ -14,7 +14,7 @@ public struct DragHandle: View {
 
     public var body: some View {
         DragHandleRepresentable(showPill: showPill)
-            .frame(height: isHugging ? 8 : 20)
+            .frame(height: CalendarPanelMetrics.dragHeight)
             .frame(maxWidth: .infinity)
     }
 }

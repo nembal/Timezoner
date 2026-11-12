@@ -48,3 +48,21 @@ public final class DeepLinkRouter {
         self.pendingCommand = pendingCommand
     }
 }
+
+/// Ensures both established URL commands reveal the timezone conversion surface before their
+/// mutation/focus work runs. The caller owns AppKit frame restoration and the command-specific
+/// conversion operation, keeping this seam executable-target testable.
+public enum TimeZonerDeepLinkPresentationRouter {
+    public static func route(
+        _ deepLink: TimeZonerDeepLink,
+        presentation: CalendarPresentationState,
+        restoreTimeZonerPanel: () -> Void,
+        apply: (TimeZonerDeepLink) -> Void
+    ) {
+        _ = presentation.restoreTimeZonerSurface()
+        // The value state can still say TimeZoner while its native panels are fading into
+        // Calendar. Always let the owner synchronously settle that transition first.
+        restoreTimeZonerPanel()
+        apply(deepLink)
+    }
+}

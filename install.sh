@@ -36,7 +36,8 @@ verify_app_bundle() {
     local app_path="$1"
     local executable_path="$app_path/Contents/MacOS/TimeZoner"
     local info_plist_path="$app_path/Contents/Info.plist"
-    local resource_path="$app_path/Contents/Resources/TimeZoner_TimeZonerLib.bundle/timezone-boundaries.json"
+    local resource_bundle_path="$app_path/Contents/Resources/TimeZoner_TimeZonerLib.bundle"
+    local resource_path="$resource_bundle_path/Contents/Resources/timezone-boundaries.json"
 
     if [[ ! -x "$executable_path" ]]; then
         echo "error: missing executable: $executable_path" >&2
@@ -48,7 +49,7 @@ verify_app_bundle() {
         exit 1
     fi
 
-    if [[ ! -f "$resource_path" ]]; then
+    if [[ ! -f "$resource_path" && ! -f "$resource_bundle_path/timezone-boundaries.json" ]]; then
         echo "error: missing resource JSON: $resource_path" >&2
         exit 1
     fi
@@ -99,6 +100,89 @@ done
 APP_SOURCE="$ROOT/app/${APP_NAME}.app"
 APP_DESTINATION="$DESTINATION/${APP_NAME}.app"
 
+canonical_source_parent="$(cd -P "$ROOT/app" && pwd -P)"
+reject_source_destination() {
+    local canonical_destination_parent
+    [[ -d "$DESTINATION" ]] || return 0
+    canonical_destination_parent="$(cd -P "$DESTINATION" && pwd -P)"
+    if [[ "$canonical_source_parent" == "$canonical_destination_parent" ]] || \
+       { [[ -e "$APP_SOURCE" && -e "$APP_DESTINATION" ]] && \
+         [[ "$(realpath "$APP_SOURCE")" == "$(realpath "$APP_DESTINATION")" ]]; }; then
+        echo "error: install destination is the source app bundle" >&2
+        exit 64
+    fi
+}
+
+reject_source_destination
+
+read_process_snapshot() {
+    local snapshot
+    if ! snapshot="$(ps -axo pid=,comm=)"; then
+        echo "error: process query failed; refusing to replace TimeZoner.app" >&2
+        return 1
+    fi
+    printf '%s\n' "$snapshot"
+}
+
+running_installed_pids() {
+    local executable="$1"
+    local snapshot="$2"
+    local line pid command
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^[[:space:]]*([0-9]+)[[:space:]]+(.+)$ ]]; then
+            pid="${BASH_REMATCH[1]}"
+            command="${BASH_REMATCH[2]}"
+            if [[ "$command" == "$executable" ]] || \
+               { [[ -e "$command" ]] && [[ "$(realpath "$command")" == "$executable" ]]; }; then
+                printf '%s\n' "$pid"
+            fi
+        fi
+    done <<< "$snapshot"
+}
+
+running_other_timezoner_executables() {
+    local installed_executable="$1"
+    local snapshot="$2"
+    local line command bundle_path bundle_id
+    while IFS= read -r line; do
+        [[ "$line" =~ ^[[:space:]]*[0-9]+[[:space:]]+(.+)$ ]] || continue
+        command="${BASH_REMATCH[1]}"
+        [[ "$command" == *.app/Contents/MacOS/TimeZoner ]] || continue
+        [[ "$command" == "$installed_executable" ]] && continue
+        if [[ -e "$command" ]] && [[ "$(realpath "$command")" == "$installed_executable" ]]; then
+            continue
+        fi
+        bundle_path="${command%/Contents/MacOS/TimeZoner}"
+        if [[ -f "$bundle_path/Contents/Info.plist" ]]; then
+            bundle_id="$(plutil -extract CFBundleIdentifier raw -o - "$bundle_path/Contents/Info.plist" 2>/dev/null || true)"
+            [[ "$bundle_id" == "com.timezoner.app" ]] || continue
+        fi
+        printf '%s\n' "$command"
+    done <<< "$snapshot"
+}
+
+stop_installed_app() {
+    local executable="$1"
+    local snapshot="$2"
+    local pid remaining attempt
+    remaining="$(running_installed_pids "$executable" "$snapshot")"
+    [[ -n "$remaining" ]] || return 0
+    was_running=1
+
+    while IFS= read -r pid; do
+        [[ -n "$pid" ]] && kill -TERM "$pid"
+    done <<< "$remaining"
+
+    for ((attempt = 0; attempt < 50; attempt++)); do
+        snapshot="$(read_process_snapshot)" || exit 1
+        remaining="$(running_installed_pids "$executable" "$snapshot")"
+        [[ -z "$remaining" ]] && return 0
+        sleep 0.1
+    done
+    echo "error: timed out waiting for installed TimeZoner to quit: $executable" >&2
+    exit 1
+}
+
 if [[ "$DRY_RUN" -eq 1 ]]; then
     if [[ "$SKIP_BUILD" -eq 1 ]]; then
         echo "Would build TimeZoner.app locally: skipped by --skip-build"
@@ -128,15 +212,72 @@ fi
 verify_app_bundle "$APP_SOURCE"
 
 mkdir -p "$DESTINATION"
-rm -rf "$APP_DESTINATION"
-cp -R "$APP_SOURCE" "$APP_DESTINATION"
-codesign --force --sign - "$APP_DESTINATION"
-codesign --verify "$APP_DESTINATION"
+reject_source_destination
+require_command plutil
+require_command lockf
+# Keep this descriptor open until the exit trap finishes restoring or cleaning up.
+exec 9> "$DESTINATION/.TimeZoner-install.lock"
+if ! lockf -t 30 9; then
+    echo "error: timed out waiting to update $APP_DESTINATION" >&2
+    exit 1
+fi
+stage_dir="$(mktemp -d "$DESTINATION/.TimeZoner-install.XXXXXX")"
+staged_app="$stage_dir/TimeZoner.app"
+previous_app="$stage_dir/previous.app"
+promoted=0
+was_running=0
+cleanup_install() {
+    local status=$?
+    local restored=0
+    trap - EXIT
+    if [[ -e "$previous_app" || -L "$previous_app" ]]; then
+        if [[ ! -e "$APP_DESTINATION" && ! -L "$APP_DESTINATION" ]]; then
+            if ! mv "$previous_app" "$APP_DESTINATION"; then
+                echo "error: could not restore the previous app; it remains at $previous_app" >&2
+                exit 1
+            fi
+            restored=1
+        elif [[ "$promoted" -eq 0 ]]; then
+            echo "error: could not restore the previous app because $APP_DESTINATION is occupied; it remains at $previous_app" >&2
+            exit 1
+        fi
+    fi
+    rm -rf "$stage_dir"
+    if [[ "$restored" -eq 1 && "$was_running" -eq 1 ]]; then
+        if ! open "$APP_DESTINATION"; then
+            echo "error: previous app restored but could not relaunch: $APP_DESTINATION" >&2
+        fi
+    fi
+    exit "$status"
+}
+trap cleanup_install EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+cp -R "$APP_SOURCE" "$staged_app"
+codesign --force --sign - "$staged_app"
+codesign --verify "$staged_app"
+installed_executable="$(cd -P "$DESTINATION" && pwd -P)/${APP_NAME}.app/Contents/MacOS/TimeZoner"
+process_snapshot="$(read_process_snapshot)" || exit 1
+other_executables="$(running_other_timezoner_executables "$installed_executable" "$process_snapshot")"
+if [[ -n "$other_executables" ]]; then
+    echo "error: another TimeZoner copy is running at $other_executables; quit it before updating" >&2
+    exit 1
+fi
+stop_installed_app "$installed_executable" "$process_snapshot"
+if [[ -e "$APP_DESTINATION" || -L "$APP_DESTINATION" ]]; then
+    mv "$APP_DESTINATION" "$previous_app"
+fi
+mv "$staged_app" "$APP_DESTINATION"
+promoted=1
 
 echo "Installed TimeZoner.app to $APP_DESTINATION"
 echo "Launch it with:"
 echo "  open \"$APP_DESTINATION\""
 
 if [[ "$OPEN_APP" -eq 1 ]]; then
-    open "$APP_DESTINATION"
+    if ! open "$APP_DESTINATION"; then
+        echo "error: installed but could not open $APP_DESTINATION" >&2
+        exit 1
+    fi
 fi

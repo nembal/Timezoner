@@ -117,4 +117,22 @@ func runTimeFormatterTests() {
         "+5.5h",
         "relativeOffset UTC -> India = +5.5h"
     )
+
+    // Quarter-hour zones must retain their actual offset, including DST in Chatham.
+    let kathmandu = TimeZone(identifier: "Asia/Kathmandu")!
+    let eucla = TimeZone(identifier: "Australia/Eucla")!
+    let chatham = TimeZone(identifier: "Pacific/Chatham")!
+    let winterDate = Date(timeIntervalSince1970: 1_767_268_800) // 2026-01-01 UTC
+    expectEqual(TimeFormatter.gmtOffset(for: kathmandu, at: fixedDate), "GMT+5:45", "Kathmandu GMT offset retains 45 minutes")
+    expectEqual(TimeFormatter.gmtOffset(for: eucla, at: fixedDate), "GMT+8:45", "Eucla GMT offset retains 45 minutes")
+    expectEqual(TimeFormatter.gmtOffset(for: chatham, at: fixedDate), "GMT+12:45", "Chatham standard GMT offset retains 45 minutes")
+    expectEqual(TimeFormatter.gmtOffset(for: chatham, at: winterDate), "GMT+13:45", "Chatham daylight GMT offset retains 45 minutes")
+    expectEqual(TimeFormatter.relativeOffset(from: utc, to: kathmandu, at: fixedDate), "+5.75h", "UTC to Kathmandu retains quarter hour")
+    expectEqual(TimeFormatter.relativeOffset(from: eucla, to: utc, at: fixedDate), "-8.75h", "Eucla to UTC retains quarter hour")
+    expectEqual(TimeFormatter.relativeOffset(from: utc, to: chatham, at: fixedDate), "+12.75h", "UTC to Chatham standard retains quarter hour")
+    expectEqual(TimeFormatter.relativeOffset(from: utc, to: chatham, at: winterDate), "+13.75h", "UTC to Chatham daylight retains quarter hour")
+
+    let twentyMinutes = TimeZone(secondsFromGMT: 20 * 60)!
+    expectEqual(TimeFormatter.gmtOffset(for: twentyMinutes, at: fixedDate), "GMT+0:20", "GMT offset retains non-quarter minute values")
+    expectEqual(TimeFormatter.relativeOffset(from: utc, to: twentyMinutes, at: fixedDate), "+0h20m", "relative offset retains non-quarter minute values")
 }

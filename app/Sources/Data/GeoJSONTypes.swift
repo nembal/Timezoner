@@ -59,10 +59,6 @@ public struct GeoJSONGeometry: Codable {
 }
 
 public struct GeoJSONLoader {
-    public static func load(from data: Data) throws -> GeoJSONFeatureCollection {
-        try JSONDecoder().decode(GeoJSONFeatureCollection.self, from: data)
-    }
-
     public static func resourceURL(
         mainResourceURL: URL?,
         mainBundleURL: URL,

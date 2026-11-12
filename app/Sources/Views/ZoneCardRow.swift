@@ -2,111 +2,82 @@ import SwiftUI
 
 public struct ZoneCardRow: View {
     public let zones: [ZoneInfo]
-    @Bindable public var timeState: TimeState
+    public let referenceMoment: ReferenceMomentController
     @Binding public var editingZoneId: UUID?
     public let highlightedZoneIds: Set<UUID>
+    public let highlightRequestID: UInt64
     public let onRemove: (UUID) -> Void
-    public let onMove: (Int, Int) -> Void  // fromIndex, toIndex
+    public let onMove: (IndexSet, Int) -> Void
 
-    @State private var draggingZoneId: UUID? = nil
-    @State private var dragOffset: CGFloat = 0
-    @State private var cardWidth: CGFloat = 150  // measured dynamically
+    @State private var viewportWidth: CGFloat = 0
+    @State private var contentWidth: CGFloat = 0
 
-    public init(zones: [ZoneInfo], timeState: TimeState, editingZoneId: Binding<UUID?>,
-                highlightedZoneIds: Set<UUID> = [],
+    public init(zones: [ZoneInfo], referenceMoment: ReferenceMomentController, editingZoneId: Binding<UUID?>,
+                highlightedZoneIds: Set<UUID> = [], highlightRequestID: UInt64 = 0,
                 onRemove: @escaping (UUID) -> Void,
                 onMove: @escaping (IndexSet, Int) -> Void = { _, _ in }) {
         self.zones = zones
-        self.timeState = timeState
+        self.referenceMoment = referenceMoment
         self._editingZoneId = editingZoneId
         self.highlightedZoneIds = highlightedZoneIds
+        self.highlightRequestID = highlightRequestID
         self.onRemove = onRemove
-        // Adapt IndexSet API to simple Int,Int
-        self.onMove = { from, to in
-            onMove(IndexSet(integer: from), to)
-        }
+        self.onMove = onMove
+    }
+
+    private struct RevealRequest: Equatable {
+        let target: UUID?
+        let zoneIDs: [UUID]
+        let requestID: UInt64
+        let viewportWidth: CGFloat
+        let contentWidth: CGFloat
+    }
+
+    private var revealRequest: RevealRequest {
+        let highlighted = zones.filter { highlightedZoneIds.contains($0.id) }
+        // A source/target conversion should show the result, with zone order
+        // providing a stable fallback for duplicate aliases or source-only input.
+        let target = highlighted.first { $0.timeZoneId != referenceMoment.timeState.sourceZoneId }
+            ?? highlighted.first
+        return RevealRequest(target: target?.id, zoneIDs: zones.map(\.id), requestID: highlightRequestID,
+                             viewportWidth: viewportWidth, contentWidth: contentWidth)
     }
 
     public var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(zones.enumerated()), id: \.element.id) { index, zone in
-                let isDragging = draggingZoneId == zone.id
-
-                ZoneCard(
-                    zone: zone,
-                    timeState: timeState,
-                    isSource: timeState.sourceZoneId == zone.timeZoneId,
-                    isHighlighted: highlightedZoneIds.contains(zone.id),
+        ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                ZoneCardCollection(
+                    axis: .horizontal,
+                    zones: zones,
+                    referenceMoment: referenceMoment,
                     editingZoneId: $editingZoneId,
-                    isDragging: isDragging,
-                    onRemove: {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            onRemove(zone.id)
-                        }
-                    },
-                    onDragChanged: { offset in
-                        draggingZoneId = zone.id
-                        dragOffset = offset
-                        editingZoneId = nil
-
-                        // Check if we should swap
-                        let slotWidth = cardWidth + 36 // card + diff label
-                        let slotsToMove = Int((offset / slotWidth).rounded())
-                        if slotsToMove != 0 {
-                            let targetIndex = min(max(index + slotsToMove, 0), zones.count - 1)
-                            if targetIndex != index {
-                                withAnimation(.easeInOut(duration: 0.2)) {
-                                    let dest = targetIndex > index ? targetIndex + 1 : targetIndex
-                                    onMove(index, dest)
-                                }
-                                // Reset offset after swap so it feels natural
-                                dragOffset = 0
-                            }
-                        }
-                    },
-                    onDragEnded: {
-                        // Instantly clear offset (no animation) to avoid flicker
-                        dragOffset = 0
-                        // Animate only the visual lift (scale/shadow) back
-                        withAnimation(.easeOut(duration: 0.15)) {
-                            draggingZoneId = nil
-                        }
-                    }
+                    highlightedZoneIds: highlightedZoneIds,
+                    onRemove: onRemove,
+                    onMove: onMove
                 )
-                .frame(maxWidth: .infinity)
-                .offset(x: isDragging ? dragOffset : 0)
-                .zIndex(isDragging ? 10 : 0)
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.onAppear {
-                            cardWidth = geo.size.width
-                        }
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear
+                            .onAppear { contentWidth = geometry.size.width }
+                            .onChange(of: geometry.size.width) { _, width in contentWidth = width }
                     }
-                )
-                .transition(.asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .opacity
-                ))
-
-                if index < zones.count - 1 {
-                    timeDiffLabel(from: zone, to: zones[index + 1])
                 }
             }
+            .scrollIndicators(.hidden)
+            .background {
+                GeometryReader { geometry in
+                    Color.clear
+                        .onAppear { viewportWidth = geometry.size.width }
+                        .onChange(of: geometry.size.width) { _, width in viewportWidth = width }
+                }
+            }
+            .task(id: revealRequest) {
+                // Run after the identity update; measured layout changes also
+                // retry this reveal when an appended card or panel resize settles.
+                await Task.yield()
+                guard !Task.isCancelled, let target = revealRequest.target else { return }
+                proxy.scrollTo(target, anchor: .center)
+            }
         }
-    }
-
-    private func timeDiffLabel(from: ZoneInfo, to: ZoneInfo) -> some View {
-        let diff = TimeFormatter.relativeOffset(from: from.timeZone, to: to.timeZone, at: timeState.referenceDate)
-
-        return VStack(spacing: 2) {
-            Image(systemName: "arrow.right")
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(Theme.textTertiary)
-
-            Text(diff)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(Theme.textTertiary)
-        }
-        .frame(width: 36)
     }
 }

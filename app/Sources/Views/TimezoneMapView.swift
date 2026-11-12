@@ -1,5 +1,54 @@
 import SwiftUI
 
+public enum TimezoneMapAccessibility {
+    public struct ZoneOption: Identifiable, Equatable {
+        public let id: String
+        public let label: String
+        public let localTime: String
+        public let gmtOffset: String
+        public let isAdded: Bool
+    }
+
+    public static func toggleValue(isExpanded: Bool) -> String {
+        isExpanded ? "Expanded" : "Collapsed"
+    }
+
+    public static func zoneOptions(features: [GeoJSONFeature], query: String,
+                                   userZoneIds: Set<String>, at date: Date) -> [ZoneOption] {
+        let search = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return Set(features.map(\.properties.tzid)).compactMap { id in
+            guard let zone = TimeZone(identifier: id) else { return nil }
+            let label = (id.components(separatedBy: "/").last ?? id)
+                .replacingOccurrences(of: "_", with: " ")
+            guard search.isEmpty || label.localizedCaseInsensitiveContains(search)
+                    || id.localizedCaseInsensitiveContains(search) else { return nil }
+            return ZoneOption(id: id, label: label,
+                              localTime: TimeFormatter.formatTime(date, in: zone),
+                              gmtOffset: TimeFormatter.gmtOffset(for: zone, at: date),
+                              isAdded: userZoneIds.contains(id))
+        }
+        .sorted { lhs, rhs in
+            let comparison = lhs.label.localizedStandardCompare(rhs.label)
+            return comparison == .orderedSame ? lhs.id < rhs.id : comparison == .orderedAscending
+        }
+    }
+}
+
+/// Tracks the map browser with the same aggregate popover ownership used by settings and
+/// calendar details, so moving keyboard focus into it does not dismiss the floating panel.
+public enum TimezoneMapPopoverOwnership {
+    public static func setPresented(
+        _ value: Bool,
+        presentation: CalendarPresentationState,
+        onOwnedPopoverChanged: (Bool) -> Void
+    ) {
+        guard !value || presentation.destination == .timezoner else { return }
+        guard presentation.isMapZoneBrowserPresented != value else { return }
+        presentation.isMapZoneBrowserPresented = value
+        onOwnedPopoverChanged(presentation.hasOwnedPopover)
+    }
+}
+
 // Preference key to capture Canvas size without side effects
 private struct MapSizeKey: PreferenceKey {
     static var defaultValue: CGSize = .zero
@@ -12,21 +61,33 @@ public struct TimezoneMapView: View {
     public let zones: [ZoneInfo]
     public let timeState: TimeState
     public let highlightedZoneIds: Set<UUID>
+    public let mapPresentation: CalendarPresentationState
+    public var onManualMapToggle: () -> Void
+    public var onMapExpansionWillChange: () -> Void
     public var onAddZone: ((String, String) -> Void)?
+    public var onOwnedPopoverChanged: (Bool) -> Void
 
     @State private var geoData: GeoJSONFeatureCollection?
-    @AppStorage("mapExpanded") private var isExpanded = true
     @State private var hoveredTzid: String?
     @State private var hoveredOffset: Int?
+    @State private var zoneSearch = ""
     @State private var mapSize: CGSize = .zero
     @State private var cachedPaths: [(tzid: String, paths: [CGPath])] = []
 
     public init(zones: [ZoneInfo], timeState: TimeState, highlightedZoneIds: Set<UUID>,
-                onAddZone: ((String, String) -> Void)? = nil) {
+                mapPresentation: CalendarPresentationState,
+                onManualMapToggle: @escaping () -> Void = {},
+                onMapExpansionWillChange: @escaping () -> Void = {},
+                onAddZone: ((String, String) -> Void)? = nil,
+                onOwnedPopoverChanged: @escaping (Bool) -> Void) {
         self.zones = zones
         self.timeState = timeState
         self.highlightedZoneIds = highlightedZoneIds
+        self.mapPresentation = mapPresentation
+        self.onManualMapToggle = onManualMapToggle
+        self.onMapExpansionWillChange = onMapExpansionWillChange
         self.onAddZone = onAddZone
+        self.onOwnedPopoverChanged = onOwnedPopoverChanged
     }
 
     private var userIanaIds: Set<String> {
@@ -37,6 +98,25 @@ public struct TimezoneMapView: View {
         Set(highlightedZoneIds.compactMap { id in
             zones.first(where: { $0.id == id })?.timeZoneId
         })
+    }
+
+    private var browserOptions: [TimezoneMapAccessibility.ZoneOption] {
+        TimezoneMapAccessibility.zoneOptions(
+            features: geoData?.features ?? [], query: zoneSearch,
+            userZoneIds: userIanaIds, at: timeState.referenceDate)
+    }
+
+    private var zoneBrowserPresented: Binding<Bool> {
+        Binding(
+            get: { mapPresentation.isMapZoneBrowserPresented },
+            set: { setZoneBrowserPresented($0) }
+        )
+    }
+
+    private func setZoneBrowserPresented(_ value: Bool) {
+        TimezoneMapPopoverOwnership.setPresented(
+            value, presentation: mapPresentation,
+            onOwnedPopoverChanged: onOwnedPopoverChanged)
     }
 
     private func gmtLabel(for offsetSeconds: Int) -> String {
@@ -62,14 +142,21 @@ public struct TimezoneMapView: View {
         VStack(spacing: 0) {
             // Toggle — full-width hit target
             Button(action: {
+                if !mapPresentation.isMapExpanded {
+                    onMapExpansionWillChange()
+                }
                 withAnimation(.easeInOut(duration: 0.25)) {
-                    isExpanded.toggle()
+                    if mapPresentation.isMapExpanded {
+                        setZoneBrowserPresented(false)
+                    }
+                    mapPresentation.toggleMapManually()
+                    onManualMapToggle()
                 }
             }) {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 10, weight: .semibold))
-                        .rotationEffect(.degrees(isExpanded ? 90 : 0))
+                        .rotationEffect(.degrees(mapPresentation.isMapExpanded ? 90 : 0))
                     Text("Map")
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                     Spacer()
@@ -78,6 +165,9 @@ public struct TimezoneMapView: View {
                 .foregroundStyle(Theme.textTertiary)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Timezone map")
+            .accessibilityValue(TimezoneMapAccessibility.toggleValue(isExpanded: mapPresentation.isMapExpanded))
+            .accessibilityHint("Shows or hides the interactive timezone map")
             .overlay(alignment: .trailing) {
                 if let offset = hoveredOffset {
                     Text(gmtLabel(for: offset))
@@ -90,155 +180,207 @@ public struct TimezoneMapView: View {
             .padding(.vertical, 4)
             .animation(.easeInOut(duration: 0.15), value: hoveredOffset)
 
-            if isExpanded, let geoData = geoData {
-                Canvas { context, size in
-                    let hlOffsets = MapColorLogic.offsetSeconds(for: highlightedIanaIds, at: timeState.referenceDate)
-                    let userOffsets = MapColorLogic.offsetSeconds(for: userIanaIds, at: timeState.referenceDate)
-                    let offsetLookup = MapColorLogic.buildOffsetLookup(for: geoData.features, at: timeState.referenceDate)
+            if mapPresentation.isMapExpanded, let geoData = geoData {
+                VStack(spacing: 0) {
+                    Canvas { context, size in
+                        let hlOffsets = MapColorLogic.offsetSeconds(for: highlightedIanaIds, at: timeState.referenceDate)
+                        let userOffsets = MapColorLogic.offsetSeconds(for: userIanaIds, at: timeState.referenceDate)
+                        let offsetLookup = MapColorLogic.buildOffsetLookup(for: geoData.features, at: timeState.referenceDate)
 
-                    // Use cached paths if available, otherwise build on the fly (first frame)
-                    let useCache = !cachedPaths.isEmpty
-                    let projection = useCache ? nil : MapProjection(size: size)
+                        // Use cached paths if available, otherwise build on the fly (first frame)
+                        let useCache = !cachedPaths.isEmpty
+                        let projection = useCache ? nil : MapProjection(size: size)
 
-                    for i in 0..<geoData.features.count {
-                        let tzid = geoData.features[i].properties.tzid
+                        for i in 0..<geoData.features.count {
+                            let tzid = geoData.features[i].properties.tzid
 
-                        let state = MapColorLogic.visualState(
-                            for: tzid,
-                            userZoneIds: userIanaIds,
-                            highlightedZoneIds: highlightedIanaIds,
-                            highlightedOffsetSeconds: hlOffsets,
-                            userOffsetSeconds: userOffsets,
-                            offsetLookup: offsetLookup
-                        )
+                            let state = MapColorLogic.visualState(
+                                for: tzid,
+                                userZoneIds: userIanaIds,
+                                highlightedZoneIds: highlightedIanaIds,
+                                highlightedOffsetSeconds: hlOffsets,
+                                userOffsetSeconds: userOffsets,
+                                offsetLookup: offsetLookup
+                            )
 
-                        let isInHoveredBand: Bool = {
-                            guard let hOffset = hoveredOffset else { return false }
-                            guard let featureOffset = offsetLookup[tzid] else { return false }
-                            return featureOffset == hOffset
-                        }()
-                        let isHoveredPolygon = (tzid == hoveredTzid)
+                            let isInHoveredBand: Bool = {
+                                guard let hOffset = hoveredOffset else { return false }
+                                guard let featureOffset = offsetLookup[tzid] else { return false }
+                                return featureOffset == hOffset
+                            }()
+                            let fill: Color
+                            let border: Color
+                            let borderWidth: CGFloat
+                            let darkOutline: Bool
 
-                        let fill: Color
-                        let border: Color
-                        let borderWidth: CGFloat
-                        let darkOutline: Bool
-
-                        if state == .highlighted {
-                            fill = Theme.accent.opacity(0.55)
-                            border = Theme.accent
-                            borderWidth = 1.5
-                            darkOutline = true
-                        } else if state == .highlightBand {
-                            fill = Theme.accent.opacity(0.40)
-                            border = Theme.accent.opacity(0.35)
-                            borderWidth = 0.5
-                            darkOutline = false
-                        } else if state == .userZone {
-                            fill = Theme.accent.opacity(0.38)
-                            border = Theme.accent.opacity(0.75)
-                            borderWidth = 1.5
-                            darkOutline = true
-                        } else if state == .userBand {
-                            fill = Theme.accent.opacity(0.30)
-                            border = Theme.accent.opacity(0.25)
-                            borderWidth = 0.5
-                            darkOutline = false
-                        } else if isInHoveredBand {
-                            fill = Theme.hover.opacity(0.32)
-                            border = Theme.hover.opacity(0.35)
-                            borderWidth = 0.5
-                            darkOutline = false
-                        } else {
-                            fill = Theme.mapLand
-                            border = Theme.border.opacity(0.4)
-                            borderWidth = 0.5
-                            darkOutline = false
-                        }
-
-                        // Use cached CGPaths when available, compute only on first frame
-                        let featurePaths: [CGPath]
-                        if useCache, i < cachedPaths.count {
-                            featurePaths = cachedPaths[i].paths
-                        } else {
-                            featurePaths = projection!.pathsForFeature(geoData.features[i])
-                        }
-
-                        // If hovering this band, layer a blue tint + outline on top of the
-                        // base fill so even selected/highlighted zones show hover feedback.
-                        let drawHoverOverlay = isInHoveredBand && state != .defaultLand
-                        for cgPath in featurePaths {
-                            let swiftPath = Path(cgPath)
-                            context.fill(swiftPath, with: .color(fill))
-                            if darkOutline {
-                                context.stroke(swiftPath, with: .color(Theme.mapOutline), lineWidth: borderWidth + 1)
+                            if state == .highlighted {
+                                fill = Theme.accent.opacity(0.55)
+                                border = Theme.accent
+                                borderWidth = 1.5
+                                darkOutline = true
+                            } else if state == .highlightBand {
+                                fill = Theme.accent.opacity(0.40)
+                                border = Theme.accent.opacity(0.35)
+                                borderWidth = 0.5
+                                darkOutline = false
+                            } else if state == .userZone {
+                                fill = Theme.accent.opacity(0.38)
+                                border = Theme.accent.opacity(0.75)
+                                borderWidth = 1.5
+                                darkOutline = true
+                            } else if state == .userBand {
+                                fill = Theme.accent.opacity(0.30)
+                                border = Theme.accent.opacity(0.25)
+                                borderWidth = 0.5
+                                darkOutline = false
+                            } else if isInHoveredBand {
+                                fill = Theme.hover.opacity(0.32)
+                                border = Theme.hover.opacity(0.35)
+                                borderWidth = 0.5
+                                darkOutline = false
+                            } else {
+                                fill = Theme.mapLand
+                                border = Theme.border.opacity(0.4)
+                                borderWidth = 0.5
+                                darkOutline = false
                             }
-                            context.stroke(swiftPath, with: .color(border), lineWidth: borderWidth)
-                            if drawHoverOverlay {
-                                context.fill(swiftPath, with: .color(Theme.hover.opacity(0.22)))
-                                context.stroke(swiftPath, with: .color(Theme.hover.opacity(0.6)), lineWidth: 0.75)
+
+                            // Use cached CGPaths when available, compute only on first frame
+                            let featurePaths: [CGPath]
+                            if useCache, i < cachedPaths.count {
+                                featurePaths = cachedPaths[i].paths
+                            } else {
+                                featurePaths = projection!.pathsForFeature(geoData.features[i])
+                            }
+
+                            // If hovering this band, layer a blue tint + outline on top of the
+                            // base fill so even selected/highlighted zones show hover feedback.
+                            let drawHoverOverlay = isInHoveredBand && state != .defaultLand
+                            for cgPath in featurePaths {
+                                let swiftPath = Path(cgPath)
+                                context.fill(swiftPath, with: .color(fill))
+                                if darkOutline {
+                                    context.stroke(swiftPath, with: .color(Theme.mapOutline), lineWidth: borderWidth + 1)
+                                }
+                                context.stroke(swiftPath, with: .color(border), lineWidth: borderWidth)
+                                if drawHoverOverlay {
+                                    context.fill(swiftPath, with: .color(Theme.hover.opacity(0.22)))
+                                    context.stroke(swiftPath, with: .color(Theme.hover.opacity(0.6)), lineWidth: 0.75)
+                                }
+                            }
+                        }
+
+                        var nightPath = Path()
+                        let nightProjection = projection ?? MapProjection(size: size)
+                        for band in SolarDayNightOverlay.nightBands(
+                            at: timeState.referenceDate,
+                            latitudeRange: nightProjection.minLat...nightProjection.maxLat
+                        ) {
+                            for span in band.spans {
+                                let topLeft = nightProjection.project(longitude: span.minimum,
+                                                                      latitude: band.maximumLatitude)
+                                let bottomRight = nightProjection.project(longitude: span.maximum,
+                                                                          latitude: band.minimumLatitude)
+                                nightPath.addRect(CGRect(x: topLeft.x,
+                                                         y: topLeft.y,
+                                                         width: max(bottomRight.x - topLeft.x, 0),
+                                                         height: max(bottomRight.y - topLeft.y, 0)))
+                            }
+                        }
+                        context.fill(nightPath, with: .color(.black.opacity(0.17)))
+
+                        // City dots
+                        let dotProjection = projection ?? MapProjection(size: size)
+                        for zone in zones {
+                            guard let coord = CityCoordinates.lookup(zone.timeZoneId) else { continue }
+                            let point = dotProjection.project(longitude: coord.longitude, latitude: coord.latitude)
+                            let isHL = highlightedZoneIds.contains(zone.id)
+                            let radius: CGFloat = isHL ? 4.5 : 3.5
+                            let dotRect = CGRect(x: point.x - radius, y: point.y - radius,
+                                                 width: radius * 2, height: radius * 2)
+                            let outlineRect = CGRect(x: point.x - radius - 1, y: point.y - radius - 1,
+                                                     width: (radius + 1) * 2, height: (radius + 1) * 2)
+                            context.fill(Path(ellipseIn: outlineRect), with: .color(Theme.mapCityHalo))
+                            context.fill(Path(ellipseIn: dotRect), with: .color(Theme.accent))
+                            if isHL {
+                                let glowRect = CGRect(x: point.x - 7, y: point.y - 7, width: 14, height: 14)
+                                context.fill(Path(ellipseIn: glowRect), with: .color(Theme.accent.opacity(0.25)))
                             }
                         }
                     }
-
-                    // City dots
-                    let dotProjection = projection ?? MapProjection(size: size)
-                    for zone in zones {
-                        guard let coord = CityCoordinates.lookup(zone.timeZoneId) else { continue }
-                        let point = dotProjection.project(longitude: coord.longitude, latitude: coord.latitude)
-                        let isHL = highlightedZoneIds.contains(zone.id)
-                        let radius: CGFloat = isHL ? 4.5 : 3.5
-                        let dotRect = CGRect(x: point.x - radius, y: point.y - radius,
-                                             width: radius * 2, height: radius * 2)
-                        let outlineRect = CGRect(x: point.x - radius - 1, y: point.y - radius - 1,
-                                                 width: (radius + 1) * 2, height: (radius + 1) * 2)
-                        context.fill(Path(ellipseIn: outlineRect), with: .color(Theme.mapCityHalo))
-                        context.fill(Path(ellipseIn: dotRect), with: .color(Theme.accent))
-                        if isHL {
-                            let glowRect = CGRect(x: point.x - 7, y: point.y - 7, width: 14, height: 14)
-                            context.fill(Path(ellipseIn: glowRect), with: .color(Theme.accent.opacity(0.25)))
+                    .frame(height: 300)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(key: MapSizeKey.self, value: geo.size)
+                        }
+                    )
+                    .onPreferenceChange(MapSizeKey.self) { newSize in
+                        if mapSize != newSize {
+                            mapSize = newSize
+                            rebuildPathCache()
                         }
                     }
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active(let location):
+                            let tzid = hitTest(at: location)
+                            hoveredTzid = tzid
+                            if let tzid = tzid, let tz = TimeZone(identifier: tzid) {
+                                hoveredOffset = tz.secondsFromGMT(for: timeState.referenceDate)
+                            } else {
+                                hoveredOffset = nil
+                            }
+                        case .ended:
+                            hoveredTzid = nil
+                            hoveredOffset = nil
+                        }
+                    }
+                    .onTapGesture { location in
+                        guard let tzid = hitTest(at: location) else { return }
+                        guard !userIanaIds.contains(tzid) else { return }
+                        let label = labelFromIana(tzid)
+                        onAddZone?(label, tzid)
+                    }
+                    .accessibilityHidden(true)
+
+                    GeometryReader { proxy in
+                        ZStack(alignment: .topLeading) {
+                            ForEach(Array(MapHourScale.labels(at: timeState.referenceDate).enumerated()), id: \.offset) { index, label in
+                                if index > 0 && index.isMultiple(of: 3) {
+                                    Text(label.text)
+                                        .font(.system(size: 9, weight: .regular, design: .monospaced))
+                                        .foregroundStyle(Theme.textTertiary)
+                                        .position(x: proxy.size.width * label.xFraction, y: 10)
+                                }
+                            }
+                        }
+                        .allowsHitTesting(false)
+                    }
+                    .frame(height: 20)
                 }
                 .frame(height: 320)
-                .background(
-                    GeometryReader { geo in
-                        Color.clear.preference(key: MapSizeKey.self, value: geo.size)
-                    }
-                )
-                .onPreferenceChange(MapSizeKey.self) { newSize in
-                    if mapSize != newSize {
-                        mapSize = newSize
-                        rebuildPathCache()
-                    }
-                }
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .strokeBorder(Theme.border, lineWidth: 1)
                 )
-                .onContinuousHover { phase in
-                    switch phase {
-                    case .active(let location):
-                        let tzid = hitTest(at: location)
-                        hoveredTzid = tzid
-                        if let tzid = tzid, let tz = TimeZone(identifier: tzid) {
-                            hoveredOffset = tz.secondsFromGMT(for: timeState.referenceDate)
-                        } else {
-                            hoveredOffset = nil
-                        }
-                    case .ended:
-                        hoveredTzid = nil
-                        hoveredOffset = nil
-                    }
-                }
-                .onTapGesture { location in
-                    guard let tzid = hitTest(at: location) else { return }
-                    guard !userIanaIds.contains(tzid) else { return }
-                    let label = labelFromIana(tzid)
-                    onAddZone?(label, tzid)
-                }
                 .transition(.opacity.combined(with: .move(edge: .top)))
+
+                Button("Browse map zones") {
+                    zoneSearch = ""
+                    setZoneBrowserPresented(true)
+                }
+                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.textSecondary)
+                .accessibilityHint("Search mapped timezones and add one to your cards")
+                .popover(isPresented: zoneBrowserPresented) {
+                    zoneBrowser
+                }
+                .onDisappear {
+                    setZoneBrowserPresented(false)
+                }
+                .frame(maxWidth: .infinity, alignment: .trailing)
             }
         }
         .onAppear {
@@ -246,6 +388,61 @@ public struct TimezoneMapView: View {
                 geoData = GeoJSONLoader.loadFromBundle()
             }
         }
+    }
+
+    private var zoneBrowser: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Map zones")
+                .font(.headline)
+            TextField("Search city or timezone", text: $zoneSearch)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Search map zones")
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(browserOptions) { option in
+                        if option.isAdded {
+                            zoneBrowserRow(option, status: "Added")
+                                .accessibilityElement(children: .ignore)
+                                .accessibilityLabel("\(option.label), \(option.id), \(option.localTime), \(option.gmtOffset), already added")
+                        } else {
+                            Button {
+                                onAddZone?(option.label, option.id)
+                                setZoneBrowserPresented(false)
+                            } label: {
+                                zoneBrowserRow(option, status: "Add")
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(onAddZone == nil)
+                            .accessibilityLabel("Add \(option.label), \(option.id), \(option.localTime), \(option.gmtOffset)")
+                            .accessibilityHint("Adds this timezone to your cards")
+                        }
+                    }
+                }
+            }
+            .frame(height: 240)
+        }
+        .padding(12)
+        .frame(width: 320)
+    }
+
+    private func zoneBrowserRow(_ option: TimezoneMapAccessibility.ZoneOption,
+                                status: String) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(option.label)
+                    .font(.system(size: 12, weight: .medium))
+                Text("\(option.id) · \(option.localTime) · \(option.gmtOffset)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(Theme.textSecondary)
+            }
+            Spacer()
+            Text(status)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+        }
+        .padding(.vertical, 6)
+        .contentShape(Rectangle())
     }
 
     // ── Cached hit testing ──

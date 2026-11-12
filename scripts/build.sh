@@ -12,16 +12,22 @@ fi
 
 swift build -c release --product TimeZoner
 
-resource_bundle="$(find .build -path '*release/TimeZoner_TimeZonerLib.bundle' -type d -print -quit)"
-if [[ -z "$resource_bundle" ]]; then
-    echo "error: TimeZoner_TimeZonerLib.bundle not found under .build" >&2
+release_products_dir="$(swift build -c release --show-bin-path)"
+resource_bundle="$release_products_dir/TimeZoner_TimeZonerLib.bundle"
+executable_path="$release_products_dir/TimeZoner"
+if [[ ! -d "$resource_bundle" ]]; then
+    echo "error: TimeZoner_TimeZonerLib.bundle not found in $release_products_dir" >&2
+    exit 1
+fi
+if [[ ! -x "$executable_path" ]]; then
+    echo "error: TimeZoner executable not found in $release_products_dir" >&2
     exit 1
 fi
 
 rm -rf TimeZoner.app
 mkdir -p TimeZoner.app/Contents/MacOS
 mkdir -p TimeZoner.app/Contents/Resources
-cp .build/release/TimeZoner TimeZoner.app/Contents/MacOS/
+cp "$executable_path" TimeZoner.app/Contents/MacOS/
 cp Info.plist TimeZoner.app/Contents/
 cp -R "$resource_bundle" TimeZoner.app/Contents/Resources/TimeZoner_TimeZonerLib.bundle
 

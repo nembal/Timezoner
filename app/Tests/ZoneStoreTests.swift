@@ -26,12 +26,15 @@ private func expectTrue(_ condition: Bool, _ label: String, line: Int = #line) {
 func runZoneStoreTests() {
     print("Running ZoneStoreTests...")
 
-    // Use a unique key so we don't collide with real data
-    let testKey = "zones_test_\(UUID().uuidString)"
-    let defaults = UserDefaults.standard
-
-    // Clean up before test (should be empty, but be safe)
-    defaults.removeObject(forKey: testKey)
+    // Keep persistence checks in a disposable domain, separate from the user's app data.
+    let suiteName = "ZoneStoreTests.\(UUID().uuidString)"
+    guard let defaults = UserDefaults(suiteName: suiteName) else {
+        testsFailed += 1
+        print("  FAIL: could not create isolated defaults for ZoneStoreTests")
+        return
+    }
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+    let testKey = "zones"
 
     // ── Test 1: Default zones count and content ─────────────────
     let store = ZoneStore(userDefaults: defaults, storageKey: testKey)
@@ -73,6 +76,4 @@ func runZoneStoreTests() {
     expectEqualInt(store2.zones.count, 5, "persisted store count")
     expectTrue(store2.zones.last?.label == "Seoul", "persisted zone label")
 
-    // Clean up
-    defaults.removeObject(forKey: testKey)
 }

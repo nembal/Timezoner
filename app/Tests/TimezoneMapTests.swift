@@ -47,6 +47,35 @@ func runTimezoneMapTests() {
     expectTrue(coords[0] == -74.0, "coordinate order: first element is longitude")
     expectTrue(coords[1] == 40.0, "coordinate order: second element is latitude")
 
+    // A keyboard/VoiceOver browser must offer the same mapped zones as the Canvas.
+    let browseJSON = """
+    {"type":"FeatureCollection","features":[
+      {"type":"Feature","properties":{"tzid":"America/New_York"},"geometry":{"type":"Polygon","coordinates":[[[-74,40],[-74,41],[-73,41],[-73,40],[-74,40]]]}},
+      {"type":"Feature","properties":{"tzid":"Asia/Bangkok"},"geometry":{"type":"Polygon","coordinates":[[[100,13],[100,14],[101,14],[101,13],[100,13]]]}},
+      {"type":"Feature","properties":{"tzid":"America/New_York"},"geometry":{"type":"Polygon","coordinates":[[[-75,40],[-75,41],[-74,41],[-74,40],[-75,40]]]}},
+      {"type":"Feature","properties":{"tzid":"Invalid/Zone"},"geometry":{"type":"Polygon","coordinates":[[[0,0],[0,1],[1,1],[1,0],[0,0]]]}}
+    ]}
+    """.data(using: .utf8)!
+    let browseFeatures = try! JSONDecoder().decode(GeoJSONFeatureCollection.self, from: browseJSON).features
+    let browseInstant = Date(timeIntervalSince1970: 1_751_344_200) // 2025-07-01 04:30 UTC
+    let browseOptions = TimezoneMapAccessibility.zoneOptions(
+        features: browseFeatures, query: "", userZoneIds: ["Asia/Bangkok"], at: browseInstant)
+    expectTrue(browseOptions.map(\.id) == ["Asia/Bangkok", "America/New_York"],
+               "map browser: unique valid mapped zones sorted by city")
+    expectTrue(browseOptions.first?.label == "Bangkok" && browseOptions.first?.localTime == "11:30 am"
+        && browseOptions.first?.gmtOffset == "GMT+7" && browseOptions.first?.isAdded == true,
+               "map browser: existing zone exposes its local time and added status")
+    expectTrue(browseOptions.last?.label == "New York" && browseOptions.last?.localTime == "12:30 am"
+        && browseOptions.last?.gmtOffset == "GMT-4" && browseOptions.last?.isAdded == false,
+               "map browser: unadded zone exposes its local time and add action state")
+    let cityMatches = TimezoneMapAccessibility.zoneOptions(
+        features: browseFeatures, query: "new york", userZoneIds: [], at: browseInstant)
+    let ianaMatches = TimezoneMapAccessibility.zoneOptions(
+        features: browseFeatures, query: "america/new_york", userZoneIds: [], at: browseInstant)
+    expectTrue(cityMatches.map(\.id) == ["America/New_York"]
+        && ianaMatches.map(\.id) == ["America/New_York"],
+               "map browser: search finds city names and IANA identifiers")
+
     // ── Bundle Loading ───────────────────────────────────────────────
 
     if let bundled = GeoJSONLoader.loadFromBundle() {
@@ -234,6 +263,65 @@ func runTimezoneMapTests() {
     // Negative half-hour: Newfoundland UTC-3:30 → floor(-3.5) = -4
     let nfldOffset = MapColorLogic.utcOffsetHour(for: "America/St_Johns", at: now)
     expectTrue(nfldOffset == -4 || nfldOffset == -3, "offset: Newfoundland is -4 or -3 (DST)")
+
+    // ── Temporal Cues ───────────────────────────────────────────────
+
+    let scaleInstant = Date(timeIntervalSince1970: 1_751_344_200) // 2025-07-01 04:30 UTC
+    let labels = MapHourScale.labels(at: scaleInstant)
+    expectTrue(labels.count == 24, "hour scale has 24 longitude bands")
+    expectTrue(labels.first?.xFraction == 0, "UTC-12 begins at the left meridian")
+    expectTrue(labels.first?.longitude == -180, "first standard meridian")
+    expectTrue(labels.last?.longitude == 165, "last standard meridian")
+    expectTrue(zip(labels, labels.dropFirst()).allSatisfy { next in
+        abs((next.1.longitude - next.0.longitude) - 15) < 0.000_001
+    }, "hour scale advances one standard meridian per label")
+    expectTrue(zip(labels, labels.dropFirst()).allSatisfy { next in
+        abs((next.1.xFraction - next.0.xFraction) - (1.0 / 24.0)) < 0.000_001
+    }, "hour scale advances one twenty-fourth of the map per label")
+    expectTrue(labels[12].text == "04", "UTC band reflects reference hour")
+    expectTrue(labels[0].text == "16", "UTC-12 wraps to previous day")
+    expectTrue(labels[23].text == "15", "UTC+11 wraps forward")
+
+    let juneNoon = Date(timeIntervalSince1970: 1_750_507_200) // 2025-06-21 12:00 UTC
+    expectTrue(!SolarDayNightOverlay.isNight(longitude: 0, latitude: 70, at: juneNoon),
+               "June solstice north is daylight near noon")
+    expectTrue(SolarDayNightOverlay.isNight(longitude: 0, latitude: -70, at: juneNoon),
+               "June solstice south is night near noon")
+    expectTrue(SolarDayNightOverlay.isNight(longitude: 180, latitude: 0, at: juneNoon),
+               "antisolar equator is night")
+
+    let equinoxNoon = Date(timeIntervalSince1970: 1_742_472_000) // 2025-03-20 12:00 UTC
+    expectTrue(!SolarDayNightOverlay.isNight(longitude: 0, latitude: 0, at: equinoxNoon),
+               "equinox Greenwich is day near noon")
+    expectTrue(SolarDayNightOverlay.isNight(longitude: 180, latitude: 0, at: equinoxNoon),
+               "equinox opposite longitude is night")
+    let nightBands = SolarDayNightOverlay.nightBands(at: juneNoon,
+                                                      latitudeRange: -70...70,
+                                                      bandCount: 70)
+    expectTrue(nightBands.count == 70, "one night band per latitude strip")
+    expectTrue(nightBands.allSatisfy { band in
+        band.spans.allSatisfy { $0.minimum >= -180 && $0.maximum <= 180 }
+    }, "night spans stay inside map longitude bounds")
+    let southernPolarBand = nightBands.first!
+    expectTrue(southernPolarBand.spans == [SolarLongitudeSpan(minimum: -180, maximum: 180)],
+               "June southern polar band is fully night")
+
+    let equinoxBands = SolarDayNightOverlay.nightBands(at: equinoxNoon,
+                                                        latitudeRange: -70...70,
+                                                        bandCount: 70)
+    let equatorialBand = equinoxBands.min { lhs, rhs in
+        abs((lhs.minimumLatitude + lhs.maximumLatitude) / 2)
+            < abs((rhs.minimumLatitude + rhs.maximumLatitude) / 2)
+    }!
+    expectTrue(equatorialBand.spans.count == 2,
+               "equinox equatorial night wraps into two date-line spans")
+    expectTrue(equatorialBand.spans.first?.minimum == -180
+        && equatorialBand.spans.last?.maximum == 180,
+               "wrapped equatorial night reaches both map seams")
+    let equinoxSun = SolarDayNightOverlay.subsolarPoint(at: equinoxNoon)
+    expectTrue(equatorialBand.spans.allSatisfy {
+        !($0.minimum...$0.maximum).contains(equinoxSun.longitude)
+    }, "night spans exclude the subsolar longitude")
 
     // ── Integration ──────────────────────────────────────────────────
 
