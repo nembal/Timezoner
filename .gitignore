@@ -20,3 +20,5 @@ raycast/node_modules/
 .worktrees/
 /tmp/spm-fix/
 *.xcodeproj/
+
+.superpowers/
